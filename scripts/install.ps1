@@ -3426,7 +3426,7 @@ print(','.join(scripts))
     Write-Success "All dependencies installed"
 }
 
-function Get-HermesLauncherRelativeSource {
+function Get-HermesLauncherRelativePath {
     param(
         [Parameter(Mandatory=$true)] [string]$LauncherDirectory,
         [Parameter(Mandatory=$true)] [string]$Source
@@ -3442,7 +3442,7 @@ function Get-HermesLauncherRelativeSource {
             [string]::IsNullOrWhiteSpace($targetRoot) -or
             -not [string]::Equals($baseRoot.TrimEnd('\'), $targetRoot.TrimEnd('\'), [System.StringComparison]::OrdinalIgnoreCase)
         ) {
-            throw "launcher and source are on different filesystem roots"
+            return ''
         }
         $baseUri = [System.Uri]$base
         $targetUri = [System.Uri]$target
@@ -3450,22 +3450,42 @@ function Get-HermesLauncherRelativeSource {
             $baseUri.Scheme -ne $targetUri.Scheme -or
             -not [string]::Equals($baseUri.Host, $targetUri.Host, [System.StringComparison]::OrdinalIgnoreCase)
         ) {
-            throw "launcher and source are on different filesystem roots"
+            return ''
         }
         $relative = [System.Uri]::UnescapeDataString($baseUri.MakeRelativeUri($targetUri).ToString()).Replace('/', '\')
-        if ([System.IO.Path]::IsPathRooted($relative) -or [string]::IsNullOrWhiteSpace($relative)) {
-            throw "source path is not relative to launcher directory"
+        if (
+            [System.IO.Path]::IsPathRooted($relative) -or
+            [string]::IsNullOrWhiteSpace($relative) -or
+            [System.Text.Encoding]::ASCII.GetString([System.Text.Encoding]::ASCII.GetBytes($relative)) -ne $relative
+        ) {
+            return ''
         }
-        # The batch file is intentionally ASCII. %~dp0 expands the user's
-        # profile path at runtime, so non-ASCII profile names never enter the
-        # file bytes (and cannot be mangled by PowerShell 5.1's ASCII writer).
-        if ([System.Text.Encoding]::ASCII.GetString([System.Text.Encoding]::ASCII.GetBytes($relative)) -ne $relative) {
-            throw "relative source path contains non-ASCII characters"
-        }
-        return $relative
+        return $relative.Replace('%', '%%')
     } catch {
-        throw "Cannot set up the hermes command: source path cannot be represented relative to launcher directory"
+        throw "Cannot set up the hermes command: invalid launcher source path"
     }
+}
+
+function Write-HermesPowerShellLauncher {
+    param(
+        [Parameter(Mandatory=$true)] [string]$Path,
+        [Parameter(Mandatory=$true)] [string]$Command,
+        [string[]]$PrefixArguments = @()
+    )
+
+    $commandLiteral = "'" + $Command.Replace("'", "''") + "'"
+    $prefix = @($PrefixArguments | ForEach-Object { "'" + $_.Replace("'", "''") + "'" }) -join ', '
+    $invokeLine = if ($prefix) {
+        "& $commandLiteral @($prefix) @args"
+    } else {
+        "& $commandLiteral @args"
+    }
+    $body = @(
+        "`$ErrorActionPreference = 'Stop'"
+        $invokeLine
+        "exit `$LASTEXITCODE"
+    ) -join "`r`n"
+    [System.IO.File]::WriteAllText($Path, $body + "`r`n", [System.Text.UTF8Encoding]::new($true))
 }
 
 function Install-HermesCommandLaunchers {
@@ -3497,12 +3517,20 @@ function Install-HermesCommandLaunchers {
         $src = Join-Path $scriptsDir "$launcher.exe"
         if (-not (Test-Path -LiteralPath $src -PathType Leaf)) { continue }
         $cmd = Join-Path $Destination "$launcher.cmd"
-        $relativeSource = Get-HermesLauncherRelativeSource -LauncherDirectory $Destination -Source $src
+        $script = Join-Path $Destination "$launcher-launcher.ps1"
+        $relativeSource = Get-HermesLauncherRelativePath -LauncherDirectory $Destination -Source $src
+        if ($relativeSource) {
+            Remove-Item -LiteralPath $script -Force -ErrorAction SilentlyContinue
+            $commandLine = "`"%~dp0$relativeSource`" %*"
+        } else {
+            Write-HermesPowerShellLauncher -Path $script -Command $src
+            $commandLine = "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"%~dp0$launcher-launcher.ps1`" %*"
+        }
         $body = @(
             "@echo off"
             "setlocal"
             "set `"HERMES_UPDATE_REPOSITORY=$Repository`""
-            "`"%~dp0$relativeSource`" %*"
+            $commandLine
             "exit /b %ERRORLEVEL%"
         ) -join "`r`n"
         Set-Content -Path $cmd -Value $body -Encoding Ascii
@@ -3542,13 +3570,21 @@ function Install-HermesNoVenvCommandLauncher {
 
     New-Item -ItemType Directory -Force -Path $Destination | Out-Null
     $cmd = Join-Path $Destination "hermes.cmd"
-    $relativeSource = Get-HermesLauncherRelativeSource -LauncherDirectory $Destination -Source $source
-    $relativePython = Get-HermesLauncherRelativeSource -LauncherDirectory $Destination -Source $PythonExe
+    $script = Join-Path $Destination "hermes-launcher.ps1"
+    $relativeSource = Get-HermesLauncherRelativePath -LauncherDirectory $Destination -Source $source
+    $relativePython = Get-HermesLauncherRelativePath -LauncherDirectory $Destination -Source $PythonExe
+    if ($relativeSource -and $relativePython) {
+        Remove-Item -LiteralPath $script -Force -ErrorAction SilentlyContinue
+        $commandLine = "`"%~dp0$relativePython`" `"%~dp0$relativeSource`" %*"
+    } else {
+        Write-HermesPowerShellLauncher -Path $script -Command $PythonExe -PrefixArguments @($source)
+        $commandLine = "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"%~dp0hermes-launcher.ps1`" %*"
+    }
     $body = @(
         "@echo off"
         "setlocal"
         "set `"HERMES_UPDATE_REPOSITORY=$Repository`""
-        "`"%~dp0$relativePython`" `"%~dp0$relativeSource`" %*"
+        $commandLine
         "exit /b %ERRORLEVEL%"
     ) -join "`r`n"
     Set-Content -Path $cmd -Value $body -Encoding Ascii

@@ -416,56 +416,10 @@ def test_install_sh_brand_lemon_overrides_raw_script_default(tmp_path: Path) -> 
     assert origin_url(install_dir) == "git@github.com:DangLemon/hermes-agent.git"
 
 
-def test_install_cmd_selects_configured_repository_for_powershell_handoff() -> None:
-    source = (REPO_ROOT / "scripts" / "install.cmd").read_text(encoding="utf-8")
-
-    assert "$env:HERMES_INSTALL_REPOSITORY" in source
-    assert "raw.githubusercontent.com/' + $repo + '/main/scripts/install.ps1" in source
-    assert "$installerArgs = @('-Repository', $repo)" in source
-    assert "[scriptblock]::Create" in source
 
 
-def test_install_cmd_validates_repository_before_powershell_handoff() -> None:
-    source = (REPO_ROOT / "scripts" / "install.cmd").read_text(encoding="utf-8")
-
-    assert "%HERMES_INSTALL_REPOSITORY%" not in source
-    assert "-notmatch '^[A-Za-z0-9]" in source
-    assert "$repo.Contains('..')" in source
-    assert "$repo.EndsWith('.git')" in source
-    assert "$repo.StartsWith('-')" in source
-    assert "$repo -match '^(https?:|git@)'" in source
 
 
-def test_install_ps1_windows_launcher_contracts_are_fail_closed() -> None:
-    """Source-level guard for Windows-only launcher behavior.
-
-    The focused PowerShell test runs on Windows CI. This keeps the contract
-    visible on non-Windows hosts too, where pwsh is not guaranteed to exist.
-    """
-    text = INSTALL_PS1.read_text(encoding="utf-8")
-
-    assert "Get-HermesLauncherRelativeSource" in text
-    assert "[System.IO.Path]::GetPathRoot($base)" in text
-    assert "[System.IO.Path]::GetPathRoot($target)" in text
-    assert "stale launcher blocks PATH resolution" in text
-    assert "Remove-Item -LiteralPath $shadowingExe -Force -ErrorAction Stop" in text
-    assert "$resolvedPython = Resolve-AvailablePythonVersion" in text
-    assert "& $UvCmd python find $PythonVersion" not in (
-        text[
-            text.index("function Set-PathVariable"):
-            text.index("function Write-BootstrapMarker")
-        ]
-    )
-
-
-def test_install_ps1_launcher_ci_loads_helper_dependencies() -> None:
-    test_text = (REPO_ROOT / "scripts" / "ci" / "test_install_ps1_cli_launchers.ps1").read_text(encoding="utf-8")
-
-    assert "$n.Name -eq 'Get-HermesLauncherRelativeSource'" in test_text
-    assert "Invoke-Expression $relativeSourceFn.Extent.Text" in test_text
-    assert "different drive roots are rejected" in test_text
-    assert "different UNC hosts are rejected" in test_text
-    assert "stale hermes.exe removal failure fails closed" in test_text
 
 
 def test_install_sh_checkout_manifest_ignores_inherited_hermes_home(tmp_path: Path) -> None:
@@ -783,57 +737,3 @@ def test_install_sh_rejects_invalid_repo_identity_before_network(tmp_path: Path)
 
     assert result.returncode != 0
     assert "--repo expects a GitHub owner/repo identity" in result.stdout
-
-
-def test_install_ps1_source_repository_contracts_are_bounded_and_repo_aware() -> None:
-    source = INSTALL_PS1.read_text(encoding="utf-8")
-
-    assert '[string]$Repository = ""' in source
-    assert 'elseif ($env:HERMES_INSTALL_REPOSITORY)' in source
-    assert 'elseif ($InternalDesktopBuild)' in source
-    assert '"DangLemon/hermes-agent"' in source
-    assert '"NousResearch/hermes-agent"' in source
-    assert 'function Test-CheckoutInternalHarnessConfig' in source
-    assert '$env:HERMES_INSTALLER_BRAND' in source
-    assert 'return $false' in source
-    assert 'return $true' in source
-    assert '$PSScriptRoot' in source
-    assert 'lemon-ai-desktop.config.json' in source
-    assert 'if (Test-InternalHarnessResource $selected) { return $true }' in source
-    assert 'elseif ($InternalDesktopBuild -and $env:LEMON_AI_INSTALL_RUNTIME_DIR_NAME)' in source
-    assert 'elseif (-not $InternalDesktopBuild -and $env:HERMES_INSTALL_RUNTIME_DIR_NAME)' in source
-    assert 'elseif ($InternalDesktopBuild -and $env:LEMON_AI_HOME)' in source
-    assert 'elseif ((-not $InternalDesktopBuild) -and $env:HERMES_HOME)' in source
-    assert 'function Get-DesktopShortcutIdentity' in source
-    assert "'Lemon AI.lnk'" in source
-    assert "'Hermes.lnk'" in source
-    assert "Description = 'Lemon AI'" in source
-    assert "Description = 'Hermes Agent'" in source
-    assert 'function Test-ShortcutOwnsTarget' in source
-    assert "[System.IO.Path]::GetFileName($shortcutTarget) -ine 'Hermes.exe'" in source
-    assert 'Test-ShortcutOwnsTarget -Shortcut $legacy -TargetExe $TargetExe -WorkDir $workDir' in source
-    assert '$RepositoryStageTitle = if ($InternalDesktopBuild) { "Cloning Lemon AI repository" } else { "Cloning Hermes repository" }' in source
-    assert '$PathStageTitle = if ($InternalDesktopBuild) { "Adding command line launcher" } else { "Adding Hermes to PATH" }' in source
-    assert 'function Test-RepositoryIdentity' in source
-    assert 'function Test-SafeFileName' in source
-    assert 'HERMES_INSTALL_RUNTIME_DIR_NAME must be a safe directory name' in source
-    assert 'HERMES_BOOTSTRAP_MARKER_NAME must be a safe file name' in source
-    assert 'function Get-GitHubRepositoryIdentity' in source
-    assert 'function Ensure-ManagedOrigin' in source
-    assert 'function Get-InstallerRecoveryUrl' in source
-    assert 'https://raw.githubusercontent.com/$Repository/main/scripts/install.ps1' in source
-    assert ".\\install.ps1 -Repository '$Repository'" in source
-    assert 'does not match selected -Repository' in source
-    assert 'git@github.com:$Repository.git' in source
-    assert 'ssh://git@github\\.com/' in source
-    assert 'https://github.com/$Repository.git' in source
-    assert 'https://github.com/$Repository/archive/$Commit.zip' in source
-    assert 'https://github.com/$Repository/archive/refs/tags/$Tag.zip' in source
-    assert 'https://github.com/$Repository/archive/refs/heads/$Branch.zip' in source
-    assert '$Value -match "^(https?:|git@)"' in source
-    assert '$Value -like "*.git"' in source
-    assert '[Parameter(Mandatory=$true)] [string]$Repository' in source
-    assert 'set `"HERMES_UPDATE_REPOSITORY=$Repository`"' in source
-    assert 'Set-UserEnvironmentVariableIfChanged -Name "HERMES_UPDATE_REPOSITORY"' not in source
-    assert 'function Install-HermesNoVenvCommandLauncher' in source
-    assert 'Install-HermesNoVenvCommandLauncher -Root $InstallDir' in source

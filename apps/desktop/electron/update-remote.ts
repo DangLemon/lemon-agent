@@ -130,8 +130,16 @@ function planUpdateOriginRepository({ originUrl = '', sourceRepository, updateRo
   }
 }
 
+async function fetchConfiguredRepository({ branch, cwd, runGit, sourceRepository }) {
+  const repositoryUrl = githubRepositoryHttpsUrl(sourceRepository)
+  const result = await runGit(['fetch', '--quiet', repositoryUrl, branch], { cwd })
+
+  return { repositoryUrl, result }
+}
+
 export {
   canonicalGitHubRemote,
+  fetchConfiguredRepository,
   githubRepositoryCanonical,
   githubRepositoryHttpsUrl,
   isNonDefaultRepository,

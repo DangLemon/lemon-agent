@@ -167,6 +167,8 @@ test('Hermes installer brand keeps the package config on the Hermes identity', a
     from: 'assets/icon.ico',
     to: 'icon.ico'
   })
+  assert.equal(config.copyright, 'Copyright © 2026 Nous Research')
+  assert.equal(config.mac.extendInfo.NSHumanReadableCopyright, 'Copyright © 2026 Nous Research')
   await validateConfiguration(structuredClone(config))
 })
 

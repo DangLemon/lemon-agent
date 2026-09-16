@@ -144,6 +144,10 @@ CASES = {
         ["scripts/tests/test-install-ps1-longpath.ps1"],
         _lanes(python=True, installer=True),
     ),
+    "launcher integration test → installer": (
+        ["scripts/ci/test_install_ps1_cli_launchers.ps1"],
+        _lanes(python=True, installer=True),
+    ),
     "python source alone → no installer lane": (["run_agent.py"], _lanes(python=True, scan=True)),
     # The Windows desktop-update hand-off is a PowerShell integration surface:
     # its tests spawn the real script and poll its loopback server. They run

@@ -109,7 +109,7 @@ export function handleStatusEvent(ctx: GatewayEventContext): boolean {
     // `slash:`) so SystemMessage can paint it as the memory-write row it
     // is instead of sniffing the backend's prose. The leading 💾 goes with
     // it — the row draws its own glyph.
-    const text = brandCopy(coerceGatewayText(payload?.text))
+    const text = coerceGatewayText(payload?.text)
       .trim()
       .replace(/^[^\p{L}\p{N}]+/u, '')
 

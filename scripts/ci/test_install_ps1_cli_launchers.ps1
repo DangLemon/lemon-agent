@@ -23,10 +23,15 @@ $fn = $ast.Find({
     $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
     $n.Name -eq 'Install-HermesCommandLaunchers'
 }, $true)
-$relativeSourceFn = $ast.Find({
+$relativePathFn = $ast.Find({
     param($n)
     $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
-    $n.Name -eq 'Get-HermesLauncherRelativeSource'
+    $n.Name -eq 'Get-HermesLauncherRelativePath'
+}, $true)
+$powershellLauncherFn = $ast.Find({
+    param($n)
+    $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+    $n.Name -eq 'Write-HermesPowerShellLauncher'
 }, $true)
 $noVenvFn = $ast.Find({
     param($n)
@@ -34,8 +39,11 @@ $noVenvFn = $ast.Find({
     $n.Name -eq 'Install-HermesNoVenvCommandLauncher'
 }, $true)
 
-if (-not $relativeSourceFn) {
-    throw "Get-HermesLauncherRelativeSource not found in $installPs1"
+if (-not $relativePathFn) {
+    throw "Get-HermesLauncherRelativePath not found in $installPs1"
+}
+if (-not $powershellLauncherFn) {
+    throw "Write-HermesPowerShellLauncher not found in $installPs1"
 }
 if (-not $fn) {
     throw "Install-HermesCommandLaunchers not found in $installPs1"
@@ -44,7 +52,8 @@ if (-not $noVenvFn) {
     throw "Install-HermesNoVenvCommandLauncher not found in $installPs1"
 }
 
-Invoke-Expression $relativeSourceFn.Extent.Text
+Invoke-Expression $relativePathFn.Extent.Text
+Invoke-Expression $powershellLauncherFn.Extent.Text
 Invoke-Expression $fn.Extent.Text
 Invoke-Expression $noVenvFn.Extent.Text
 
@@ -80,6 +89,11 @@ function Assert-BytesEqual {
         }
     }
     Assert-True $same $Name
+}
+
+function Assert-Equal {
+    param($Expected, $Actual, [string]$Name)
+    Assert-True ($Expected -ceq $Actual) $Name
 }
 
 function Assert-ThrowsLike {
@@ -133,7 +147,7 @@ try {
     Install-HermesCommandLaunchers -Root $installRoot -Destination $binDir -Repository 'DangLemon/hermes-agent' | Out-Null
     $refreshedCmdBody = [System.IO.File]::ReadAllText((Join-Path $binDir 'hermes.cmd'))
     Assert-True ($refreshedCmdBody.Contains('"%~dp0..\hermes-agent\venv\Scripts\hermes.exe" %*') -and $refreshedCmdBody.Contains('HERMES_UPDATE_REPOSITORY=DangLemon/hermes-agent')) `
-        'installer refreshes the repository-aware Hermes wrapper'
+        'installer refreshes the repository-aware Lemon AI CLI wrapper'
     $acpCmdBody = [System.IO.File]::ReadAllText((Join-Path $binDir 'hermes-acp.cmd'))
     Assert-True ($acpCmdBody.Contains('"%~dp0..\hermes-agent\venv\Scripts\hermes-acp.exe" %*') -and $acpCmdBody.Contains('HERMES_UPDATE_REPOSITORY=DangLemon/hermes-agent')) `
         'installer stages the optional ACP wrapper when present'
@@ -202,20 +216,61 @@ try {
         Microsoft.PowerShell.Management\Remove-Item -LiteralPath Function:\Remove-Item -Force -ErrorAction SilentlyContinue
     }
 
-    Assert-ThrowsLike {
-        Get-HermesLauncherRelativeSource -LauncherDirectory 'C:\Users\Dang\AppData\Local\Lemon AI\bin' `
-            -Source 'D:\Lemon AI\lemon-agent\venv\Scripts\hermes.exe' | Out-Null
-    } '*source path cannot be represented relative*' 'different drive roots are rejected'
+    $crossDrive = Get-HermesLauncherRelativePath `
+        -LauncherDirectory 'C:\Users\Dang\AppData\Local\Lemon AI\bin' `
+        -Source 'D:\Lemon AI\lemon-agent\venv\Scripts\hermes.exe'
+    Assert-Equal '' $crossDrive 'different drive roots select the Unicode-safe PowerShell companion'
 
-    Assert-ThrowsLike {
-        Get-HermesLauncherRelativeSource -LauncherDirectory '\\server-a\share\Lemon AI\bin' `
-            -Source '\\server-b\share\Lemon AI\lemon-agent\venv\Scripts\hermes.exe' | Out-Null
-    } '*source path cannot be represented relative*' 'different UNC hosts are rejected'
+    $crossHost = Get-HermesLauncherRelativePath `
+        -LauncherDirectory '\\server-a\share\Lemon AI\bin' `
+        -Source '\\server-b\share\Lemon AI\lemon-agent\venv\Scripts\hermes.exe'
+    Assert-Equal '' $crossHost 'different UNC hosts select the Unicode-safe PowerShell companion'
 
-    Assert-ThrowsLike {
-        Get-HermesLauncherRelativeSource -LauncherDirectory '\\server\share-a\Lemon AI\bin' `
-            -Source '\\server\share-b\Lemon AI\lemon-agent\venv\Scripts\hermes.exe' | Out-Null
-    } '*source path cannot be represented relative*' 'different UNC shares are rejected'
+    $probeSource = Join-Path $scriptsDir 'hermes.exe'
+    Microsoft.PowerShell.Management\Remove-Item -LiteralPath $probeSource -Force
+    Add-Type -TypeDefinition @'
+using System;
+public static class LauncherProbe {
+    public static int Main(string[] args) {
+        Console.WriteLine(Environment.GetEnvironmentVariable("HERMES_UPDATE_REPOSITORY"));
+        Console.WriteLine(string.Join("|", args));
+        return 23;
+    }
+}
+'@ -OutputAssembly $probeSource -OutputType ConsoleApplication
+    Install-HermesCommandLaunchers -Root $installRoot -Destination $binDir -Repository 'DangLemon/hermes-agent' | Out-Null
+    $probeOutput = @(& (Join-Path $binDir 'hermes.cmd') 'alpha' 'beta gamma')
+    $probeExit = $LASTEXITCODE
+    Assert-Equal 23 $probeExit 'generated launcher propagates child exit status'
+    Assert-True ($probeOutput -contains 'DangLemon/hermes-agent') `
+        'generated launcher exports the selected repository to the child'
+    Assert-True ($probeOutput -contains 'alpha|beta gamma') `
+        'generated launcher forwards arguments to the child'
+
+    $unicodeInstallRoot = Join-Path $caseRoot 'Lémon Agent'
+    $unicodeScripts = Join-Path $unicodeInstallRoot 'venv\Scripts'
+    $unicodeBin = Join-Path $caseRoot 'unicode-bin'
+    New-Item -ItemType Directory -Force -Path $unicodeScripts | Out-Null
+    $unicodeProbe = Join-Path $unicodeScripts 'hermes.exe'
+    Add-Type -TypeDefinition @'
+using System;
+public static class UnicodeLauncherProbe {
+    public static int Main(string[] args) {
+        Console.WriteLine(Environment.GetEnvironmentVariable("HERMES_UPDATE_REPOSITORY"));
+        Console.WriteLine(string.Join("|", args));
+        return 29;
+    }
+}
+'@ -OutputAssembly $unicodeProbe -OutputType ConsoleApplication
+    Install-HermesCommandLaunchers -Root $unicodeInstallRoot -Destination $unicodeBin -Repository 'DangLemon/hermes-agent' | Out-Null
+    Assert-True (Test-Path -LiteralPath (Join-Path $unicodeBin 'hermes-launcher.ps1')) `
+        'Unicode source paths use a PowerShell companion instead of batch bytes'
+    $unicodeOutput = @(& (Join-Path $unicodeBin 'hermes.cmd') 'một' 'hai ba')
+    Assert-Equal 29 $LASTEXITCODE 'Unicode companion propagates child exit status'
+    Assert-True ($unicodeOutput -contains 'DangLemon/hermes-agent') `
+        'Unicode companion preserves the update repository'
+    Assert-True ($unicodeOutput -contains 'một|hai ba') `
+        'Unicode companion forwards non-ASCII arguments'
 } finally {
     if (Test-Path -LiteralPath $caseRoot) {
         $resolvedCase = [System.IO.Path]::GetFullPath($caseRoot)

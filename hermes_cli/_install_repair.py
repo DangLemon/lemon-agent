@@ -130,11 +130,9 @@ def _checkout_update_repository(root: Path) -> str | None:
 def _configured_windows_update_repository(root: Path) -> str | None:
     """Per-install source for launcher repair, without public fallback.
 
-    The checkout origin is not always the source of truth during Lemon upgrades:
-    the desktop can launch early repair before it has healed an older
-    ``NousResearch`` origin.  Internal package markers and installer-scoped
-    repository values are therefore trusted before checkout state.  The legacy
-    update env var is last because old HKCU values can leak across installs.
+    Explicit installer and updater repository values are authoritative. Internal
+    package markers provide the Lemon default only when no per-install source
+    was selected, including during early repair before origin has been healed.
     """
     try:
         from hermes_cli.update_cmd_git import (
@@ -145,12 +143,19 @@ def _configured_windows_update_repository(root: Path) -> str | None:
             _validate_update_repository,
         )
 
-        if any(str(os.environ.get(name, "")).strip() == "1" for name in INTERNAL_UPDATE_ENV_VARS):
-            return _validate_update_repository(INTERNAL_UPDATE_REPOSITORY)
-
         install_repository = os.environ.get(INSTALL_REPOSITORY_ENV)
         if install_repository:
             return _validate_update_repository(install_repository)
+
+        update_repository = os.environ.get(UPDATE_REPOSITORY_ENV)
+        internal_build = any(
+            str(os.environ.get(name, "")).strip() == "1"
+            for name in INTERNAL_UPDATE_ENV_VARS
+        )
+        if internal_build:
+            return _validate_update_repository(
+                update_repository or INTERNAL_UPDATE_REPOSITORY
+            )
     except Exception:
         pass
 
@@ -169,6 +174,7 @@ def _configured_windows_update_repository(root: Path) -> str | None:
             return _validate_update_repository(update_repository)
     except Exception:
         pass
+
     return None
 
 
@@ -205,13 +211,7 @@ def _is_valid_windows_executable(path: Path) -> bool:
         return False
 
 
-def _windows_launcher_body(source: Path, repository: str, target: Path) -> str | None:
-    """Per-install ASCII wrapper using a path relative to its own ``bin`` directory.
-
-    ``%~dp0`` is expanded by ``cmd.exe`` at runtime, so the batch file never embeds a user's
-    potentially non-ASCII profile path. Returning ``None`` for a cross-drive path keeps repair
-    fail-closed rather than writing a wrapper that cannot run.
-    """
+def _windows_launcher_relative_source(source: Path, target: Path) -> str | None:
     try:
         relative_source = ntpath.relpath(str(source), str(target))
     except ValueError:
@@ -219,23 +219,46 @@ def _windows_launcher_body(source: Path, repository: str, target: Path) -> str |
     if ntpath.isabs(relative_source):
         return None
     relative_source = relative_source.replace("/", "\\")
+    try:
+        relative_source.encode("ascii")
+    except UnicodeEncodeError:
+        return None
+    return relative_source.replace("%", "%%")
+
+
+def _windows_launcher_body(source: Path, repository: str, target: Path) -> str:
+    relative_source = _windows_launcher_relative_source(source, target)
+    command_line = (
+        f'"%~dp0{relative_source}" %*'
+        if relative_source is not None
+        else (
+            "powershell.exe -NoLogo -NoProfile -NonInteractive "
+            f'-ExecutionPolicy Bypass -File "%~dp0{source.stem}-launcher.ps1" %*'
+        )
+    )
     return (
         "@echo off\r\n"
         "setlocal\r\n"
         f'set "HERMES_UPDATE_REPOSITORY={repository}"\r\n'
-        f'"%~dp0{relative_source}" %*\r\n'
+        f"{command_line}\r\n"
         "exit /b %ERRORLEVEL%\r\n"
     )
 
 
-def _windows_launcher_bytes(source: Path, repository: str, target: Path) -> bytes | None:
-    body = _windows_launcher_body(source, repository, target)
-    if body is None:
+def _windows_launcher_bytes(source: Path, repository: str, target: Path) -> bytes:
+    return _windows_launcher_body(source, repository, target).encode("ascii")
+
+
+def _windows_launcher_companion_bytes(source: Path, target: Path) -> bytes | None:
+    if _windows_launcher_relative_source(source, target) is not None:
         return None
-    try:
-        return body.encode("ascii")
-    except UnicodeEncodeError:
-        return None
+    source_literal = str(source).replace("'", "''")
+    body = (
+        "$ErrorActionPreference = 'Stop'\r\n"
+        f"& '{source_literal}' @args\r\n"
+        "exit $LASTEXITCODE\r\n"
+    )
+    return body.encode("utf-8-sig")
 
 
 def _launchers_need_repair(
@@ -246,11 +269,16 @@ def _launchers_need_repair(
         if (target / f"{name}.exe").is_file():
             return True
         final = target / f"{name}.cmd"
+        companion = target / f"{name}-launcher.ps1"
         expected = _windows_launcher_bytes(source, repository, target)
-        if expected is None:
-            return True
+        expected_companion = _windows_launcher_companion_bytes(source, target)
         try:
             if final.read_bytes() != expected:
+                return True
+            if expected_companion is None:
+                if companion.exists():
+                    return True
+            elif companion.read_bytes() != expected_companion:
                 return True
         except OSError:
             return True
@@ -380,27 +408,31 @@ def ensure_windows_bin_launchers(
     restored: list[str] = []
     for target in targets:
         expected_by_name = {
-            name: _windows_launcher_bytes(source, repository, target)
+            name: (
+                _windows_launcher_bytes(source, repository, target),
+                _windows_launcher_companion_bytes(source, target),
+            )
             for name, source in sources
         }
-        if any(expected is None for expected in expected_by_name.values()):
-            continue
         try:
             target.mkdir(parents=True, exist_ok=True)
         except OSError:
             continue
         for name, source in sources:
             final = target / f"{name}.cmd"
-            expected_bytes = expected_by_name[name]
-            if expected_bytes is None:
-                continue
-            matches = False
+            companion = target / f"{name}-launcher.ps1"
+            expected_bytes, expected_companion = expected_by_name[name]
             try:
                 matches = final.read_bytes() == expected_bytes
+                companion_matches = (
+                    not companion.exists()
+                    if expected_companion is None
+                    else companion.read_bytes() == expected_companion
+                )
             except OSError:
-                pass
+                matches = companion_matches = False
             shadowing_exe = target / f"{name}.exe"
-            if matches:
+            if matches and companion_matches:
                 if not shadowing_exe.is_file():
                     continue
                 if not _retire_shadowing_launcher_exe(shadowing_exe):
@@ -408,7 +440,14 @@ def ensure_windows_bin_launchers(
                 restored.append(str(final))
                 continue
             staging = target / f"{final.name}.heal.{os.getpid()}"
+            companion_staging = target / f"{companion.name}.heal.{os.getpid()}"
             try:
+                if expected_companion is None:
+                    with contextlib.suppress(OSError):
+                        companion.unlink()
+                else:
+                    companion_staging.write_bytes(expected_companion)
+                    os.replace(companion_staging, companion)
                 staging.write_bytes(expected_bytes)
                 os.replace(staging, final)
                 if not _retire_shadowing_launcher_exe(shadowing_exe):
@@ -417,6 +456,8 @@ def ensure_windows_bin_launchers(
             except OSError:
                 with contextlib.suppress(OSError):
                     staging.unlink()
+                with contextlib.suppress(OSError):
+                    companion_staging.unlink()
                 continue
     if restored:
         # A closed/broken stderr must not turn a successful heal into a crash.

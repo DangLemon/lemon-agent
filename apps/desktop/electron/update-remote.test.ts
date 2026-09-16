@@ -21,6 +21,7 @@ import { test } from 'vitest'
 
 import {
   canonicalGitHubRemote,
+  fetchConfiguredRepository,
   githubRepositoryCanonical,
   githubRepositoryHttpsUrl,
   isNonDefaultRepository,
@@ -166,4 +167,30 @@ test('update origin plan adds a missing origin for a configured repository check
       repository: 'DangLemon/hermes-agent'
     }
   )
+})
+
+test('passive fetch reads configured source without mutating the checkout origin', async () => {
+  const calls: Array<{ args: string[]; options: { cwd: string } }> = []
+
+  const runGit = async (args: string[], options: { cwd: string }) => {
+    calls.push({ args, options })
+
+    return { code: 0, stdout: '', stderr: '' }
+  }
+
+  const result = await fetchConfiguredRepository({
+    branch: 'main',
+    cwd: '/workspace/developer-fork',
+    runGit,
+    sourceRepository: 'DangLemon/hermes-agent'
+  })
+
+  assert.deepEqual(calls, [
+    {
+      args: ['fetch', '--quiet', 'https://github.com/DangLemon/hermes-agent.git', 'main'],
+      options: { cwd: '/workspace/developer-fork' }
+    }
+  ])
+  assert.equal(result.repositoryUrl, 'https://github.com/DangLemon/hermes-agent.git')
+  assert.equal(calls.some(call => call.args.includes('set-url')), false)
 })

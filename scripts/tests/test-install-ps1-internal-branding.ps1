@@ -45,6 +45,7 @@ foreach ($name in $functionNames) {
     Invoke-Expression $fn.Extent.Text
 }
 
+
 $script:Failures = 0
 
 $smokeRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("lemon-ai-branding-" + [guid]::NewGuid().ToString('N'))
@@ -138,6 +139,7 @@ $publicSoul = Get-DefaultSoulContent -AgentName $public.AgentName -CompanyName $
 Assert-True ($publicSoul.StartsWith('You are Hermes Agent, built by Nous Research.')) `
     'ordinary SOUL seed keeps the public Hermes identity'
 
+
 $desktopRoot = 'C:\fixture\apps\desktop'
 $internalCandidates = @(Get-DesktopExecutableCandidates -DesktopDir $desktopRoot -InternalBuild $true)
 Assert-Equal 2 $internalCandidates.Count 'internal build probes both architecture output directories'
@@ -182,6 +184,33 @@ Assert-True (-not (Test-ShortcutOwnsTarget `
 Write-Host ''
 Write-Host 'isolated config-templates stage and shortcut smoke'
 
+
+$cmdCapture = Join-Path $smokeRoot 'install-cmd-args.txt'
+$cmdStub = Join-Path $smokeRoot 'powershell.cmd'
+Set-Content -LiteralPath $cmdStub -Encoding Ascii -Value @(
+    '@echo off'
+    'echo %* > "%CMD_INSTALL_CAPTURE%"'
+    'exit /b 0'
+)
+$oldPath = $env:PATH
+$oldRepo = $env:HERMES_INSTALL_REPOSITORY
+$oldCapture = $env:CMD_INSTALL_CAPTURE
+try {
+    $env:PATH = "$smokeRoot;$oldPath"
+    $env:HERMES_INSTALL_REPOSITORY = 'DangLemon/hermes-agent'
+    $env:CMD_INSTALL_CAPTURE = $cmdCapture
+    & cmd.exe /d /c (Join-Path $PSScriptRoot '..\install.cmd') | Out-Null
+    Assert-Equal 0 $LASTEXITCODE 'shipped install.cmd executes successfully with the PowerShell stub'
+    $capturedCmdArgs = Get-Content -LiteralPath $cmdCapture -Raw
+    Assert-True ($capturedCmdArgs.Contains("`$installerArgs = @{ Repository = `$repo }")) `
+        'shipped install.cmd uses named Repository splatting'
+    Assert-True ($capturedCmdArgs.Contains('DangLemon/hermes-agent')) `
+        'shipped install.cmd carries the selected Lemon repository'
+} finally {
+    $env:PATH = $oldPath
+    $env:HERMES_INSTALL_REPOSITORY = $oldRepo
+    $env:CMD_INSTALL_CAPTURE = $oldCapture
+}
 $env:HERMES_INSTALLER_BRAND = 'lemon'
 $powerShellExe = if ($PSVersionTable.PSEdition -eq 'Core') { 'pwsh.exe' } else { 'powershell.exe' }
 $previousErrorActionPreference = $ErrorActionPreference

@@ -75,17 +75,17 @@ describe('live transcript timeline events', () => {
     expect(system?.parts[0].timestamp).toBe(401.625)
   })
 
-  it('brands gateway review summaries before storing the system row', () => {
+  it('preserves dynamic skill names in gateway review summaries', () => {
     vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
 
     event('review.summary', 402.625, {
-      text: "💾 Self-improvement review: Run 'hermes model' before reopening Hermes Desktop."
+      text: "💾 Self-improvement review: Skill 'Hermes Research' patched."
     })
 
     const system = stream.state(SID).messages.find(message => message.role === 'system')
 
     expect(system?.parts[0]).toMatchObject({
-      text: "review:Self-improvement review: Run 'hermes model' before reopening Lemon AI."
+      text: "review:Self-improvement review: Skill 'Hermes Research' patched."
     })
   })
 

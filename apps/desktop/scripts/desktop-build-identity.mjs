@@ -10,6 +10,7 @@ const HERMES_MAC_COPY = {
   CFBundleDisplayName: 'Hermes',
   CFBundleExecutable: 'Hermes',
   CFBundleName: 'Hermes',
+  NSHumanReadableCopyright: 'Copyright © 2026 Nous Research',
   NSAudioCaptureUsageDescription: 'Hermes uses audio capture for voice conversations.',
   NSCameraUsageDescription: 'Hermes uses the camera when a plugin or feature you enable requests it.',
   NSMicrophoneUsageDescription: 'Hermes uses the microphone for voice input and voice conversations.',

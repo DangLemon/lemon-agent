@@ -29,6 +29,8 @@ import pytest
 from hermes_cli._install_repair import (
     _WINDOWS_BIN_LAUNCHERS,
     _normalize_windows_path,
+    _windows_launcher_body,
+    _windows_launcher_companion_bytes,
     ensure_windows_bin_launchers,
     migrate_windows_bin_path,
 )
@@ -72,6 +74,17 @@ def _fake_windows_executable() -> bytes:
 def _relative_cmd_call(target: Path, source: Path) -> str:
     relative = ntpath.relpath(str(source), str(target)).replace("/", "\\")
     return f'"%~dp0{relative}" %*'
+
+def test_windows_launcher_body_uses_unicode_safe_companion_across_drives():
+    source = Path(r"D:\Lémon AI\lemon-agent\venv\Scripts\hermes.exe")
+    target = Path(r"C:\Users\Dang\AppData\Local\Lemon AI\bin")
+    body = _windows_launcher_body(source, "DangLemon/hermes-agent", target)
+    companion = _windows_launcher_companion_bytes(source, target)
+
+    assert 'powershell.exe -NoLogo -NoProfile -NonInteractive' in body
+    assert companion is not None
+    assert companion.startswith(b"\xef\xbb\xbf")
+    assert "D:\\Lémon AI\\lemon-agent\\venv\\Scripts\\hermes.exe" in companion.decode("utf-8-sig")
 
 
 def test_managed_clone_heals_canonical_home_bin(managed_install, monkeypatch):
@@ -183,6 +196,22 @@ def test_internal_desktop_marker_overrides_legacy_public_origin(
         assert 'set "HERMES_UPDATE_REPOSITORY=DangLemon/hermes-agent"' in body
         assert "NousResearch/hermes-agent" not in body
 
+
+def test_internal_desktop_marker_preserves_explicit_custom_repository(
+    tmp_path, monkeypatch
+):
+    home, root = _make_managed(tmp_path, monkeypatch, home_name="Lemon AI")
+    monkeypatch.setenv("LEMON_AI_DESKTOP_INTERNAL", "1")
+    monkeypatch.setenv("HERMES_INSTALL_REPOSITORY", "ExampleOrg/runtime-agent")
+    monkeypatch.setenv("HERMES_UPDATE_REPOSITORY", "ExampleOrg/runtime-agent")
+
+    restored = ensure_windows_bin_launchers(root, windows=True, user_path_entries=[])
+
+    assert len(restored) == len(_WINDOWS_BIN_LAUNCHERS)
+    for name in _WINDOWS_BIN_LAUNCHERS:
+        body = (home / "bin" / f"{name}.cmd").read_text(encoding="ascii")
+        assert 'set "HERMES_UPDATE_REPOSITORY=ExampleOrg/runtime-agent"' in body
+        assert "DangLemon/hermes-agent" not in body
 
 def test_existing_wrong_repository_or_source_wrapper_is_rewritten(
     tmp_path, monkeypatch

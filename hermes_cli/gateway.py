@@ -2739,6 +2739,15 @@ def _service_venv_dir() -> str:
     detected_venv = _detect_venv_dir()
     return str(detected_venv) if detected_venv else str(PROJECT_ROOT / "venv")
 
+def _update_repository_for_service() -> str | None:
+    """Validated per-install update source to persist across service restarts."""
+    try:
+        from hermes_cli.update_cmd_git import _configured_update_repository
+
+        return _configured_update_repository()
+    except (ImportError, ValueError):
+        return None
+
 
 def generate_systemd_unit(system: bool = False, run_as_user: str | None = None) -> str:
     python_path = get_python_path()
@@ -2795,6 +2804,12 @@ def generate_systemd_unit(system: bool = False, run_as_user: str | None = None) 
     path_entries.extend(_build_wsl_interop_paths(path_entries))
     path_entries.extend(["/usr/local/sbin", "/usr/local/bin", "/usr/sbin", "/usr/bin", "/sbin", "/bin"])
     sane_path = ":".join(path_entries)
+    update_repository = _update_repository_for_service()
+    update_repository_line = (
+        f'Environment="HERMES_UPDATE_REPOSITORY={update_repository}"\n'
+        if update_repository
+        else ""
+    )
     return f"""[Unit]
 Description={SERVICE_DESCRIPTION}
 After=network-online.target
@@ -2808,7 +2823,7 @@ WorkingDirectory={working_dir}
 {env_lines}Environment="PATH={sane_path}"
 Environment="VIRTUAL_ENV={venv_dir}"
 Environment="HERMES_HOME={hermes_home}"
-Environment="HERMES_SUPERVISED_CHILD=1"
+{update_repository_line}Environment="HERMES_SUPERVISED_CHILD=1"
 Restart=always
 RestartSec=5
 RestartForceExitStatus={GATEWAY_SERVICE_RESTART_EXIT_CODE}
@@ -3642,6 +3657,13 @@ def generate_launchd_plist() -> str:
     priority_dirs = _build_service_path_dirs()
     _append_node_dir_for_service(priority_dirs)
     sane_path = ":".join(dict.fromkeys(priority_dirs + [p for p in os.environ.get("PATH", "").split(":") if p]))
+    update_repository = _update_repository_for_service()
+    update_repository_xml = (
+        f"\n        <key>HERMES_UPDATE_REPOSITORY</key>\n"
+        f"        <string>{update_repository}</string>"
+        if update_repository
+        else ""
+    )
 
     # ProgramArguments (incl. --profile); the stderr wrapper keeps launchd restart semantics while timestamping stderr.
     prog_args_xml = "\n        ".join(
@@ -3688,7 +3710,7 @@ def generate_launchd_plist() -> str:
         <key>VIRTUAL_ENV</key>
         <string>{venv_dir}</string>
         <key>HERMES_HOME</key>
-        <string>{hermes_home}</string>
+        <string>{hermes_home}</string>{update_repository_xml}
         <key>HERMES_SUPERVISED_CHILD</key>
         <string>1</string>
     </dict>
