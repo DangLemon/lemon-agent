@@ -1305,6 +1305,21 @@ class TestSystemUnitHermesHome:
         hermes_home = str(gateway_cli.get_hermes_home().resolve())
         assert f'HERMES_HOME={hermes_home}' in unit
 
+    def test_user_unit_persists_update_repository(self, monkeypatch):
+        monkeypatch.setenv("HERMES_UPDATE_REPOSITORY", "ExampleOrg/runtime-agent")
+
+        unit = gateway_cli.generate_systemd_unit(system=False)
+
+        assert 'Environment="HERMES_UPDATE_REPOSITORY=ExampleOrg/runtime-agent"' in unit
+
+    def test_launchd_plist_persists_update_repository(self, monkeypatch):
+        monkeypatch.setenv("HERMES_UPDATE_REPOSITORY", "ExampleOrg/runtime-agent")
+
+        plist = gateway_cli.generate_launchd_plist()
+
+        assert "<key>HERMES_UPDATE_REPOSITORY</key>" in plist
+        assert "<string>ExampleOrg/runtime-agent</string>" in plist
+
 
 class TestSystemUnitRefreshSyncsHermesHome:
     """sudo system refresh must not flip TimeoutStopSec via /root/.hermes."""

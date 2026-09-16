@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { lemonAppBrand } from '@/lib/app-brand'
-
-import { $desktopBoot, brandBootMessage, completeDesktopBoot, failDesktopBoot } from './boot'
+import { $desktopBoot, completeDesktopBoot, failDesktopBoot } from './boot'
 
 describe('boot display branding', () => {
   beforeEach(() => {
@@ -18,20 +16,12 @@ describe('boot display branding', () => {
     })
   })
 
-  it('rewrites raw provider setup errors for the internal app', () => {
-    const raw =
-      "No inference provider configured. Run 'hermes model' to choose a provider and model, or set an API key (OPENROUTER_API_KEY) in ~/.hermes/config.yaml."
 
-    expect(brandBootMessage(raw, lemonAppBrand)).toBe(
-      "No inference provider configured. Run 'hermes model' to choose a provider and model, or set an API key (OPENROUTER_API_KEY) in ~/.lemon-ai/config.yaml."
-    )
-  })
+  it('preserves authoritative runtime paths in terminal failures', () => {
+    failDesktopBoot('Missing venv at /Users/test/Hermes Runtime/venv')
 
-  it('brands terminal boot errors before the recovery surface renders them', () => {
-    failDesktopBoot('Hermes gateway unavailable', lemonAppBrand)
-
-    expect($desktopBoot.get().error).toBe('Lemon AI gateway unavailable')
-    expect($desktopBoot.get().message).toContain('Lemon AI gateway unavailable')
+    expect($desktopBoot.get().error).toBe('Missing venv at /Users/test/Hermes Runtime/venv')
+    expect($desktopBoot.get().message).toContain('/Users/test/Hermes Runtime/venv')
   })
 
   it('keeps completion and failure messages compatible for the upstream build', () => {

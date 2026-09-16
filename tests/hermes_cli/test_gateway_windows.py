@@ -334,10 +334,34 @@ def test_gateway_vbs_script_is_console_less(monkeypatch):
     assert "hermes_cli.main" in content
     assert "gateway run" in content
     assert ", 0, False" in content  # hidden window, detached/async
-    for var in ("HERMES_HOME", "PYTHONIOENCODING", "HERMES_GATEWAY_DETACHED", "VIRTUAL_ENV", "PYTHONPATH"):
+    for var in (
+        "HERMES_HOME",
+        "HERMES_UPDATE_REPOSITORY",
+        "PYTHONIOENCODING",
+        "HERMES_GATEWAY_DETACHED",
+        "VIRTUAL_ENV",
+        "PYTHONPATH",
+    ):
         assert var in content
     assert "--profile" in content and "work" in content
     assert content.endswith("\r\n")
+
+def test_gateway_cmd_script_persists_update_repository(monkeypatch):
+    monkeypatch.setenv("HERMES_UPDATE_REPOSITORY", "ExampleOrg/runtime-agent")
+    monkeypatch.setattr(
+        gateway_windows,
+        "_resolve_detached_python",
+        lambda exe: (r"C:\venv\Scripts\python.exe", Path(r"C:\venv"), []),
+    )
+
+    content = gateway_windows._build_gateway_cmd_script(
+        r"C:\venv\Scripts\python.exe",
+        r"C:\Lemon AI",
+        r"C:\Lemon AI",
+        "",
+    )
+
+    assert 'set "HERMES_UPDATE_REPOSITORY=ExampleOrg/runtime-agent"' in content
 
 
 

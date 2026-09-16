@@ -229,6 +229,13 @@ test('full-clone commit logs keep the complete behind range', () => {
   })
 })
 
+test('passive source checks can render commits from FETCH_HEAD without mutating origin', () => {
+  assert.deepEqual(resolveCommitLogSelection({ branch: 'main', isShallow: false, remote: 'FETCH_HEAD' }), {
+    limit: 40,
+    revision: 'HEAD..FETCH_HEAD'
+  })
+})
+
 // The skip path produces an empty countStr; resolveBehindCount must NOT trust
 // it and must fall through to the SHA compare (mirrors the live call site).
 test('skipped-count path resolves via SHA compare, never via empty countStr', () => {

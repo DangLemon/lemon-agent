@@ -556,7 +556,7 @@ export async function applyUpdates(opts: DesktopUpdateApplyOptions = {}): Promis
           applying: false,
           stage: 'error',
           error: result?.error ?? 'apply-failed',
-          message: brandUpdateText(result?.message ?? translateNow('updates.errorBody')),
+          message: result?.message ?? translateNow('updates.errorBody'),
           blockers: result?.blockers ?? null
         })
       }
@@ -564,7 +564,7 @@ export async function applyUpdates(opts: DesktopUpdateApplyOptions = {}): Promis
 
     return result
   } catch (error) {
-    const message = brandUpdateText(error instanceof Error ? error.message : String(error))
+    const message = error instanceof Error ? error.message : String(error)
     $updateApply.set({ ...$updateApply.get(), applying: false, stage: 'error', error: 'apply-failed', message })
 
     return { ok: false, error: 'apply-failed', message }
@@ -988,7 +988,7 @@ async function runEverythingUpdate(): Promise<void> {
 
 function ingestProgress(payload: DesktopUpdateProgress): void {
   const current = $updateApply.get()
-  const message = brandUpdateText(payload.message)
+  const message = payload.message
   const log = [...current.log, { stage: payload.stage, message, at: payload.at }].slice(-50)
 
   const terminal =
@@ -1004,7 +1004,7 @@ function ingestProgress(payload: DesktopUpdateProgress): void {
     // Streamed log lines carry percent: null; keep the last milestone percent
     // (10/60/…) instead of resetting the bar to indeterminate on every line.
     percent: payload.percent ?? current.percent,
-    error: payload.error ? brandUpdateText(payload.error) : payload.error,
+    error: payload.error,
     // 'manual' carries the command to run in its message field.
     command: payload.stage === 'manual' ? payload.message : current.command,
     log

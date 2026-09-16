@@ -31,9 +31,7 @@ function resolveBehindCount({ countStr, currentSha, targetSha, isShallow, target
 // Shallow history can also contaminate the changelog range. Trust the fetched
 // remote tip itself, but do not walk its ancestry. Full clones retain the
 // detailed range used by the existing update overlay.
-function resolveCommitLogSelection({ branch, isShallow }) {
-  const remote = `origin/${branch}`
-
+function resolveCommitLogSelection({ branch, isShallow, remote = `origin/${branch}` }) {
   return isShallow ? { limit: 1, revision: remote } : { limit: 40, revision: `HEAD..${remote}` }
 }
 

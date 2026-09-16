@@ -53,6 +53,16 @@ _TASK_RESTART_COUNT = 999
 
 _GATEWAY_ENV = (("PYTHONIOENCODING", "utf-8"), ("HERMES_GATEWAY_DETACHED", "1"), ("HERMES_SUPERVISED_CHILD", "1"))
 
+def _gateway_environment() -> dict[str, str]:
+    env = dict(_GATEWAY_ENV)
+    try:
+        from hermes_cli.update_cmd_git import _configured_update_repository
+
+        env["HERMES_UPDATE_REPOSITORY"] = _configured_update_repository()
+    except (ImportError, ValueError):
+        pass
+    return env
+
 
 def _schtasks_encoding() -> str:
     """Console encoding for ``schtasks.exe`` output: localized Windows emits the OEM/ANSI code page,
@@ -314,7 +324,7 @@ def _build_gateway_cmd_script(python_path: str, working_dir: str, hermes_home: s
         f"rem {_TASK_DESCRIPTION}",
         f"cd /d {_quote_cmd_script_arg(working_dir)}",
         f'set "HERMES_HOME={hermes_home}"',
-        *[f'set "{k}={v}"' for k, v in _GATEWAY_ENV],
+        *[f'set "{k}={v}"' for k, v in _gateway_environment().items()],
         # VIRTUAL_ENV lets the gateway's own python detection find the venv.
         f'set "VIRTUAL_ENV={_preserve_hermes_home_path(venv_dir)}"',
         f'set "PYTHONPATH={pythonpath}"',
@@ -353,7 +363,7 @@ def _build_gateway_vbs_script(python_path: str, working_dir: str, hermes_home: s
         'Set sh = CreateObject("WScript.Shell")',
         'Set env = sh.Environment("PROCESS")',
         f"env.Item({q('HERMES_HOME')}) = {q(hermes_home)}",
-        *[f"env.Item({q(k)}) = {q(v)}" for k, v in _GATEWAY_ENV],
+        *[f"env.Item({q(k)}) = {q(v)}" for k, v in _gateway_environment().items()],
         f"env.Item({q('VIRTUAL_ENV')}) = {q(_preserve_hermes_home_path(venv_dir))}",
         # Mirror the cmd wrapper's ``PYTHONPATH=<static>;%PYTHONPATH%`` at runtime.
         f"existing_pp = env.Item({q('PYTHONPATH')})",
@@ -580,7 +590,7 @@ def _build_gateway_argv() -> tuple[list[str], str, dict[str, str]]:
 
     python_path, working_dir, hermes_home, profile_arg = _launcher_settings()
     python_exe, venv_dir, extra_pythonpath = _resolve_detached_python(python_path)
-    env_overlay = {"HERMES_HOME": hermes_home, **dict(_GATEWAY_ENV), "VIRTUAL_ENV": _preserve_hermes_home_path(venv_dir)}
+    env_overlay = {"HERMES_HOME": hermes_home, **_gateway_environment(), "VIRTUAL_ENV": _preserve_hermes_home_path(venv_dir)}
     _prepend_pythonpath(env_overlay, [_preserve_hermes_home_path(p) for p in (PROJECT_ROOT, *extra_pythonpath)])
     return _gateway_run_argv(python_exe, profile_arg), working_dir, env_overlay
 

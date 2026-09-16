@@ -114,7 +114,11 @@ _MCP_CATALOG_FILES = {"hermes_cli/mcp_catalog.py"}
 # Windows installer + its PowerShell tests. These only run on a Windows runner,
 # so they get their own lane rather than riding along with ``python``.
 _INSTALLER_PATHS = ("scripts/tests/",)
-_INSTALLER_FILES = {"scripts/install.ps1", "scripts/install.cmd"}
+_INSTALLER_FILES = {
+    "scripts/install.ps1",
+    "scripts/install.cmd",
+    "scripts/ci/test_install_ps1_cli_launchers.ps1",
+}
 
 # Windows desktop-update hand-off (scripts/desktop-update/windows.ps1 + the
 # Electron side that launches it) and the pytest files that spawn it.

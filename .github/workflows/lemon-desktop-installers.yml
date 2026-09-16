@@ -99,6 +99,8 @@ jobs:
           HERMES_INSTALLER_BRAND=lemon bash scripts/install.sh --manifest
           npm --workspace @hermes/bootstrap-installer run check
           npm --workspace @hermes/bootstrap-installer run test:branding
+          cargo test --manifest-path apps/bootstrap-installer/src-tauri/Cargo.toml \
+            internal_payload_probes_include_lemon_before_legacy_on_macos
 
       - name: Build Lemon AI DMG
         working-directory: apps/desktop
@@ -214,8 +216,11 @@ jobs:
         run: |
           $env:HERMES_INSTALLER_BRAND = 'lemon'
           pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/tests/test-install-ps1-internal-branding.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm --workspace @hermes/bootstrap-installer run check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm --workspace @hermes/bootstrap-installer run test:branding
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run PowerShell installer checks (Windows PowerShell 5.1)
         shell: powershell

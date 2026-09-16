@@ -882,6 +882,15 @@ describe('applyUpdates terminal state', () => {
     expect($updateApply.get().error).toBe('rebuild-failed')
   })
 
+  it('preserves dynamic paths when apply resolves not-ok', async () => {
+    const message = 'Missing app at /Users/test/Hermes Runtime/Lemon AI.app'
+    applyMock.mockResolvedValue({ ok: false, error: 'rebuild-failed', message })
+
+    await applyUpdates()
+
+    expect($updateApply.get().message).toBe(message)
+  })
+
   it('preserves structured safe blockers for the close-and-update prompt', async () => {
     const blockers = [
       {
@@ -1423,5 +1432,22 @@ describe('startUpdatePoller', () => {
     await vi.advanceTimersByTimeAsync(0)
 
     expect(checkMock).toHaveBeenCalled()
+  })
+
+  it('preserves dynamic paths from updater progress events', async () => {
+    startUpdatePoller()
+    await vi.advanceTimersByTimeAsync(0)
+    const progress = onProgressMock.mock.calls[0]?.[0] as ((payload: unknown) => void) | undefined
+
+    progress?.({
+      stage: 'error',
+      message: 'Missing app at /Users/test/Hermes Runtime/Lemon AI.app',
+      error: 'ENOENT /Users/test/Hermes Runtime/Lemon AI.app',
+      percent: null,
+      at: 1
+    })
+
+    expect($updateApply.get().message).toBe('Missing app at /Users/test/Hermes Runtime/Lemon AI.app')
+    expect($updateApply.get().error).toBe('ENOENT /Users/test/Hermes Runtime/Lemon AI.app')
   })
 })

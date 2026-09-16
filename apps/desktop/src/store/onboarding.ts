@@ -601,7 +601,7 @@ export async function refreshOnboarding(ctx: OnboardingContext) {
     return false
   }
 
-  const reason = brandCopy(runtime.reason || state.reason || DEFAULT_ONBOARDING_REASON)
+  const reason = runtime.reason || state.reason || DEFAULT_ONBOARDING_REASON
 
   writeCachedConfigured(false)
   patch({ configured: false, reason })
