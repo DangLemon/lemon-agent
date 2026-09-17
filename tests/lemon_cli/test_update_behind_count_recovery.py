@@ -183,7 +183,7 @@ def _shallow_git(head_sha, fetch_head_sha):
 
 
 def _internal_shallow_git_with_upstream_origin(head_sha, fetch_head_sha):
-    origin = {"url": "https://github.com/DangLemon/lemon-agent.git"}
+    origin = {"url": "https://github.com/NousResearch/hermes-agent.git"}
     calls = []
 
     def fake_run(cmd, **kwargs):
@@ -191,10 +191,10 @@ def _internal_shallow_git_with_upstream_origin(head_sha, fetch_head_sha):
         if cmd[:4] == ["git", "remote", "get-url", "origin"]:
             return MagicMock(returncode=0, stdout=f"{origin['url']}\n")
         if cmd == ["git", "show-ref", "--verify", "--quiet", "refs/remotes/origin/main"]:
-            assert origin["url"] == "https://github.com/DangLemon/lemon-agent.git"
+            assert origin["url"] == "https://github.com/NousResearch/hermes-agent.git"
             return MagicMock(returncode=0, stdout=b"")
         if cmd == ["git", "update-ref", "-d", "refs/remotes/origin/main"]:
-            assert origin["url"] == "https://github.com/DangLemon/lemon-agent.git"
+            assert origin["url"] == "https://github.com/NousResearch/hermes-agent.git"
             return MagicMock(returncode=0, stdout=b"")
         if cmd[:4] == ["git", "remote", "set-url", "origin"]:
             assert [

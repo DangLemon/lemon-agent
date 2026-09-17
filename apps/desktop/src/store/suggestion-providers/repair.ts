@@ -1,5 +1,5 @@
-import { createMcpOAuthClient, listMcpServers } from '@/lemon'
 import { translateNow } from '@/i18n'
+import { createMcpOAuthClient, listMcpServers } from '@/lemon'
 import { completeMcpDesktopOAuth, McpOAuthCancelled } from '@/lib/mcp-dashboard-oauth'
 import { captureMcpOAuthScopeGuard } from '@/lib/mcp-oauth-scope'
 import { prettyName } from '@/lib/text'

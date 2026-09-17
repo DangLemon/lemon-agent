@@ -181,12 +181,13 @@ def test_internal_desktop_marker_overrides_legacy_public_origin(
             "remote",
             "add",
             "origin",
-            "https://github.com/DangLemon/lemon-agent.git",
+            "https://github.com/NousResearch/hermes-agent.git",
         ],
         check=True,
     )
     monkeypatch.setenv("LEMON_DESKTOP_INTERNAL", "1")
-    monkeypatch.setenv("LEMON_UPDATE_REPOSITORY", "DangLemon/lemon-agent")
+    monkeypatch.delenv("LEMON_UPDATE_REPOSITORY", raising=False)
+    monkeypatch.delenv("LEMON_INSTALL_REPOSITORY", raising=False)
 
     restored = ensure_windows_bin_launchers(root, windows=True, user_path_entries=[])
 
@@ -194,7 +195,8 @@ def test_internal_desktop_marker_overrides_legacy_public_origin(
     for name in _WINDOWS_BIN_LAUNCHERS:
         body = (home / "bin" / f"{name}.cmd").read_text(encoding="ascii")
         assert 'set "LEMON_UPDATE_REPOSITORY=DangLemon/lemon-agent"' in body
-        assert "DangLemon/lemon-agent" not in body
+        assert "NousResearch/hermes-agent" not in body
+        assert "hermes-agent" not in body
 
 
 def test_internal_desktop_marker_preserves_explicit_custom_repository(

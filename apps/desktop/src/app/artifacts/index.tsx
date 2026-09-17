@@ -18,8 +18,8 @@ import {
 } from '@/components/ui/pagination'
 import { RowButton } from '@/components/ui/row-button'
 import { Tip } from '@/components/ui/tooltip'
-import { getAllSessionMessages, listAllProfileSessions } from '@/lemon'
 import { type Translations, useI18n } from '@/i18n'
+import { getAllSessionMessages, listAllProfileSessions } from '@/lemon'
 import { resolveBrandIcon } from '@/lib/brand-icon'
 import {
   ExternalLink,

@@ -133,6 +133,7 @@ export function resolveDesktopHomeOverride(
   identity: DesktopRuntimeIdentity
 ): string {
   const desktopOverride = envValue(env, 'LEMON_DESKTOP_HOME_OVERRIDE')
+
   return desktopOverride || identityHomeEnvOverride(env, identity)
 }
 
@@ -148,12 +149,14 @@ export function resolveDesktopHomeOverrideWithRegistry({
   registryValue?: string | null
 }): string {
   const desktopOverride = envValue(env, 'LEMON_DESKTOP_HOME_OVERRIDE')
+
   if (desktopOverride) {
     return desktopOverride
   }
 
   const envOverride = identityHomeEnvOverride(env, identity)
   const registryOverride = (registryValue || '').trim()
+
   return preferRegistry ? registryOverride || envOverride : envOverride || registryOverride
 }
 
@@ -192,6 +195,7 @@ export function resolveDesktopRuntimeDirNameOverride(
   identity: DesktopRuntimeIdentity
 ): string {
   const desktopOverride = envValue(env, 'LEMON_DESKTOP_RUNTIME_DIR_NAME')
+
   return desktopOverride || identityRuntimeDirNameEnvOverride(env, identity)
 }
 
@@ -207,12 +211,14 @@ export function resolveDesktopRuntimeDirNameOverrideWithRegistry({
   registryValue?: string | null
 }): string {
   const desktopOverride = envValue(env, 'LEMON_DESKTOP_RUNTIME_DIR_NAME')
+
   if (desktopOverride) {
     return desktopOverride
   }
 
   const envOverride = identityRuntimeDirNameEnvOverride(env, identity)
   const registryOverride = (registryValue || '').trim()
+
   return preferRegistry ? registryOverride || envOverride : envOverride || registryOverride
 }
 
@@ -229,6 +235,7 @@ export function resolveDesktopRuntimeDirNameOverrideFromWindowsRegistry({
 }): string {
   const desktopOverride = envValue(env, 'LEMON_DESKTOP_RUNTIME_DIR_NAME')
   const envOverride = identityRuntimeDirNameEnvOverride(env, identity)
+
   const registryValue = isWindows && !desktopOverride
     ? readRegistry(resolveDesktopRuntimeDirNameRegistryEnvVarName(identity))
     : ''
@@ -247,9 +254,11 @@ export function resolveDesktopRuntimeRoot(
   runtimeDirNameOverride = ''
 ): string {
   const runtimeDirName = runtimeDirNameOverride.trim() || identity.runtimeRootDirName
+
   if (runtimeDirName === '.' || runtimeDirName === '..' || runtimeDirName.includes('/') || runtimeDirName.includes('\\')) {
     throw new Error('runtime directory override must be a directory name')
   }
+
   return path.join(lemonHome, runtimeDirName)
 }
 
@@ -289,4 +298,4 @@ export function buildDesktopRuntimeEnv({
   }
 }
 
-export { LEMON_IDENTITY, LEMON_AI_IDENTITY }
+export { LEMON_AI_IDENTITY, LEMON_IDENTITY }

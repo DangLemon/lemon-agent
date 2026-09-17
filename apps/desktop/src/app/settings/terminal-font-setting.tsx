@@ -8,8 +8,8 @@ import {
 } from '@/app/right-sidebar/terminal/terminal-font'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { saveLemonConfig } from '@/lemon'
 import { useI18n } from '@/i18n'
+import { saveLemonConfig } from '@/lemon'
 import { notifyError } from '@/store/notifications'
 import type { LemonConfigRecord } from '@/types/lemon'
 

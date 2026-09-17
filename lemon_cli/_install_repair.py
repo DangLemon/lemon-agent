@@ -136,6 +136,7 @@ def _configured_windows_update_repository(root: Path) -> str | None:
     """
     try:
         from lemon_cli.update_cmd_git import (
+            DEFAULT_UPDATE_REPOSITORY,
             INSTALL_REPOSITORY_ENV,
             INTERNAL_UPDATE_ENV_VARS,
             INTERNAL_UPDATE_REPOSITORY,
@@ -153,9 +154,18 @@ def _configured_windows_update_repository(root: Path) -> str | None:
             for name in INTERNAL_UPDATE_ENV_VARS
         )
         if internal_build:
-            return _validate_update_repository(
-                update_repository or INTERNAL_UPDATE_REPOSITORY
-            )
+            # Unhealed public/legacy origin env is not a per-install source.
+            # Explicit custom repositories still win (see sibling test).
+            if update_repository:
+                validated = _validate_update_repository(update_repository)
+                public_or_legacy = {
+                    DEFAULT_UPDATE_REPOSITORY.lower(),
+                    INTERNAL_UPDATE_REPOSITORY.lower(),
+                    "nousresearch/hermes-agent",
+                }
+                if validated.lower() not in public_or_legacy:
+                    return validated
+            return _validate_update_repository(INTERNAL_UPDATE_REPOSITORY)
     except Exception:
         pass
 

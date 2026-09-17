@@ -256,6 +256,7 @@ export function resolveStagedUpdaterBinary(
   }
 
   const fileExists = deps.fileExists ?? stagedFileExists
+
   const stagedUpdaterNames =
     Array.isArray(deps.stagedUpdaterNames) && deps.stagedUpdaterNames.length > 0
       ? deps.stagedUpdaterNames

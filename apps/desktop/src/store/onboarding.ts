@@ -1,5 +1,6 @@
 import { atom } from 'nanostores'
 
+import { translateNow } from '@/i18n'
 import {
   cancelOAuthSession,
   getGlobalModelOptions,
@@ -11,7 +12,6 @@ import {
   submitOAuthCode,
   validateProviderCredential
 } from '@/lemon'
-import { translateNow } from '@/i18n'
 import { appBrand, replaceLemonBrandTerms } from '@/lib/app-brand'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
 import { evaluateRuntimeReadiness, type RuntimeReadinessResult } from '@/lib/runtime-readiness'

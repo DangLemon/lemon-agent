@@ -166,7 +166,7 @@ is_internal_desktop_build() {
     fi
 
     checkout_internal_harness_config && return 0
-    return 0
+    return 1
 }
 
 INTERNAL_DESKTOP_BUILD=false

@@ -580,6 +580,7 @@ async function connectWindowsRemote(deps) {
     const error: any = new Error(
       `Update ${displayAppName(hostAppName)} on the remote Windows host before connecting with Desktop SSH.`
     )
+
     error.kind = 'update-required'
     throw error
   }

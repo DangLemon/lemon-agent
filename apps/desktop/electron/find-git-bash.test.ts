@@ -48,6 +48,7 @@ test('selected Lemon AI home and legacy Hermes product dirs precede system Git',
     ProgramFiles: 'C:\\Program Files',
     'ProgramFiles(x86)': 'C:\\Program Files (x86)'
   }
+
   const lemon = 'C:\\Users\\test\\AppData\\Local\\Lemon AI\\git\\bin\\bash.exe'
   const legacy = 'C:\\Users\\test\\AppData\\Local\\hermes\\git\\bin\\bash.exe'
 

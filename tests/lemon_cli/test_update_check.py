@@ -57,7 +57,7 @@ def test_check_for_updates_rejects_cache_from_other_repository(tmp_path, monkeyp
                 "behind": 123,
                 "rev": None,
                 "ver": __version__,
-                "repo": "DangLemon/lemon-agent",
+                "repo": "ExampleOrg/other-agent",
             }
         ),
         encoding="utf-8",

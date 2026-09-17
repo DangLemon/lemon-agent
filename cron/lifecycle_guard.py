@@ -34,7 +34,7 @@ _GATEWAY_LIFECYCLE_PATTERN = re.compile(
     # while every real command position (text start, whitespace, `;`/`&`/`|`, `$(`, backtick,
     # U+FFFD) still matches.
     # See #77173.
-    r"(?:(?<![/\w.\-])lemon\s+gateway\s+(?:restart|stop|uninstall)\b)"
+    r"(?:(?<![/\w.\-])(?:lemon|hermes)\s+gateway\s+(?:restart|stop|uninstall)\b)"
     # Branch B: launchctl ops anchored on a lemon-gateway label so unrelated lemon services stay
     # unblocked. `submit`/`bootstrap` register a NEW keepalive job wrapping an arbitrary helper (a
     # laundered restart); neutral-label submissions are caught by

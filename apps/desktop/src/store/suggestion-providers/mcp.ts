@@ -1,3 +1,4 @@
+import { translateNow } from '@/i18n'
 import {
   addMcpServer,
   createMcpOAuthClient,
@@ -5,7 +6,6 @@ import {
   listMcpServers,
   removeMcpServer
 } from '@/lemon'
-import { translateNow } from '@/i18n'
 import { completeMcpDesktopOAuth, McpOAuthCancelled } from '@/lib/mcp-dashboard-oauth'
 import { MCP_DIRECTORY } from '@/lib/mcp-directory'
 import { captureMcpOAuthScopeGuard } from '@/lib/mcp-oauth-scope'

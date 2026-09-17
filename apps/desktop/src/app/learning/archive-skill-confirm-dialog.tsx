@@ -1,6 +1,6 @@
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { deleteLearningNode, type ProfileScope } from '@/lemon'
 import { type Translations, useI18n } from '@/i18n'
+import { deleteLearningNode, type ProfileScope } from '@/lemon'
 import { type AppBrand, appBrandForEnv, replaceLemonBrandTerms } from '@/lib/app-brand'
 import { notify } from '@/store/notifications'
 

@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CountSkeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import type { DesktopRosterAgent } from '@/global'
+import { useI18n } from '@/i18n'
 import {
   createSkill,
   editLearningNode,
@@ -30,7 +31,6 @@ import {
   setSkillEnabled,
   setToolsetEnabled
 } from '@/lemon'
-import { useI18n } from '@/i18n'
 import { appBrand } from '@/lib/app-brand'
 import { isDesktopToolsetVisible } from '@/lib/desktop-toolsets'
 import { compactNumber } from '@/lib/format'

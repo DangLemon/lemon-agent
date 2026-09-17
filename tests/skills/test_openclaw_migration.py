@@ -606,10 +606,10 @@ def test_rebrand_text_replaces_openclaw_variants():
     assert mod.rebrand_text("I told Open Claw to use dark mode") == "I told Lemon AI to use dark mode"
     assert mod.rebrand_text("Open-Claw config is great") == "Lemon AI config is great"
     assert mod.rebrand_text("OPENCLAW uses tools well") == "Lemon AI uses tools well"
-    # All-lowercase matches → lowercase ``lemon``; this preserves the
+    # All-lowercase matches → lowercase ``lemon-ai``; this preserves the
     # real filesystem path ``~/.lemon-ai`` (Lemon AI home) when rebranding
     # memory entries that reference ``~/.openclaw`` or ``openclaw`` prose.
-    assert mod.rebrand_text("openclaw should always respond concisely") == "lemon should always respond concisely"
+    assert mod.rebrand_text("openclaw should always respond concisely") == "lemon-ai should always respond concisely"
 
 
 

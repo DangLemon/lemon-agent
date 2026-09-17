@@ -1,8 +1,8 @@
 import { skillInvocationText } from '@lemon-ai/shared'
 import { type MutableRefObject, useCallback, useRef } from 'react'
 
-import { getProfiles } from '@/lemon'
 import type { Translations } from '@/i18n'
+import { getProfiles } from '@/lemon'
 import { type ChatMessage, toChatMessages } from '@/lib/chat-messages'
 import { parseCommandDispatch, parseSlashCommand, sessionTitle } from '@/lib/chat-runtime'
 import {

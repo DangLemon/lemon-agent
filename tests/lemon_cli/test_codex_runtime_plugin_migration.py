@@ -264,7 +264,7 @@ class TestMigrate:
         assert "user-above" in final
         assert "user-below" in final
         # And our managed block is still there with the new content
-        assert "[mcp_servers.lemon-ai-mcp]" in final
+        assert "[mcp_servers.lemon-mcp]" in final
 
 
 

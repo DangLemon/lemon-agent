@@ -9,10 +9,10 @@ def test_windows_native_install_path_docs_match_installer() -> None:
     # (LEMON_HOME\bin, next to the managed uv) — NOT the whole venv\Scripts
     # (which would shadow the user's python, #83797) and NOT a dir inside
     # the checkout (which `lemon update`'s autostash swept off disk).
-    assert "%LOCALAPPDATA%\\lemon\\bin" in doc
+    assert "%LOCALAPPDATA%\\Lemon AI\\bin" in doc
     assert (
         "Get-Command lemon        # should print "
-        "C:\\Users\\<you>\\AppData\\Local\\lemon\\bin\\lemon.cmd"
+        "C:\\Users\\<you>\\AppData\\Local\\Lemon AI\\bin\\lemon.cmd"
     ) in doc
     # Installer exposes $LemonHome\bin through repository-aware .cmd wrappers.
     # The executable launchers stay inside venv\Scripts so PATH never exposes

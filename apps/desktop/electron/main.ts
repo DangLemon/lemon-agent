@@ -5411,6 +5411,7 @@ async function ensureRuntime(backend) {
 
     if (!bootstrapResult.ok) {
       const bootstrapDetail = String(bootstrapResult.error || 'unknown error')
+
       const bootstrapError = new Error(
         `${DESKTOP_RUNTIME_IDENTITY.appName} bootstrap failed${bootstrapResult.failedStage ? ` at stage '${bootstrapResult.failedStage}'` : ''}: ` +
           `${bootstrapDetail}. ` +
@@ -9041,6 +9042,7 @@ async function cloudAgentSilentSignIn(dashboardUrl) {
     const err = new Error(
       `Your ${DESKTOP_RUNTIME_IDENTITY.appName} Cloud session has expired. Sign in to ${DESKTOP_RUNTIME_IDENTITY.appName} Cloud again.`
     ) as any
+
     err.needsCloudLogin = true
     throw err
   }
@@ -11332,11 +11334,13 @@ async function testDesktopConnectionConfig(input: any = {}) {
       for (;;) {
         try {
           await ssh.open()
+
           const platform: any = await detectRemotePlatform(
             ssh,
             sshConfig.remoteLemonPath || '',
             DESKTOP_RUNTIME_IDENTITY.appName
           )
+
           let lemonPath
           let lemonVersion
           let supported
@@ -12318,6 +12322,7 @@ async function openManagedSshUpdateTransport(
       resolveDesktopUpdateRepository(),
       DESKTOP_RUNTIME_IDENTITY.appName
     )
+
     const lemonHome = await remoteLifecycle.probeRemoteLemonHome(ssh, DESKTOP_RUNTIME_IDENTITY.appName)
 
     return {
@@ -16280,6 +16285,7 @@ ipcMain.handle('lemon:connection-config:apply', async (_event, payload) => {
 
   const key = connectionScopeKey(payload?.profile)
   const scope = key || ''
+
   const nextRegistry = key
     ? previousRegistry
     : reconcileAppliedGlobalConnection(previousRegistry, config, { appName: DESKTOP_RUNTIME_IDENTITY.appName })

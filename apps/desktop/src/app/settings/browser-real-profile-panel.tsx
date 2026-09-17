@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 
-import { type ProfileScope, saveLemonConfigRecord } from '@/lemon'
 import { useI18n } from '@/i18n'
+import { type ProfileScope, saveLemonConfigRecord } from '@/lemon'
 import { notify, notifyError } from '@/store/notifications'
 
 import { lemonConfigCacheWriter, useLemonConfigRecord } from '../hooks/use-config-record'

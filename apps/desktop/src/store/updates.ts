@@ -14,8 +14,8 @@ import type {
   DesktopUpdateStatus,
   DesktopVersionInfo
 } from '@/global'
-import { checkLemonUpdate, getActionStatus, updateLemon } from '@/lemon'
 import { translateNow } from '@/i18n'
+import { checkLemonUpdate, getActionStatus, updateLemon } from '@/lemon'
 import { appBrandForEnv, replaceLemonBrandTerms } from '@/lib/app-brand'
 import { persistString, storedString } from '@/lib/storage'
 import { $connectionsRegistry, refreshConnectionsRegistry } from '@/store/connections'

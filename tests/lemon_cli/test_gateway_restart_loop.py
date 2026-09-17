@@ -28,7 +28,7 @@ class TestGatewayLifecyclePattern:
         "lemon gateway stop",
         "lemon gateway uninstall",
         "lemon  gateway  restart",         # double spaces
-        "Hermez Gateway Restart".lower().replace("z", "s"),  # case handled
+        "Lemon Gateway Restart",           # mixed case
         "LEMON GATEWAY RESTART",           # uppercase
     ])
     def test_lemon_gateway_commands(self, text):

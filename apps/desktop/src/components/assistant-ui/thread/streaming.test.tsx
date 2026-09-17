@@ -773,6 +773,7 @@ describe('assistant-ui streaming renderer', () => {
 
     try {
       const localPath = '/Users/me/.lemon-ai/cache/images/cat.png'
+
       const { container } = render(
         <MessageHarness
           message={assistantImageMessage(false, {

@@ -43,7 +43,7 @@ def test_create_get_list(conn):
     proj = pdb.get_project(conn, pid)
 
     assert proj is not None
-    assert proj.slug == "lemon-agent"
+    assert proj.slug == "lemon-ai"
     assert proj.name == "Lemon AI"
     # First folder becomes primary.
     assert proj.primary_path == "/tmp/lemon"
@@ -51,7 +51,7 @@ def test_create_get_list(conn):
     assert proj.folders[0].is_primary is True
 
     # Lookup by slug too.
-    assert pdb.get_project(conn, "lemon-agent").id == pid
+    assert pdb.get_project(conn, "lemon-ai").id == pid
     assert len(pdb.list_projects(conn)) == 1
 
 

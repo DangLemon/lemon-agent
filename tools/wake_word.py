@@ -65,14 +65,17 @@ _DEFAULTS: Dict[str, Any] = {
     "confirmation_frames": _DEFAULT_CONFIRMATION_FRAMES, "start_new_session": True,
 }
 
-# Bundled "hey lemon" model (tools/wakewords/) — the default; alias names resolve
-# to it, not to an openWakeWord built-in.
-_BUNDLED_MODEL_NAME = "hey_lemon"
-_BUNDLED_MODEL_ALIASES = frozenset({"", "hey_lemon", "hey lemon", "lemon"})
+# Bundled "hey lemon" model (tools/wakewords/hey_hermes.*) — the default; alias
+# names resolve to the on-disk artifacts, not to an openWakeWord built-in.
+_BUNDLED_MODEL_NAME = "hey_hermes"
+_BUNDLED_MODEL_ALIASES = frozenset({
+    "", "hey_hermes", "hey hermes", "hermes",
+    "hey_lemon", "hey lemon", "lemon",
+})
 
 
 def _bundled_wakeword_path(framework: str = "onnx") -> str:
-    """Path to the shipped hey_lemon model (.onnx/.tflite) for ``framework``."""
+    """Path to the shipped hey_hermes model (.onnx/.tflite) for ``framework``."""
     ext = "tflite" if str(framework).strip().lower() == "tflite" else "onnx"
     return os.path.join(os.path.dirname(__file__), "wakewords", f"{_BUNDLED_MODEL_NAME}.{ext}")
 

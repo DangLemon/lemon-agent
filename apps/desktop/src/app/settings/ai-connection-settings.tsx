@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RowButton } from '@/components/ui/row-button'
+import { useI18n } from '@/i18n'
 import {
   captureCapabilityScope,
   getCustomEndpoints,
@@ -12,7 +13,6 @@ import {
   saveCustomEndpoint,
   validateCustomEndpoint
 } from '@/lemon'
-import { useI18n } from '@/i18n'
 import { Check, Globe, Loader2, Plus, Save, Zap } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { $activeGatewayRoute, activeGatewayConnectionId } from '@/store/gateway'

@@ -508,7 +508,7 @@ def backup_existing(path: Path, backup_root: Path) -> Optional[Path]:
 # read as self-referential to the new agent identity.
 #
 # Case-preserving: ``OpenClaw`` → ``Lemon AI`` (prose), but lowercase matches
-# like ``openclaw`` → ``lemon`` (so filesystem paths like ``~/.openclaw``
+# like ``openclaw`` → ``lemon-ai`` (so filesystem paths like ``~/.openclaw``
 # become ``~/.lemon-ai`` — the real Lemon AI home — not the broken ``~/.Lemon AI``).
 _REBRAND_PATTERNS: List[Tuple[re.Pattern, str]] = [
     (re.compile(r'\bOpen[\s-]?Claw\b', re.IGNORECASE), 'Lemon AI'),
@@ -521,15 +521,15 @@ def _case_preserving_replacement(replacement: str):
     """Return a re.sub replacement fn that lowercases the result when the
     matched text was all-lowercase.
 
-    Keeps ``OpenClaw`` → ``Lemon AI`` but maps ``openclaw`` → ``lemon`` so a
+    Keeps ``OpenClaw`` → ``Lemon AI`` but maps ``openclaw`` → ``lemon-ai`` so a
     filesystem path like ``~/.openclaw/config.yaml`` rewrites to
     ``~/.lemon-ai/config.yaml`` (the real Lemon AI home) instead of the broken
-    ``~/.Lemon AI/config.yaml``.
+    ``~/.lemon ai/config.yaml``.
     """
     def _sub(match: "re.Match[str]") -> str:
         matched = match.group(0)
         if matched and matched.islower():
-            return replacement.lower()
+            return replacement.lower().replace(" ", "-")
         return replacement
     return _sub
 

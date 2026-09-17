@@ -19,6 +19,7 @@ describe('custom endpoint API scope', () => {
       if (scope && typeof scope === 'object') {
         return { connectionId: scope.connectionId, profile: scope.profile }
       }
+
       return scope ? { profile: scope } : {}
     })
     profileScoped.mockImplementation(scope => (scope ? { profile: scope } : {}))
@@ -27,6 +28,7 @@ describe('custom endpoint API scope', () => {
   it('routes list, save, validate, activate, and delete through capability scope', async () => {
     const api = await import('./config')
     const scope = { connectionId: 'local', profile: 'sales' }
+
     const payload = {
       base_url: 'http://127.0.0.1:5173/v1',
       id: 'lemon-ai-company',

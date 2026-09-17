@@ -51,7 +51,7 @@ class TestBuildLearnPrompt:
         assert "count" in std and "60" in std
         # #3 platforms gating against OS-bound primitives.
         assert "platforms" in std
-        # author is always the literal Lemon AI, never the host/OS identity (#52368).
+        # author is always the literal Lemon, never the host/OS identity (#52368).
         assert "author: always the literal value `lemon`" in std
         assert "never fill it from the host" in std
         # #2 Lemon AI-tool framing names the wrapped tools, not shell utilities.

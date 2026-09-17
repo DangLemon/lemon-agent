@@ -11,8 +11,8 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-import { saveLemonConfigRecord } from '@/lemon'
 import { useI18n } from '@/i18n'
+import { saveLemonConfigRecord } from '@/lemon'
 import { Check, Globe } from '@/lib/icons'
 import { notify, notifyError } from '@/store/notifications'
 import {

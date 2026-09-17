@@ -235,14 +235,25 @@ def _lemon_holder_subcommand(cmdline: str) -> str | None:
     #90778.
     """
     try:
-        tokens = shlex.split(cmdline, posix=False)
+        # Product dir is `%LOCALAPPDATA%\Lemon AI`; an unquoted cmdline splits
+        # on that space and would otherwise treat `AI\.venv\...` as the entry.
+        tokens = shlex.split(
+            (cmdline or "").replace("Lemon AI", "Lemon_AI").replace("lemon ai", "lemon_ai"),
+            posix=False,
+        )
     except Exception:
-        tokens = cmdline.split()
+        tokens = (cmdline or "").split()
 
     def _is_entry(i: int, token: str) -> bool:
         low = token.lower().strip('"')
-        return (low.endswith("lemon_cli.main") and i > 0 and tokens[i - 1] == "-m") or (
-            low.rsplit("\\", 1)[-1].rsplit("/", 1)[-1] in ("lemon", "lemon.exe"))
+        if low.endswith("lemon_cli.main") and i > 0 and tokens[i - 1].strip('"') == "-m":
+            return True
+        base = low.rsplit("\\", 1)[-1].rsplit("/", 1)[-1]
+        if base in ("lemon.exe", "lemon.cmd"):
+            return True
+        # Bare `lemon` on PATH — not a drive-path fragment like `C:\Lemon` from
+        # an unquoted `C:\Lemon AI\...` command line.
+        return base == "lemon" and "\\" not in low and "/" not in low
 
     entry_idx = next((i for i, token in enumerate(tokens) if _is_entry(i, token)), None)
     if entry_idx is None:

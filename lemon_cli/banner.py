@@ -182,7 +182,13 @@ def _is_default_update_repository() -> bool:
 def _ensure_local_origin_matches_configured_repository(repo_dir: Path) -> bool:
     with _ORIGIN_NORMALIZATION_LOCK:
         if _is_default_update_repository():
-            return True
+            from lemon_cli.update_cmd_git import INTERNAL_UPDATE_ENV_VARS
+            internal = any(
+                str(os.environ.get(name, "")).strip() == "1"
+                for name in INTERNAL_UPDATE_ENV_VARS
+            )
+            if not internal:
+                return True
         repo_url = _configured_update_repository_url()
         repo_canonical = _configured_update_repository_canonical()
         if not repo_url or not repo_canonical:

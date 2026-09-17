@@ -44,8 +44,13 @@ def run_manifest_trace(tmp_path, env_updates):
     env = os.environ.copy()
     env["HOME"] = str(tmp_path / "home")
     env.pop("LEMON_DESKTOP_INTERNAL", None)
+    env.pop("HERMES_DESKTOP_INTERNAL", None)
     env.pop("LEMON_DESKTOP_HARNESS_CONFIG", None)
-    env.pop("LEMON_DESKTOP_HARNESS_CONFIG", None)
+    env.pop("HERMES_DESKTOP_HARNESS_CONFIG", None)
+    env.pop("LEMON_DESKTOP_HOME_OVERRIDE", None)
+    env.pop("HERMES_DESKTOP_HOME_OVERRIDE", None)
+    env.pop("LEMON_HOME", None)
+    env.pop("HERMES_HOME", None)
     env.update(env_updates)
 
     result = subprocess.run(
@@ -156,7 +161,7 @@ def test_internal_install_uses_lemon_bootstrap_marker(tmp_path):
 
     assert result.returncode == 0, result.stderr
     assert (install_dir / ".lemon-ai-bootstrap-complete").is_file()
-    assert not (install_dir / ".lemon-ai-bootstrap-complete").exists()
+    assert not (install_dir / ".hermes-bootstrap-complete").exists()
 
 
 def test_lemon_harness_selector_uses_lemon_install_defaults(tmp_path):
@@ -184,7 +189,7 @@ def test_legacy_harness_selector_still_uses_lemon_install_defaults(tmp_path):
 
     result, assignments = run_manifest_trace(
         tmp_path,
-        {"LEMON_DESKTOP_HARNESS_CONFIG": str(harness)},
+        {"HERMES_DESKTOP_HARNESS_CONFIG": str(harness)},
     )
 
     assert result.returncode == 0, result.stderr

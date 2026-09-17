@@ -8,8 +8,8 @@ import { SidebarPanelLabel } from '@/app/shell/sidebar-label'
 import { DisclosureCaret } from '@/components/ui/disclosure-caret'
 import { SidebarGroup, SidebarGroupContent } from '@/components/ui/sidebar'
 import type { LemonGitWorktree } from '@/global'
-import type { SessionInfo } from '@/lemon'
 import { useI18n } from '@/i18n'
+import type { SessionInfo } from '@/lemon'
 import { flattenSessionsWithBranches } from '@/lib/session-branch-tree'
 import {
   groupEntriesByRecency,

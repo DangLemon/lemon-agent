@@ -12,8 +12,8 @@
  * the other just learned.
  */
 
-import { getLemonConfigRecord, type McpTestResult, testMcpServer } from '@/lemon'
 import { translateNow } from '@/i18n'
+import { getLemonConfigRecord, type McpTestResult, testMcpServer } from '@/lemon'
 import { classifyProbe, freshProbe, probeCache, probeKey } from '@/lib/mcp-probe-cache'
 import { getServers } from '@/lib/mcp-servers'
 import { notify } from '@/store/notifications'

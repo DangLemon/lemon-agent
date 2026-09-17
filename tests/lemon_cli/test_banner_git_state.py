@@ -49,7 +49,7 @@ def test_git_banner_state_rejects_stale_origin_after_configured_repo_remap(
 
     repo_dir = tmp_path / "repo"
     (repo_dir / ".git").mkdir(parents=True)
-    monkeypatch.setenv("LEMON_UPDATE_REPOSITORY", "DangLemon/lemon-agent")
+    monkeypatch.setenv("LEMON_UPDATE_REPOSITORY", "ExampleOrg/runtime-agent")
 
     baked = {"upstream": "bakedsha", "local": "bakedsha", "ahead": 0}
     commands = []
@@ -62,7 +62,7 @@ def test_git_banner_state_rejects_stale_origin_after_configured_repo_remap(
                 returncode=0,
                 stdout="https://github.com/DangLemon/lemon-agent.git\n",
             )
-        if joined == "git remote set-url origin https://github.com/DangLemon/lemon-agent.git":
+        if joined == "git remote set-url origin https://github.com/ExampleOrg/runtime-agent.git":
             return MagicMock(returncode=0, stdout="")
         if joined == "git show-ref --verify --quiet refs/remotes/origin/main":
             return MagicMock(returncode=0, stdout="")
@@ -82,12 +82,12 @@ def test_git_banner_state_rejects_stale_origin_after_configured_repo_remap(
 
     assert state == baked
     command_text = [" ".join(str(part) for part in command) for command in commands]
-    assert "git remote set-url origin https://github.com/DangLemon/lemon-agent.git" in command_text
+    assert "git remote set-url origin https://github.com/ExampleOrg/runtime-agent.git" in command_text
     assert "git update-ref -d refs/remotes/origin/main" in command_text
     assert command_text.index("git update-ref -d refs/remotes/origin/main") < command_text.index(
-        "git remote set-url origin https://github.com/DangLemon/lemon-agent.git"
+        "git remote set-url origin https://github.com/ExampleOrg/runtime-agent.git"
     )
-    assert command_text.index("git remote set-url origin https://github.com/DangLemon/lemon-agent.git") < command_text.index(
+    assert command_text.index("git remote set-url origin https://github.com/ExampleOrg/runtime-agent.git") < command_text.index(
         "git rev-parse --short=8 origin/main"
     )
 
@@ -99,7 +99,7 @@ def test_git_banner_state_falls_back_when_stale_origin_invalidation_fails(
 
     repo_dir = tmp_path / "repo"
     (repo_dir / ".git").mkdir(parents=True)
-    monkeypatch.setenv("LEMON_UPDATE_REPOSITORY", "DangLemon/lemon-agent")
+    monkeypatch.setenv("LEMON_UPDATE_REPOSITORY", "ExampleOrg/runtime-agent")
 
     baked = {"upstream": "bakedsha", "local": "bakedsha", "ahead": 0}
     commands = []
@@ -112,7 +112,7 @@ def test_git_banner_state_falls_back_when_stale_origin_invalidation_fails(
                 returncode=0,
                 stdout="https://github.com/DangLemon/lemon-agent.git\n",
             )
-        if joined == "git remote set-url origin https://github.com/DangLemon/lemon-agent.git":
+        if joined == "git remote set-url origin https://github.com/ExampleOrg/runtime-agent.git":
             return MagicMock(returncode=0, stdout="")
         if joined == "git show-ref --verify --quiet refs/remotes/origin/main":
             return MagicMock(returncode=0, stdout="")
@@ -129,7 +129,7 @@ def test_git_banner_state_falls_back_when_stale_origin_invalidation_fails(
     assert state == baked
     command_text = [" ".join(str(part) for part in command) for command in commands]
     assert "git update-ref -d refs/remotes/origin/main" in command_text
-    assert "git remote set-url origin https://github.com/DangLemon/lemon-agent.git" not in command_text
+    assert "git remote set-url origin https://github.com/ExampleOrg/runtime-agent.git" not in command_text
     assert "git rev-parse --short=8 origin/main" not in command_text
 
 
@@ -140,7 +140,7 @@ def test_origin_normalization_blocks_matching_fast_path_until_invalidation_finis
 
     repo_dir = tmp_path / "repo"
     (repo_dir / ".git").mkdir(parents=True)
-    monkeypatch.setenv("LEMON_UPDATE_REPOSITORY", "DangLemon/lemon-agent")
+    monkeypatch.setenv("LEMON_UPDATE_REPOSITORY", "ExampleOrg/runtime-agent")
 
     current_origin = {"value": "https://github.com/DangLemon/lemon-agent.git"}
     commands = []
@@ -157,8 +157,8 @@ def test_origin_normalization_blocks_matching_fast_path_until_invalidation_finis
             commands.append((threading.current_thread().name, joined))
         if joined == "git remote get-url origin":
             return MagicMock(returncode=0, stdout=f"{current_origin['value']}\n")
-        if joined == "git remote set-url origin https://github.com/DangLemon/lemon-agent.git":
-            current_origin["value"] = "https://github.com/DangLemon/lemon-agent.git"
+        if joined == "git remote set-url origin https://github.com/ExampleOrg/runtime-agent.git":
+            current_origin["value"] = "https://github.com/ExampleOrg/runtime-agent.git"
             return MagicMock(returncode=0, stdout="")
         if joined == "git show-ref --verify --quiet refs/remotes/origin/main":
             return MagicMock(returncode=0, stdout="")

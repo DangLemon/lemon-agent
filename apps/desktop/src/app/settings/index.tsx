@@ -5,8 +5,8 @@ import { useLocation, useNavigate } from 'react-router'
 import { codiconIcon } from '@/components/ui/codicon'
 import { KbdCombo } from '@/components/ui/kbd'
 import { Tip } from '@/components/ui/tooltip'
-import { getLemonConfigDefaults, getLemonConfigRecord, saveLemonConfig } from '@/lemon'
 import { useI18n } from '@/i18n'
+import { getLemonConfigDefaults, getLemonConfigRecord, saveLemonConfig } from '@/lemon'
 import { triggerHaptic } from '@/lib/haptics'
 import {
   Archive,

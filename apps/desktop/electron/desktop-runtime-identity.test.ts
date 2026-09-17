@@ -91,10 +91,12 @@ test('desktop defaults and overrides use Lemon paths', () => {
 
 test('explicit desktop overrides bypass Windows registry reads', () => {
   const reads: string[] = []
+
   const env = {
     LEMON_DESKTOP_HOME_OVERRIDE: 'E:\\sandbox-home',
     LEMON_DESKTOP_RUNTIME_DIR_NAME: 'sandbox-runtime'
   }
+
   assert.equal(
     resolveDesktopHomeOverrideFromWindowsRegistry({
       env,
@@ -102,6 +104,7 @@ test('explicit desktop overrides bypass Windows registry reads', () => {
       isWindows: true,
       readRegistry: name => {
         reads.push(name)
+
         return 'registry-value'
       }
     }),
@@ -114,6 +117,7 @@ test('explicit desktop overrides bypass Windows registry reads', () => {
       isWindows: true,
       readRegistry: name => {
         reads.push(name)
+
         return 'registry-value'
       }
     }),

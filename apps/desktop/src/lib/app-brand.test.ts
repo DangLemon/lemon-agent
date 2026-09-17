@@ -229,6 +229,7 @@ describe('appBrandForEnv', () => {
   it('preserves leftover Hermes and current Lemon technical identifiers', () => {
     const leftover =
       'Open Hermes Desktop for hermes://open/settings/plugins, call hermes:api, import @hermes/plugin-sdk, and load hermes-agent from /opt/hermes-agent/bin.'
+
     const current =
       'Open Lemon AI for lemon://open/settings/plugins, call lemon:api, import @lemon-ai/plugin-sdk, and load lemon-agent from /opt/lemon-agent/bin.'
 

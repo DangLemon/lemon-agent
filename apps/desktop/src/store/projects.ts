@@ -7,8 +7,8 @@ import {
   type SidebarProjectTree
 } from '@/app/chat/sidebar/projects/workspace-groups'
 import type { LemonGitBaseBranch, LemonGitBranch } from '@/global'
-import { getLemonConfig, lemonApi, type LemonGateway } from '@/lemon'
 import { translateNow } from '@/i18n'
+import { getLemonConfig, lemonApi, type LemonGateway } from '@/lemon'
 import { replaceLemonBrandTerms } from '@/lib/app-brand'
 import { desktopDefaultCwd, isDesktopFsRemoteMode, selectDesktopPaths, writeDesktopFileText } from '@/lib/desktop-fs'
 import { desktopGit } from '@/lib/desktop-git'

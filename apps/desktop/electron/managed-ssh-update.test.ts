@@ -285,6 +285,7 @@ test('POSIX managed launcher executes the updater command and atomically publish
 
   try {
     const { stdout: truePathOutput } = await exec('type -P true', { shell: '/bin/bash' })
+
     const command = buildPosixManagedUpdateLaunch(
       {
         ssh: { exec: async () => '' },

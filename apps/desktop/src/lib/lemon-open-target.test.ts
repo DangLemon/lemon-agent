@@ -4,8 +4,8 @@ import {
   normalizeLemonOpenString,
   pathFromLemonDeepLink,
   pathFromOpenDeepLink,
-  resolveLemonOpenPath,
-  resolveInternalCompanyOpenPath
+  resolveInternalCompanyOpenPath,
+  resolveLemonOpenPath
 } from './lemon-open-target'
 
 describe('normalizeLemonOpenString', () => {

@@ -160,7 +160,8 @@ docs/superpowers/*
 # bootstrap installer. It is Lemon AI-managed runtime state, never a code change —
 # ignore it so `lemon update`'s `git stash push --include-untracked` does not
 # treat it as a local edit and autostash it on every run (#38529).
-.lemon-bootstrap-complete
+.lemon-ai-bootstrap-complete
+.hermes-bootstrap-complete
 
 # Persistent dev sandbox dir (scripts/dev-sandbox.sh --persistent)
 .lemon-sandbox/

@@ -123,7 +123,7 @@ def _make_packaged_executable(root: Path, monkeypatch) -> Path:
     elif sys.platform == "win32":
         exe = desktop_dir / "release" / "win-unpacked" / "Lemon AI.exe"
     else:
-        exe = desktop_dir / "release" / "linux-unpacked" / "lemon"
+        exe = desktop_dir / "release" / "linux-unpacked" / "Lemon AI"
     _write_executable(exe)
     if sys.platform not in ("darwin", "win32"):
         (exe.parent / "chrome-sandbox").write_text("", encoding="utf-8")

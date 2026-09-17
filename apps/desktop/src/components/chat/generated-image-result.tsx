@@ -48,6 +48,14 @@ export const GeneratedImage: FC<{ aspectRatio?: string; result?: unknown }> = ({
   const image = result === undefined ? null : generatedImageFromResult(result)
   const pending = result === undefined
   const liveGeneration = useRef(pending)
+  let shouldOpenLivePreview = false
+
+  if (pending) {
+    liveGeneration.current = true
+  } else if (liveGeneration.current) {
+    liveGeneration.current = false
+    shouldOpenLivePreview = true
+  }
 
   const [ratio, setRatio] = useState(() => hintedRatio(aspectRatio))
   const [src, setSrc] = useState(() => (image && isInlineMediaSrc(image) ? image : ''))
@@ -62,22 +70,18 @@ export const GeneratedImage: FC<{ aspectRatio?: string; result?: unknown }> = ({
   // Open the right-rail preview only when a live pending generation settles
   // onto a local file. History hydrate must not steal the rail.
   useEffect(() => {
-    if (result === undefined) {
-      liveGeneration.current = true
-
+    if (!shouldOpenLivePreview) {
       return
     }
 
     const srcPath = generatedImageFromResult(result)
-    const shouldOpen = liveGeneration.current && !!srcPath && isFileMediaPath(srcPath)
-    liveGeneration.current = false
 
-    if (!shouldOpen || !srcPath) {
+    if (!srcPath || !isFileMediaPath(srcPath)) {
       return
     }
 
     void openGeneratedImagePreview(srcPath)
-  }, [result])
+  }, [result, shouldOpenLivePreview])
 
   // Resolve the deliverable path (local/gateway stream / remote URL). The
   // <img> stays mounted under the placeholder and only fades in once it decodes,

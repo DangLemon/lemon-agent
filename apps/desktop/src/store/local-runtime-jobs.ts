@@ -1,7 +1,7 @@
 import { atom } from 'nanostores'
 
-import { getLocalModelsJobs, getLocalModelsStatus } from '@/lemon'
 import { translateNow } from '@/i18n'
+import { getLocalModelsJobs, getLocalModelsStatus } from '@/lemon'
 import { notify, notifyError } from '@/store/notifications'
 import type { LocalRuntimeJob } from '@/types/lemon'
 

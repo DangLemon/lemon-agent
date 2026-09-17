@@ -229,7 +229,7 @@ The installer adds `%LOCALAPPDATA%\Lemon AI\bin` to your **User PATH** via `[Env
 Verify:
 
 ```powershell
-Get-Command lemon        # should print C:\Users\<you>\AppData\Local\lemon\bin\lemon.cmd
+Get-Command lemon        # should print C:\Users\<you>\AppData\Local\Lemon AI\bin\lemon.cmd
 lemon --version
 ```
 
@@ -268,7 +268,7 @@ To nuke everything:
 
 ```powershell
 lemon uninstall
-Remove-Item -Recurse -Force "$env:LOCALAPPDATA\lemon"
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\Lemon AI"
 # Also remove a legacy CLI/WSL data dir if you ever used one:
 Remove-Item -Recurse -Force "$env:USERPROFILE\.lemon-ai"
 ```
@@ -288,7 +288,7 @@ Consequence: any codepath that said "check if this PID is alive" via `os.kill(pi
 ## Common pitfalls
 
 **`lemon: command not found` right after install.**
-Open a new PowerShell window. The installer added `%LOCALAPPDATA%\Lemon AI\bin` to User PATH, but existing shells need to be restarted to pick it up. In the meantime you can run `& "$env:LOCALAPPDATA\lemon\bin\lemon.cmd"`.
+Open a new PowerShell window. The installer added `%LOCALAPPDATA%\Lemon AI\bin` to User PATH, but existing shells need to be restarted to pick it up. In the meantime you can run `& "$env:LOCALAPPDATA\Lemon AI\bin\lemon.cmd"`.
 
 **`WinError 193: %1 is not a valid Win32 application` when running a tool.**
 You hit a shebang-script invocation that bypassed the `.cmd` shim. Lemon AI resolves commands through `shutil.which(cmd, path=local_bin)` so PATHEXT picks up `.CMD` — if you're invoking the tool via a hardcoded path instead, switch to the `.cmd` variant (e.g., `npx.cmd`, not `npx`).

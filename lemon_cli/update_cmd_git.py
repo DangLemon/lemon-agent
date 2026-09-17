@@ -273,7 +273,9 @@ def _is_fork(origin_url: Optional[str]) -> bool:
 
 def _ensure_origin_matches_configured_repository(git_cmd: list[str], cwd: Path) -> bool:
     """For internal builds, pin origin to the configured repository before fetching."""
-    if _is_default_update_repository():
+    if _is_default_update_repository() and not any(
+        str(os.environ.get(name, "")).strip() == "1" for name in INTERNAL_UPDATE_ENV_VARS
+    ):
         return True
 
     expected_url = _configured_update_repository_url()

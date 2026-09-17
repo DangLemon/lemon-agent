@@ -214,6 +214,7 @@ async function locateLemon(
   hostAppName = 'Lemon AI'
 ) {
   const appName = displayAppName(hostAppName)
+
   const resolveLauncher = async (candidate: string) => {
     // Return the candidate path directly. The lemon binary or wrapper script
     // is executable and handles argument forwarding (e.g. `exec <python> <script> "$@"`)
