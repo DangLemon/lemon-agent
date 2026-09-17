@@ -77,9 +77,22 @@ export function isFileMediaPath(path: string): boolean {
   return /^(?:file:|\/|~\/|[a-z]:[\\/]|\\\\)/i.test(path)
 }
 
+// Raster images can use the Electron media protocol (no data-URL size cap,
+// no file:// renderer block). SVG stays on the data-URL path so the custom
+// scheme never serves executable XML.
+function isStreamableDisplayImage(path: string): boolean {
+  const ext = path.split(/[?#]/, 1)[0]?.split('.').pop()?.toLowerCase()
+
+  return mediaKind(path) === 'image' && ext !== 'svg'
+}
+
 export async function resolveMediaDisplaySrc(path: string): Promise<string> {
   if (isInlineMediaSrc(path) || !isFileMediaPath(path)) {
     return path
+  }
+
+  if (window.lemonDesktop && isStreamableDisplayImage(path)) {
+    return isRemoteGateway() ? mediaGatewayStreamUrl(path) : mediaStreamUrl(path)
   }
 
   if (window.lemonDesktop && isRemoteGateway()) {
@@ -154,8 +167,9 @@ export function mediaGatewayStreamUrl(path: string): string {
 }
 
 // Custom Electron scheme (registered in electron/main.ts) that streams a local
-// file with Range support. Used for audio/video so playback bypasses the data
-// URL size cap and supports seeking. `path` may be a plain path or `file://…`.
+// file with Range support. Used for audio/video playback and raster image
+// previews so they bypass the data-URL size cap (and file:// renderer block).
+// `path` may be a plain path or `file://…`.
 export function mediaStreamUrl(path: string): string {
   return `lemon-media://stream/${encodeURIComponent(filePathFromMediaPath(path))}`
 }

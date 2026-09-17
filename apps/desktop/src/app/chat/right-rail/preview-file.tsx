@@ -35,6 +35,7 @@ import { createMemoizedMathPlugin } from '@/lib/katex-memo'
 import { isComposerChord } from '@/lib/keybinds/chords'
 import { shikiLanguageForFilename } from '@/lib/markdown-code'
 import { normalizeFilePreviewMath } from '@/lib/markdown-preprocess'
+import { resolveMediaDisplaySrc } from '@/lib/media'
 import { cn } from '@/lib/utils'
 import type { PreviewTarget } from '@/store/preview'
 import { setPreviewDirty } from '@/store/preview-edit'
@@ -736,9 +737,21 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
       setState({ loading: true })
 
       try {
-        if (isImage || isPdf) {
+        if (isImage) {
           // Prefer bytes the caller already handed us (a pasted/dropped
           // screenshot) over re-reading a path that may be transient/unreadable.
+          // Local/gateway files stream through lemon-media so the rail can
+          // preview generated images without the data-URL size cap.
+          const dataUrl = target.dataUrl || (await resolveMediaDisplaySrc(filePath))
+
+          if (active) {
+            setState({ dataUrl, loading: false })
+          }
+
+          return
+        }
+
+        if (isPdf) {
           const dataUrl = target.dataUrl || (await readDesktopFileDataUrl(filePath))
 
           if (active) {

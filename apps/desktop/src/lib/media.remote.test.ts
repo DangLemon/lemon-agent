@@ -144,27 +144,38 @@ describe('resolveMediaDisplaySrc', () => {
     expect(api).not.toHaveBeenCalled()
   })
 
-  it('reads remote gateway-local file paths through the desktop fs bridge', async () => {
+  it('streams remote gateway-local raster images through the media protocol', async () => {
     vi.stubGlobal('window', { lemonDesktop: { api } })
     $connection.set({ mode: 'remote', profile: 'remote-work' } as never)
 
-    await expect(resolveMediaDisplaySrc('/Users/me/project/a b.png')).resolves.toBe('data:image/png;base64,ZHVtbXk=')
-    expect(api).toHaveBeenCalledWith({
-      path: '/api/fs/read-data-url?path=%2FUsers%2Fme%2Fproject%2Fa%20b.png',
-      profile: 'remote-work'
-    })
+    await expect(resolveMediaDisplaySrc('/Users/me/project/a b.png')).resolves.toBe(
+      'lemon-media://remote/%2FUsers%2Fme%2Fproject%2Fa%20b.png?profile=remote-work'
+    )
+    expect(api).not.toHaveBeenCalled()
   })
 
-  it('reads local desktop file paths from the local desktop shell', async () => {
+  it('streams local desktop raster images through the media protocol', async () => {
     const readFileDataUrl = vi.fn(async () => 'data:image/png;base64,bG9jYWw=')
 
     vi.stubGlobal('window', { lemonDesktop: { readFileDataUrl } })
     $connection.set({ mode: 'local' } as never)
 
     await expect(resolveMediaDisplaySrc('file:///Users/me/project/a%20b.png')).resolves.toBe(
-      'data:image/png;base64,bG9jYWw='
+      'lemon-media://stream/%2FUsers%2Fme%2Fproject%2Fa%20b.png'
     )
-    expect(readFileDataUrl).toHaveBeenCalledWith('/Users/me/project/a b.png')
+    expect(readFileDataUrl).not.toHaveBeenCalled()
+  })
+
+  it('still reads SVG through the data-URL bridge', async () => {
+    const readFileDataUrl = vi.fn(async () => 'data:image/svg+xml;base64,ZHVtbXk=')
+
+    vi.stubGlobal('window', { lemonDesktop: { readFileDataUrl } })
+    $connection.set({ mode: 'local' } as never)
+
+    await expect(resolveMediaDisplaySrc('/Users/me/project/icon.svg')).resolves.toBe(
+      'data:image/svg+xml;base64,ZHVtbXk='
+    )
+    expect(readFileDataUrl).toHaveBeenCalledWith('/Users/me/project/icon.svg')
   })
 })
 

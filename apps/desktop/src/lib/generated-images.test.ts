@@ -22,6 +22,23 @@ describe('generatedImageFromResult', () => {
   it('ignores failed image generation results', () => {
     expect(generatedImageFromResult({ image: 'https://cdn.example/cat.png', success: false })).toBeNull()
   })
+
+  it('falls back to the agent-visible path when the host path is missing', () => {
+    expect(
+      generatedImageFromResult({
+        agent_visible_image: '/container/cache/cat.png',
+        success: true
+      })
+    ).toBe('/container/cache/cat.png')
+  })
+
+  it('unwraps a nested result payload and strips a MEDIA prefix', () => {
+    expect(
+      generatedImageFromResult({
+        result: { image: 'MEDIA: /Users/me/.lemon-ai/cache/images/cat.png', success: true }
+      })
+    ).toBe('/Users/me/.lemon-ai/cache/images/cat.png')
+  })
 })
 
 describe('stripGeneratedImageEchoes', () => {

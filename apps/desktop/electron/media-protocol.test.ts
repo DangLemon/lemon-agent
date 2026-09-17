@@ -30,9 +30,11 @@ function request(url: string, headers: Record<string, string> = {}, method = 'GE
 }
 
 describe('media protocol helpers', () => {
-  it('recognises only supported audio/video extensions case-insensitively', () => {
+  it('recognises supported audio, video, and raster image extensions case-insensitively', () => {
     expect(isStreamableMediaPath('/tmp/render.MP4')).toBe(true)
     expect(isStreamableMediaPath('/tmp/voice.flac')).toBe(true)
+    expect(isStreamableMediaPath('/tmp/cat.PNG')).toBe(true)
+    expect(isStreamableMediaPath('/tmp/icon.svg')).toBe(false)
     expect(isStreamableMediaPath('/tmp/secrets.txt')).toBe(false)
   })
 
@@ -75,6 +77,18 @@ describe('createMediaProtocolHandler', () => {
     const [, headers] = vi.mocked(deps.fetchLocal).mock.calls[0]
     expect(headers.get('range')).toBe('bytes=1-3')
     expect(headers.get('authorization')).toBeNull()
+  })
+
+  it('streams local raster images through the same local-file dependency', async () => {
+    const deps = dependencies()
+
+    const response = await createMediaProtocolHandler(deps)(
+      request('lemon-media://stream/%2Ftmp%2Fcat.png')
+    )
+
+    expect(response.status).toBe(206)
+    expect(deps.resolveLocalFile).toHaveBeenCalledWith('/tmp/cat.png')
+    expect(deps.fetchLocal).toHaveBeenCalledOnce()
   })
 
   it('preserves explicit HEAD requests through the local stream fetch', async () => {

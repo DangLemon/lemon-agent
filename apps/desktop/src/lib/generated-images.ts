@@ -12,7 +12,7 @@ type TextLike = {
 // Path-ish result fields the model may echo into its prose. Display prefers the
 // host path (gateway-deliverable); stripping must catch every variant so a
 // sandbox path the model restated doesn't slip through as a duplicate image.
-const DISPLAY_KEYS = ['host_image', 'image'] as const
+const DISPLAY_KEYS = ['host_image', 'image', 'agent_visible_image'] as const
 const ECHO_KEYS = ['host_image', 'image', 'agent_visible_image'] as const
 
 function recordFromUnknown(value: unknown): Record<string, unknown> | null {
@@ -33,10 +33,6 @@ function recordFromUnknown(value: unknown): Record<string, unknown> | null {
   }
 }
 
-function stringFields(record: Record<string, unknown>, keys: readonly string[]): string[] {
-  return keys.map(key => record[key]).filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
-}
-
 function regexEscape(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -45,30 +41,82 @@ function unique(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))]
 }
 
-function imageResult(part: ToolLike): Record<string, unknown> | null {
-  if (part.type !== 'tool-call' || part.toolName !== 'image_generate') {
-    return null
-  }
-
-  const record = recordFromUnknown(part.result)
-
-  return record && record.success !== false ? record : null
+function stripMediaPrefix(value: string): string {
+  return value.replace(/^MEDIA:\s*/i, '').trim()
 }
 
-/** Display source for a completed `image_generate` result (host path wins). */
-export function generatedImageFromResult(result: unknown): string | null {
-  const record = recordFromUnknown(result)
+function imageRefFromValue(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) {
+    return stripMediaPrefix(value)
+  }
+
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const url = (value as Record<string, unknown>).url
+
+    if (typeof url === 'string' && url.trim()) {
+      return stripMediaPrefix(url)
+    }
+  }
+
+  return null
+}
+
+function firstImageRef(record: Record<string, unknown>, keys: readonly string[]): string | null {
+  for (const key of keys) {
+    const ref = imageRefFromValue(record[key])
+
+    if (ref) {
+      return ref
+    }
+  }
+
+  return null
+}
+
+function imagePayload(value: unknown): Record<string, unknown> | null {
+  const record = recordFromUnknown(value)
 
   if (!record || record.success === false) {
     return null
   }
 
-  return stringFields(record, DISPLAY_KEYS)[0] ?? null
+  if (firstImageRef(record, DISPLAY_KEYS)) {
+    return record
+  }
+
+  const nested = record.result === undefined ? null : recordFromUnknown(record.result)
+
+  if (nested && nested.success !== false && firstImageRef(nested, DISPLAY_KEYS)) {
+    return nested
+  }
+
+  return record
+}
+
+function imageResult(part: ToolLike): Record<string, unknown> | null {
+  if (part.type !== 'tool-call' || part.toolName !== 'image_generate') {
+    return null
+  }
+
+  return imagePayload(part.result)
+}
+
+/** Display source for a completed `image_generate` result (host path wins). */
+export function generatedImageFromResult(result: unknown): string | null {
+  const record = imagePayload(result)
+
+  return record ? firstImageRef(record, DISPLAY_KEYS) : null
 }
 
 /** Every path/URL a generated image might appear as in prose, for de-duping. */
 export function generatedImageEchoSources(parts: readonly ToolLike[]): string[] {
-  return unique(parts.flatMap(part => stringFields(imageResult(part) ?? {}, ECHO_KEYS)))
+  return unique(
+    parts.flatMap(part => {
+      const record = imageResult(part)
+
+      return record ? ECHO_KEYS.map(key => imageRefFromValue(record[key])).filter((v): v is string => Boolean(v)) : []
+    })
+  )
 }
 
 /** Strip a generated image out of prose so it only ever shows in the tool slot.
