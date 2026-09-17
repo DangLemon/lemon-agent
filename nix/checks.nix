@@ -228,17 +228,17 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
 
             failures =
               lib.optional (names != [
-                "lemon-agent"
-                "lemon-backend"
-              ]) "expected lemon-agent + lemon-backend processes, got: ${toString names}"
+                "lemon-ai-agent"
+                "lemon-ai-backend"
+              ]) "expected lemon-ai-agent + lemon-ai-backend processes, got: ${toString names}"
               ++ lib.optional (
-                !lib.hasInfix "bin/lemon gateway" (argvOf "lemon-agent")
-              ) "gateway process does not run `lemon gateway`: ${argvOf "lemon-agent"}"
+                !lib.hasInfix "bin/lemon gateway" (argvOf "lemon-ai-agent")
+              ) "gateway process does not run `lemon gateway`: ${argvOf "lemon-ai-agent"}"
               ++ lib.optional (
-                !lib.hasInfix "bin/lemon serve" (argvOf "lemon-backend")
-              ) "backend process does not run `lemon serve`: ${argvOf "lemon-backend"}"
+                !lib.hasInfix "bin/lemon serve" (argvOf "lemon-ai-backend")
+              ) "backend process does not run `lemon serve`: ${argvOf "lemon-ai-backend"}"
               ++ lib.optional (
-                !lib.hasInfix "--no-open" (argvOf "lemon-backend")
+                !lib.hasInfix "--no-open" (argvOf "lemon-ai-backend")
               ) "backend must pass --no-open so a service never opens a browser"
               ++ lib.optional (
                 lib.any (n: !lib.hasInfix "/home/lemon-check/.lemon-ai" (envOf n)) names
@@ -665,15 +665,15 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
 
             failures =
               lib.optional (names != [
-                "lemon-agent"
-                "lemon-backend"
-              ]) "expected lemon-agent + lemon-backend units, got: ${toString names}"
+                "lemon-ai-agent"
+                "lemon-ai-backend"
+              ]) "expected lemon-ai-agent + lemon-ai-backend units, got: ${toString names}"
               ++ lib.optional (
-                !lib.hasInfix "bin/lemon gateway" (execOf "lemon-agent")
-              ) "gateway unit does not run `lemon gateway`: ${execOf "lemon-agent"}"
+                !lib.hasInfix "bin/lemon gateway" (execOf "lemon-ai-agent")
+              ) "gateway unit does not run `lemon gateway`: ${execOf "lemon-ai-agent"}"
               ++ lib.optional (
-                !lib.hasInfix "bin/lemon dashboard" (execOf "lemon-backend")
-              ) "backend unit does not run `lemon dashboard`: ${execOf "lemon-backend"}"
+                !lib.hasInfix "bin/lemon dashboard" (execOf "lemon-ai-backend")
+              ) "backend unit does not run `lemon dashboard`: ${execOf "lemon-ai-backend"}"
               ++ lib.optional (
                 units.lemon-ai-agent.environment.LEMON_HOME != units.lemon-ai-backend.environment.LEMON_HOME
               ) "gateway and backend must share one LEMON_HOME"
