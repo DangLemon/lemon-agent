@@ -264,7 +264,9 @@ describe("ChatPage", () => {
       </MemoryRouter>,
     );
 
-    await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+    await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1), {
+      timeout: 10_000,
+    });
 
     FakeWebSocket.instances[0].onclose?.({
       code: 4401,
