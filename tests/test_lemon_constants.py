@@ -36,9 +36,32 @@ class TestGetDefaultLemonRoot:
     def test_no_lemon_home_returns_native(self, tmp_path, monkeypatch):
         """When LEMON_HOME is not set, returns ~/.lemon-ai."""
         monkeypatch.delenv("LEMON_HOME", raising=False)
+        monkeypatch.delenv("HERMES_HOME", raising=False)
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
         assert get_default_lemon_root() == tmp_path / ".lemon-ai"
+
+    def test_hermes_home_used_when_lemon_home_unset(self, tmp_path, monkeypatch):
+        custom = tmp_path / "custom-hermes-home"
+        monkeypatch.delenv("LEMON_HOME", raising=False)
+        monkeypatch.setenv("HERMES_HOME", str(custom))
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(lemon_constants, "_default_lemon_root_memo", None, raising=False)
+
+        assert get_default_lemon_root() == custom
+        assert get_lemon_home() == custom
+        assert get_process_lemon_home() == custom
+
+    def test_lemon_home_wins_over_hermes_home(self, tmp_path, monkeypatch):
+        lemon = tmp_path / "lemon-home"
+        hermes = tmp_path / "hermes-home"
+        monkeypatch.setenv("LEMON_HOME", str(lemon))
+        monkeypatch.setenv("HERMES_HOME", str(hermes))
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(lemon_constants, "_default_lemon_root_memo", None, raising=False)
+
+        assert get_default_lemon_root() == lemon
+        assert get_process_lemon_home() == lemon
 
 
 
@@ -59,6 +82,7 @@ class TestGetDefaultLemonRoot:
         """Native Windows falls back to %LOCALAPPDATA%\\Lemon AI, not ~/.lemon-ai."""
         local_appdata = tmp_path / "LocalAppData"
         monkeypatch.delenv("LEMON_HOME", raising=False)
+        monkeypatch.delenv("HERMES_HOME", raising=False)
         monkeypatch.setenv("LOCALAPPDATA", str(local_appdata))
         monkeypatch.setattr(Path, "home", lambda: tmp_path / "Home")
 

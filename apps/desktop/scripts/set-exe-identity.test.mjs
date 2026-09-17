@@ -35,21 +35,21 @@ function withTempExe(fn) {
 
 test('resolveExeIdentity keeps Lemon AI resources by default', () => {
   assert.deepEqual(resolveExeIdentity({ desktopRoot, env: {} }), {
-    icon: path.join(desktopRoot, 'assets', 'icon.ico'),
+    icon: path.join(desktopRoot, 'assets', 'lemon-icon.ico'),
     productName: 'Lemon AI',
     fileDescription: 'Lemon AI',
-    companyName: 'Nous Research',
-    legalCopyright: 'Copyright (c) 2026 Nous Research'
+    companyName: 'Lemon Digital',
+    legalCopyright: 'Copyright (c) 2026 Lemon Digital'
   })
 })
 
 test('resolveExeIdentity keeps Lemon AI resources for compatibility mode', () => {
   assert.deepEqual(resolveExeIdentity({ desktopRoot, env: {}, harnessResource: null }), {
-    icon: path.join(desktopRoot, 'assets', 'icon.ico'),
+    icon: path.join(desktopRoot, 'assets', 'lemon-icon.ico'),
     productName: 'Lemon AI',
     fileDescription: 'Lemon AI',
-    companyName: 'Nous Research',
-    legalCopyright: 'Copyright (c) 2026 Nous Research'
+    companyName: 'Lemon Digital',
+    legalCopyright: 'Copyright (c) 2026 Lemon Digital'
   })
 })
 
@@ -79,11 +79,11 @@ test('resolveExeIdentity keeps Lemon AI resources when a Lemon selector is inher
         env: { LEMON_INSTALLER_BRAND: 'lemon', LEMON_DESKTOP_HARNESS_CONFIG: config }
       }),
       {
-        icon: path.join(desktopRoot, 'assets', 'icon.ico'),
+        icon: path.join(desktopRoot, 'assets', 'lemon-icon.ico'),
         productName: 'Lemon AI',
         fileDescription: 'Lemon AI',
-        companyName: 'Nous Research',
-        legalCopyright: 'Copyright (c) 2026 Nous Research'
+        companyName: 'Lemon Digital',
+        legalCopyright: 'Copyright (c) 2026 Lemon Digital'
       }
     )
   })

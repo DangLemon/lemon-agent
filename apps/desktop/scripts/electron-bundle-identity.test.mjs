@@ -72,14 +72,14 @@ test('ordinary development bundle leaves package identity to the runtime environ
   assert.deepEqual(resolveElectronBundleDefines({ env: {}, isDev: true }), {})
 })
 
-test('Lemon AI installer brand keeps inherited Lemon selectors out of the bundle', () => {
+test('Lemon AI installer brand still bakes internal identity from a valid harness', () => {
   withHarnessConfig(configPath => {
     assert.deepEqual(resolveElectronBundleDefines({
       env: { LEMON_INSTALLER_BRAND: 'lemon', LEMON_DESKTOP_HARNESS_CONFIG: configPath },
       isDev: false
     }), {
       [packagedKey]: 'true',
-      [internalPackageKey]: JSON.stringify('')
+      [internalPackageKey]: JSON.stringify('1')
     })
   })
 })

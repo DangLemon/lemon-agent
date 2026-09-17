@@ -118,7 +118,7 @@ selected_internal_harness_config() {
     if [ -n "${LEMON_DESKTOP_HARNESS_CONFIG:-}" ]; then
         printf '%s' "$LEMON_DESKTOP_HARNESS_CONFIG"
     else
-        printf '%s' "${LEMON_DESKTOP_HARNESS_CONFIG:-}"
+        printf '%s' "${HERMES_DESKTOP_HARNESS_CONFIG:-}"
     fi
 }
 
@@ -141,12 +141,10 @@ checkout_internal_harness_config() {
 
 is_internal_desktop_build() {
     case "${LEMON_INSTALLER_BRAND:-}" in
-        lemon) return 0 ;;
-        lemon) return 1 ;;
-        "")
+        lemon|"")
             ;;
         *)
-            echo "Error: LEMON_INSTALLER_BRAND must be 'lemon' or 'lemon'" >&2
+            echo "Error: LEMON_INSTALLER_BRAND must be 'lemon'" >&2
             exit 1
             ;;
     esac
@@ -164,7 +162,7 @@ is_internal_desktop_build() {
     selected="$(selected_internal_harness_config)"
     if [ -n "$selected" ]; then
         valid_internal_harness_config "$selected" && return 0
-        return 0
+        return 1
     fi
 
     checkout_internal_harness_config && return 0
@@ -175,18 +173,10 @@ INTERNAL_DESKTOP_BUILD=false
 if is_internal_desktop_build; then
     INTERNAL_DESKTOP_BUILD=true
 fi
-if [ "$INTERNAL_DESKTOP_BUILD" = true ]; then
-    DEFAULT_REPOSITORY="$LEMON_DEFAULT_REPOSITORY"
-else
-    DEFAULT_REPOSITORY="$LEMON_DEFAULT_REPOSITORY"
-fi
+DEFAULT_REPOSITORY="$LEMON_DEFAULT_REPOSITORY"
 REPOSITORY="${REPOSITORY:-$DEFAULT_REPOSITORY}"
-if [ "$INTERNAL_DESKTOP_BUILD" = true ]; then
-    RUNTIME_DIR_NAME="${LEMON_DESKTOP_RUNTIME_DIR_NAME:-}"
-    if [ -z "$RUNTIME_DIR_NAME" ]; then
-        RUNTIME_DIR_NAME="${LEMON_INSTALL_RUNTIME_DIR_NAME:-}"
-    fi
-else
+RUNTIME_DIR_NAME="${LEMON_DESKTOP_RUNTIME_DIR_NAME:-}"
+if [ -z "$RUNTIME_DIR_NAME" ]; then
     RUNTIME_DIR_NAME="${LEMON_INSTALL_RUNTIME_DIR_NAME:-}"
 fi
 if [ -z "$RUNTIME_DIR_NAME" ]; then
@@ -197,11 +187,7 @@ if ! is_safe_file_name "$RUNTIME_DIR_NAME"; then
     exit 1
 fi
 DEFAULT_LEMON_HOME="$HOME/.lemon-ai"
-if [ "$INTERNAL_DESKTOP_BUILD" = true ]; then
-    LEMON_HOME="${LEMON_DESKTOP_HOME_OVERRIDE:-$DEFAULT_LEMON_HOME}"
-else
-    LEMON_HOME="${LEMON_HOME:-$DEFAULT_LEMON_HOME}"
-fi
+LEMON_HOME="${LEMON_DESKTOP_HOME_OVERRIDE:-${LEMON_HOME:-${HERMES_HOME:-$DEFAULT_LEMON_HOME}}}"
 # INSTALL_DIR is resolved AFTER arg parsing and OS detection so we can pick an
 # FHS-style layout for root installs.  Track whether the user gave us an
 # explicit directory — if so we never override it.
@@ -2824,7 +2810,7 @@ strip_snap_browser_override() {
 
     local tmp
     tmp="$(mktemp)" || return 0
-    if grep -Ev '^AGENT_BROWSER_EXECUTABLE_PATH=/snap/|^# (Lemon AI|Lemon AI) browser tools' "$env_file" > "$tmp"; then
+    if grep -Ev '^AGENT_BROWSER_EXECUTABLE_PATH=/snap/|^# (Lemon AI|Hermes) browser tools' "$env_file" > "$tmp"; then
         mv "$tmp" "$env_file"
         log_warn "Removed stale Snap browser override (AGENT_BROWSER_EXECUTABLE_PATH=/snap/...) from $env_file"
         log_info "$INSTALLER_PRODUCT_NAME will use the bundled Chromium instead."

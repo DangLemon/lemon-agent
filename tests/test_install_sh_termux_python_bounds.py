@@ -151,23 +151,17 @@ def test_install_stage_prefers_compatible_minor_over_unsupported_default(
     assert "Python found: Python 3.11.15" in result.stdout
 
 
-@pytest.mark.parametrize(
-    ("brand", "product"),
-    [("lemon", "Lemon AI"), ("lemon", "Lemon AI")],
-)
-def test_install_stage_rejects_post_install_unsupported_default(
-    tmp_path: Path, brand: str, product: str
-) -> None:
+def test_install_stage_rejects_post_install_unsupported_default(tmp_path: Path) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     _write_fake_python(bin_dir, "python", "3.14.6")
     _write_unsupported_explicit_pythons(bin_dir)
 
-    result = _run_install_prerequisites(tmp_path, brand=brand)
+    result = _run_install_prerequisites(tmp_path, brand="lemon")
 
     assert result.returncode == 1
     assert "Termux Python Python 3.14.6 is not supported" in result.stdout
-    assert f"{product} requires Python >=3.11,<3.14" in result.stdout
+    assert "Lemon AI requires Python >=3.11,<3.14" in result.stdout
     assert "pkg install tur-repo && pkg install python3.13" in result.stdout
 
 

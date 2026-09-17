@@ -748,13 +748,11 @@ def _perform_uninstall(
 
 
 _DEFAULT_UPDATE_REPOSITORY = "DangLemon/lemon-agent"
-_INTERNAL_UPDATE_REPOSITORY = "DangLemon/lemon-agent"
 _UPDATE_REPOSITORY_RE = re.compile(
     r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?/"
     r"[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?$"
 )
 _INTERNAL_UPDATE_ENV_VARS = (
-    "LEMON_DESKTOP_INTERNAL",
     "LEMON_DESKTOP_INTERNAL",
     "LEMON_DESKTOP_INTERNAL_PACKAGE",
 )
@@ -782,7 +780,7 @@ def _configured_update_repository_for_reinstall() -> str:
     if explicit:
         return explicit
     if any(str(os.environ.get(name, "")).strip() == "1" for name in _INTERNAL_UPDATE_ENV_VARS):
-        return _INTERNAL_UPDATE_REPOSITORY
+        return _DEFAULT_UPDATE_REPOSITORY
     return _DEFAULT_UPDATE_REPOSITORY
 
 

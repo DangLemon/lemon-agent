@@ -2,7 +2,7 @@
 
 The internal Lemon AI build carries a validated harness resource.  New builds
 select it with ``LEMON_DESKTOP_HARNESS_CONFIG``; the legacy
-``LEMON_DESKTOP_HARNESS_CONFIG`` spelling remains a fallback for compatibility.
+``HERMES_DESKTOP_HARNESS_CONFIG`` spelling remains a fallback for compatibility.
 An arbitrary path must never change the installed product identity.  Keep this
 validation intentionally small and dependency-free so it is safe to use from
 the installer/uninstaller before the full agent configuration is available.
@@ -68,7 +68,7 @@ def internal_desktop_build(env: Mapping[str, str] | None = None) -> bool:
     selected = (
         lemon_selected
         if str(lemon_selected or "").strip()
-        else environ.get("LEMON_DESKTOP_HARNESS_CONFIG")
+        else environ.get("HERMES_DESKTOP_HARNESS_CONFIG")
     )
     return is_valid_internal_harness_path(selected)
 

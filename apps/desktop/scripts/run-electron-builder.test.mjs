@@ -145,7 +145,7 @@ test('ordinary package config uses Lemon installer metadata and assets in this f
   await validateConfiguration(structuredClone(config))
 })
 
-test('Lemon AI installer brand keeps the package config on the Lemon AI identity', async () => {
+test('Lemon AI installer brand keeps the package config on the Lemon Digital identity', async () => {
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
   const config = createElectronBuilderConfig(pkg.build, {
     env: {
@@ -157,18 +157,18 @@ test('Lemon AI installer brand keeps the package config on the Lemon AI identity
 
   assertPhysicalIdentity(config, {
     expectedProductName: 'Lemon AI',
-    expectedAppId: 'com.nousresearch.lemon-ai',
+    expectedAppId: 'com.lemondigital.lemonai',
     expectedExecutableName: 'Lemon AI',
     expectedProtocolName: 'Lemon AI Protocol'
   })
-  assert.equal(config.artifactName, 'Lemon AI-${version}-${os}-${arch}.${ext}')
+  assert.equal(config.artifactName, 'Lemon-AI-${version}-${os}-${arch}.${ext}')
   assert.equal(config.dmg.title, 'Install Lemon AI')
   assert.deepEqual(config.extraResources[1], {
-    from: 'assets/icon.ico',
+    from: 'assets/lemon-icon.ico',
     to: 'icon.ico'
   })
-  assert.equal(config.copyright, 'Copyright © 2026 Nous Research')
-  assert.equal(config.mac.extendInfo.NSHumanReadableCopyright, 'Copyright © 2026 Nous Research')
+  assert.equal(config.copyright, 'Copyright © 2026 Lemon Digital')
+  assert.equal(config.mac.extendInfo.NSHumanReadableCopyright, 'Copyright © 2026 Lemon Digital')
   await validateConfiguration(structuredClone(config))
 })
 
@@ -242,7 +242,6 @@ test('validated internal package config applies Lemon physical identity while pr
       filter: ['lemon-ai-harness.json', 'lemon-ai-harness-seed.py']
     })
     const serializedConfig = JSON.stringify(config)
-    assert.equal(serializedConfig.includes('DangLemon/lemon-agent'), false)
     assert.equal(serializedConfig.includes('lemon-updater'), false)
     assert.equal(serializedConfig.includes('"publish"'), false)
     await validateConfiguration(structuredClone(config))

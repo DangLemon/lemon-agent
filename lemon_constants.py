@@ -59,7 +59,7 @@ def _migrate_legacy_default_home_once() -> None:
         from lemon_migration import migrate_default_home_once
 
         result = migrate_default_home_once(lemon_home=_get_platform_default_lemon_home())
-    except Exception:
+    except (ImportError, OSError):
         return
     if result.state in {"conflict", "error"} and not _identity_migration_warned:
         _identity_migration_warned = True
@@ -160,8 +160,8 @@ def get_process_lemon_home() -> Path:
     return Path(val) if val else _get_platform_default_lemon_home()
 
 
-# get_default_lemon_root() memo keyed on (native home, LEMON_HOME) so it stays
-# fresh when a test or plugin mutates LEMON_HOME; saves ~80us/call at 31+ sites.
+# get_default_lemon_root() memo keyed on (native home, process home env) so it stays
+# fresh when a test or plugin mutates LEMON_HOME / HERMES_HOME; saves ~80us/call at 31+ sites.
 _default_lemon_root_memo: "tuple[str, str, Path] | None" = None
 
 
@@ -169,7 +169,7 @@ def get_default_lemon_root() -> Path:
     """Root Lemon AI dir for profile-level ops: ``<root>`` when ``LEMON_HOME=<root>/profiles/<name>``."""
     global _default_lemon_root_memo
     native_home = _get_platform_default_lemon_home()
-    env_home = os.environ.get("LEMON_HOME", "")
+    env_home = os.environ.get("LEMON_HOME", "").strip() or os.environ.get("HERMES_HOME", "").strip()
     memo = _default_lemon_root_memo
     if memo is not None and memo[:2] == (str(native_home), env_home):
         return memo[2]

@@ -53,7 +53,7 @@ def test_internal_desktop_build_prefers_nonblank_lemon_selector(tmp_path):
         internal_desktop_build(
             {
                 "LEMON_DESKTOP_HARNESS_CONFIG": str(valid),
-                "LEMON_DESKTOP_HARNESS_CONFIG": str(tmp_path / "missing.json"),
+                "HERMES_DESKTOP_HARNESS_CONFIG": str(tmp_path / "missing.json"),
             }
         )
         is True
@@ -68,7 +68,7 @@ def test_internal_desktop_build_blank_lemon_selector_falls_back_to_legacy(tmp_pa
         internal_desktop_build(
             {
                 "LEMON_DESKTOP_HARNESS_CONFIG": "  \t ",
-                "LEMON_DESKTOP_HARNESS_CONFIG": str(valid),
+                "HERMES_DESKTOP_HARNESS_CONFIG": str(valid),
             }
         )
         is True
@@ -85,7 +85,7 @@ def test_internal_desktop_build_invalid_nonblank_lemon_selector_fails_closed(
         internal_desktop_build(
             {
                 "LEMON_DESKTOP_HARNESS_CONFIG": str(tmp_path / "missing.json"),
-                "LEMON_DESKTOP_HARNESS_CONFIG": str(valid_legacy),
+                "HERMES_DESKTOP_HARNESS_CONFIG": str(valid_legacy),
             }
         )
         is False

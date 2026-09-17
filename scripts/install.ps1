@@ -168,11 +168,8 @@ function Write-PathDiag {
 function Test-InternalHarnessConfig {
     $brand = [string]$env:LEMON_INSTALLER_BRAND
     if (-not [string]::IsNullOrWhiteSpace($brand)) {
-        switch ($brand) {
-            "lemon" { return $true }
-            "lemon" { return $false }
-            default { throw "LEMON_INSTALLER_BRAND must be 'lemon' or 'lemon'" }
-        }
+        if ($brand -eq "lemon") { return $true }
+        throw "LEMON_INSTALLER_BRAND must be 'lemon'"
     }
 
     if ($env:LEMON_DESKTOP_INTERNAL -eq "1") { return $true }
@@ -180,12 +177,11 @@ function Test-InternalHarnessConfig {
     $selected = if (-not [string]::IsNullOrWhiteSpace([string]$env:LEMON_DESKTOP_HARNESS_CONFIG)) {
         [string]$env:LEMON_DESKTOP_HARNESS_CONFIG
     } else {
-        [string]$env:LEMON_DESKTOP_HARNESS_CONFIG
+        [string]$env:HERMES_DESKTOP_HARNESS_CONFIG
     }
 
     if (-not [string]::IsNullOrWhiteSpace($selected)) {
-        if (Test-InternalHarnessResource $selected) { return $true }
-        return $true
+        return (Test-InternalHarnessResource $selected)
     }
 
     if (Test-RepositorySelectsInternalBuild) { return $true }
@@ -568,7 +564,7 @@ $script:ResolvedPathReport = @{
     product_name      = $InstallerAgentName
     repository        = $Repository
     runtime_dir_name  = $RuntimeDirName
-    bootstrap_marker  = if ($InternalDesktopBuild) { ".lemon-ai-bootstrap-complete" } else { ".lemon-ai-bootstrap-complete" }
+    bootstrap_marker  = ".lemon-ai-bootstrap-complete"
     recovery_url      = (Get-InstallerRecoveryUrl)
     diagnostics       = @(Get-InstallerDiagnosticLines `
         -InternalBuild $InternalDesktopBuild `
@@ -3725,7 +3721,7 @@ function Write-BootstrapMarker {
         $pinnedBranch = "main"  # install.ps1's own default for -Branch
     }
 
-    $defaultMarkerName = if ($InternalDesktopBuild) { ".lemon-ai-bootstrap-complete" } else { ".lemon-ai-bootstrap-complete" }
+    $defaultMarkerName = ".lemon-ai-bootstrap-complete"
     $markerName = if ($env:LEMON_BOOTSTRAP_MARKER_NAME) { $env:LEMON_BOOTSTRAP_MARKER_NAME } else { $defaultMarkerName }
     if (-not (Test-SafeFileName $markerName)) {
         throw "LEMON_BOOTSTRAP_MARKER_NAME must be a safe file name"

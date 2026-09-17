@@ -28,7 +28,7 @@ pub fn internal_desktop_build() -> bool {
         std::env::var("LEMON_DESKTOP_HARNESS_CONFIG")
             .ok()
             .as_deref(),
-        std::env::var("LEMON_DESKTOP_HARNESS_CONFIG")
+        std::env::var("HERMES_DESKTOP_HARNESS_CONFIG")
             .ok()
             .as_deref(),
         option_env!("LEMON_INSTALLER_BRAND"),
@@ -151,12 +151,24 @@ pub fn runtime_dir_name() -> String {
 pub fn lemon_home() -> PathBuf {
     let internal = internal_desktop_build();
 
+    let lemon_home_env = std::env::var("LEMON_HOME").ok();
+    let hermes_home_env = std::env::var("HERMES_HOME").ok();
+    let inherited_home = lemon_home_env
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            hermes_home_env
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+        });
     if let Some(override_path) = home_override_for(
         internal,
         std::env::var("LEMON_DESKTOP_HOME_OVERRIDE")
             .ok()
             .as_deref(),
-        std::env::var("LEMON_HOME").ok().as_deref(),
+        inherited_home,
     ) {
         return override_path;
     }
@@ -164,17 +176,11 @@ pub fn lemon_home() -> PathBuf {
     #[cfg(target_os = "windows")]
     {
         if let Some(local_app_data) = dirs::data_local_dir() {
-            if internal {
-                return local_app_data.join("Lemon AI");
-            }
-            return local_app_data.join("lemon");
+            return local_app_data.join("Lemon AI");
         }
     }
 
     if let Some(home) = dirs::home_dir() {
-        if internal {
-            return home.join(".lemon-ai");
-        }
         return home.join(".lemon-ai");
     }
 
@@ -196,9 +202,7 @@ fn home_override_for(
         return Some(PathBuf::from(value));
     }
 
-    if internal {
-        return None;
-    }
+    let _ = internal;
 
     legacy_override
         .map(str::trim)
@@ -235,12 +239,8 @@ pub fn bootstrap_cache_dir() -> PathBuf {
     lemon_home().join("bootstrap-cache")
 }
 
-fn product_name_for(internal: bool) -> &'static str {
-    if internal {
-        "Lemon AI"
-    } else {
-        "Lemon AI"
-    }
+fn product_name_for(_internal: bool) -> &'static str {
+    "Lemon AI"
 }
 
 pub fn product_name() -> &'static str {
@@ -331,17 +331,9 @@ pub fn get_product_name() -> String {
 /// platforms the extension differs but the directory is the same.
 pub fn installer_dest() -> PathBuf {
     let fallback = if cfg!(target_os = "windows") {
-        if internal_desktop_build() {
-            "lemon-ai-setup.exe"
-        } else {
-            "lemon-setup.exe"
-        }
+        "lemon-ai-setup.exe"
     } else {
-        if internal_desktop_build() {
-            "lemon-ai-setup"
-        } else {
-            "lemon-setup"
-        }
+        "lemon-ai-setup"
     };
     let name = safe_file_name_from_env("LEMON_STAGED_UPDATER_NAME", fallback);
     lemon_home().join(name)
@@ -592,8 +584,8 @@ mod tests {
         );
         assert_eq!(
             home_override_for(true, None, Some("/legacy/lemon")),
-            None,
-            "internal installer ignores inherited legacy LEMON_HOME"
+            Some(PathBuf::from("/legacy/lemon")),
+            "internal installer still honors inherited LEMON_HOME"
         );
         assert_eq!(
             home_override_for(true, Some("/company/lemon"), Some("/legacy/lemon")),
@@ -636,8 +628,8 @@ mod tests {
         );
         assert_eq!(
             home_override_for(true, None, Some("/legacy/lemon")),
-            None,
-            "internal identity must not adopt legacy LEMON_HOME by default"
+            Some(PathBuf::from("/legacy/lemon")),
+            "internal identity still honors inherited LEMON_HOME"
         );
 
         let _ = std::fs::remove_file(&base);
