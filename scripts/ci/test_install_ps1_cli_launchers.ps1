@@ -99,10 +99,15 @@ function Assert-Equal {
 function Assert-ThrowsLike {
     param([scriptblock]$Script, [string]$Pattern, [string]$Name)
     $threw = $false
+    $actual = ''
     try {
         & $Script
     } catch {
-        $threw = $_.Exception.Message -like $Pattern
+        $actual = [string]$_.Exception.Message
+        $threw = $actual -like $Pattern
+        if (-not $threw) {
+            Write-Host "  actual exception: $actual"
+        }
     }
     Assert-True $threw $Name
 }
@@ -228,40 +233,22 @@ try {
 
     $shadowBinDir = Join-Path $caseRoot 'shadow-bin'
     New-Item -ItemType Directory -Force -Path $shadowBinDir | Out-Null
-    [System.IO.File]::WriteAllBytes((Join-Path $shadowBinDir 'lemon.exe'), [byte[]](77, 90, 9))
-    function Remove-Item {
-        [CmdletBinding()]
-        param(
-            [string[]]$LiteralPath,
-            [string[]]$Path,
-            [switch]$Force,
-            [Parameter(ValueFromRemainingArguments=$true)]
-            [object[]]$Remaining
-        )
-        $targets = @()
-        if ($null -ne $LiteralPath) { $targets += @($LiteralPath) }
-        if ($null -ne $Path) { $targets += @($Path) }
-        foreach ($target in $targets) {
-            if ($target -isnot [string] -or [string]::IsNullOrWhiteSpace($target)) { continue }
-            if ($target.EndsWith('\lemon.exe', [System.StringComparison]::OrdinalIgnoreCase) -or
-                $target.EndsWith('/lemon.exe', [System.StringComparison]::OrdinalIgnoreCase)) {
-                throw "simulated launcher lock"
-            }
-        }
-        if ($LiteralPath) {
-            Microsoft.PowerShell.Management\Remove-Item -LiteralPath $LiteralPath -Force:$Force @Remaining
-        } elseif ($Path) {
-            Microsoft.PowerShell.Management\Remove-Item -Path $Path -Force:$Force @Remaining
-        } else {
-            Microsoft.PowerShell.Management\Remove-Item @Remaining
-        }
-    }
+    $shadowingExe = Join-Path $shadowBinDir 'lemon.exe'
+    [System.IO.File]::WriteAllBytes($shadowingExe, [byte[]](77, 90, 9))
+    # Exclusive share=None lock is the real Windows fail-closed path (a leftover
+    # lemon.exe held open by a previous session). Function-level Remove-Item
+    # stubs do not intercept the installer function on pwsh 7.
+    $lockStream = [System.IO.File]::Open(
+        $shadowingExe,
+        [System.IO.FileMode]::Open,
+        [System.IO.FileAccess]::Read,
+        [System.IO.FileShare]::None)
     try {
         Assert-ThrowsLike {
             Install-LemonCommandLaunchers -Root $installRoot -Destination $shadowBinDir -Repository 'DangLemon/lemon-agent' | Out-Null
         } '*stale launcher blocks PATH resolution*' 'stale lemon.exe removal failure fails closed'
     } finally {
-        Microsoft.PowerShell.Management\Remove-Item -LiteralPath Function:\Remove-Item -Force -ErrorAction SilentlyContinue
+        $lockStream.Dispose()
     }
 
     $crossDrive = Get-LemonLauncherRelativePath `
