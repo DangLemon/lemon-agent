@@ -24,7 +24,7 @@ vi.mock('@/store/gateway', () => ({
   ensureGatewayForProfile,
   openGatewayForProfile
 }))
-vi.mock('@/hermes', () => ({
+vi.mock('@/lemon', () => ({
   getProfiles: vi.fn(async () => ({ profiles: [] })),
   setApiRequestProfile: vi.fn()
 }))
@@ -123,7 +123,7 @@ describe('selectProfile startup preference (#79886)', () => {
     const getConnectionConfig = vi.fn(async () => ({ mode: 'local' }))
 
     ;(globalThis as { window?: unknown }).window = {
-      hermesDesktop: {
+      lemonDesktop: {
         getConnection,
         getConnectionConfig,
         profile: { remember: rememberProfile }
@@ -188,7 +188,7 @@ describe('selectProfile startup preference (#79886)', () => {
     const getConnectionConfig = vi.fn(async () => ({ mode: 'local' }))
 
     ;(globalThis as { window?: unknown }).window = {
-      hermesDesktop: {
+      lemonDesktop: {
         getConnection,
         getConnectionConfig,
         profile: { remember: rememberProfile }
@@ -209,17 +209,17 @@ describe('selectProfile startup preference (#79886)', () => {
     const getConnectionConfig = vi.fn(async () => ({ mode: 'ssh' }))
 
     ;(globalThis as { window?: unknown }).window = {
-      hermesDesktop: {
+      lemonDesktop: {
         getConnection,
         getConnectionConfig,
         profile: { remember: rememberProfile }
       }
     }
 
-    selectProfile('macmini-hermes')
+    selectProfile('macmini-lemon')
 
-    await vi.waitFor(() => expect(ensureGatewayForProfile).toHaveBeenCalledWith('macmini-hermes'))
-    await vi.waitFor(() => expect(getConnection).toHaveBeenCalledWith('macmini-hermes'))
+    await vi.waitFor(() => expect(ensureGatewayForProfile).toHaveBeenCalledWith('macmini-lemon'))
+    await vi.waitFor(() => expect(getConnection).toHaveBeenCalledWith('macmini-lemon'))
     await new Promise(resolve => setTimeout(resolve, 0))
 
     expect(rememberProfile).not.toHaveBeenCalled()

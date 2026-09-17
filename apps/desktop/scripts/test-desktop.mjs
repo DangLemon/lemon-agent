@@ -16,7 +16,7 @@ const RELEASE_ROOT = path.join(DESKTOP_ROOT, 'release')
 const PLATFORM = process.platform
 
 const INTERNAL_DESKTOP_BUILD = (() => {
-  if (String(process.env.HERMES_DESKTOP_INTERNAL || '').trim() === '1') return true
+  if (String(process.env.LEMON_DESKTOP_INTERNAL || '').trim() === '1') return true
   try {
     return Boolean(loadHarnessConfigInput(process.env))
   } catch {
@@ -33,26 +33,26 @@ const PRIMARY_IDENTITY = INTERNAL_DESKTOP_BUILD
       artifactPrefix: `Lemon-AI-${PACKAGE_JSON.version}`
     }
   : {
-      productName: 'Hermes',
-      executableName: 'Hermes',
-      posixHomeDirName: '.hermes',
-      windowsHomeDirName: 'hermes',
-      runtimeRootDirName: 'hermes-agent',
-      artifactPrefix: `Hermes-${PACKAGE_JSON.version}`
+      productName: 'Lemon AI',
+      executableName: 'Lemon AI',
+      posixHomeDirName: '.lemon-ai',
+      windowsHomeDirName: 'lemon',
+      runtimeRootDirName: 'lemon-agent',
+      artifactPrefix: `Lemon AI-${PACKAGE_JSON.version}`
     }
 const LEGACY_IDENTITY = {
-  productName: 'Hermes',
-  executableName: 'Hermes',
-  posixHomeDirName: '.hermes',
-  windowsHomeDirName: 'hermes',
-  runtimeRootDirName: 'hermes-agent',
-  artifactPrefix: `Hermes-${PACKAGE_JSON.version}`
+  productName: 'Lemon AI',
+  executableName: 'Lemon AI',
+  posixHomeDirName: '.lemon-ai',
+  windowsHomeDirName: 'lemon',
+  runtimeRootDirName: 'lemon-agent',
+  artifactPrefix: `Lemon AI-${PACKAGE_JSON.version}`
 }
 const APP_IDENTITIES = INTERNAL_DESKTOP_BUILD ? [PRIMARY_IDENTITY, LEGACY_IDENTITY] : [PRIMARY_IDENTITY]
 
 // Platform-specific packaged-app layout. The thin installer ships an Electron
 // app shell plus extraResources (install-stamp.json + native-deps/) -- it
-// no longer bundles the Hermes Agent Python payload (that's fetched at first
+// no longer bundles the Lemon AI Python payload (that's fetched at first
 // launch via install.ps1 / install.sh, per the Phase 1 thin-installer flow).
 const APP = (() => {
   if (PLATFORM === 'darwin') {
@@ -129,19 +129,19 @@ const APP = (() => {
 })()
 
 // Default desktop home for non-sandboxed runs -- matches main.ts's
-// resolveHermesHome(). Internal Lemon AI builds use Lemon-branded roots;
-// ordinary builds keep the upstream Hermes defaults. The fresh-install sandbox
+// resolveLemonHome(). Internal Lemon AI builds use Lemon-branded roots;
+// ordinary builds keep the upstream Lemon AI defaults. The fresh-install sandbox
 // launchFresh() sets its own home and never touches this.
-const DEFAULT_HERMES_HOME = (() => {
+const DEFAULT_LEMON_HOME = (() => {
   if (PLATFORM === 'win32' && process.env.LOCALAPPDATA) {
     return path.join(process.env.LOCALAPPDATA, PRIMARY_IDENTITY.windowsHomeDirName)
   }
   return path.join(os.homedir(), PRIMARY_IDENTITY.posixHomeDirName)
 })()
-const VENV_ROOT = path.join(DEFAULT_HERMES_HOME, PRIMARY_IDENTITY.runtimeRootDirName, 'venv')
+const VENV_ROOT = path.join(DEFAULT_LEMON_HOME, PRIMARY_IDENTITY.runtimeRootDirName, 'venv')
 const FRESH_SANDBOX_ROOT = path.join(
   os.tmpdir(),
-  INTERNAL_DESKTOP_BUILD ? 'lemon-ai-desktop-fresh-install' : 'hermes-desktop-fresh-install'
+  INTERNAL_DESKTOP_BUILD ? 'lemon-ai-desktop-fresh-install' : 'lemon-desktop-fresh-install'
 )
 
 function die(message) {
@@ -195,7 +195,7 @@ function ensurePlatformBuilds() {
 }
 
 function ensurePackagedApp() {
-  if (process.env.HERMES_DESKTOP_SKIP_BUILD === '1' && exists(APP.binary)) {
+  if (process.env.LEMON_DESKTOP_SKIP_BUILD === '1' && exists(APP.binary)) {
     return
   }
 
@@ -242,7 +242,7 @@ function ensureDmg() {
   if (PLATFORM !== 'darwin') {
     die('DMG mode is macOS-only; on Windows use the `nsis` mode instead.')
   }
-  if (process.env.HERMES_DESKTOP_SKIP_BUILD === '1' && exists(resolveDmgPath())) {
+  if (process.env.LEMON_DESKTOP_SKIP_BUILD === '1' && exists(resolveDmgPath())) {
     return
   }
   run('npm', ['run', 'dist:mac:dmg'])
@@ -252,7 +252,7 @@ function ensureNsis() {
   if (PLATFORM !== 'win32') {
     die('NSIS mode is win32-only; on macOS use the `dmg` mode instead.')
   }
-  if (process.env.HERMES_DESKTOP_SKIP_BUILD === '1' && resolveNsisPath()) {
+  if (process.env.LEMON_DESKTOP_SKIP_BUILD === '1' && resolveNsisPath()) {
     return
   }
   run('npm', ['run', 'dist:win:nsis'])
@@ -322,11 +322,11 @@ function launchFresh() {
 
   const sandbox = fs.mkdtempSync(`${FRESH_SANDBOX_ROOT}-`)
   const userDataDir = path.join(sandbox, 'electron-user-data')
-  const hermesHome = path.join(sandbox, INTERNAL_DESKTOP_BUILD ? 'lemon-ai-home' : 'hermes-home')
+  const lemonHome = path.join(sandbox, INTERNAL_DESKTOP_BUILD ? 'lemon-ai-home' : 'lemon-home')
   const cwd = path.join(sandbox, 'workspace')
 
   fs.mkdirSync(userDataDir, { recursive: true })
-  fs.mkdirSync(hermesHome, { recursive: true })
+  fs.mkdirSync(lemonHome, { recursive: true })
   fs.mkdirSync(cwd, { recursive: true })
 
   // Strip every credential-shaped env var so the sandbox is actually fresh.
@@ -336,20 +336,20 @@ function launchFresh() {
     env[key] = value
   }
 
-  env.HERMES_DESKTOP_CWD = cwd
-  env.HERMES_DESKTOP_IGNORE_EXISTING = '1'
-  env.HERMES_DESKTOP_TEST_MODE = 'fresh-install'
-  env.HERMES_DESKTOP_HOME_OVERRIDE = hermesHome
-  env.HERMES_DESKTOP_RUNTIME_DIR_NAME = PRIMARY_IDENTITY.runtimeRootDirName
-  env.HERMES_DESKTOP_USER_DATA_DIR = userDataDir
+  env.LEMON_DESKTOP_CWD = cwd
+  env.LEMON_DESKTOP_IGNORE_EXISTING = '1'
+  env.LEMON_DESKTOP_TEST_MODE = 'fresh-install'
+  env.LEMON_DESKTOP_HOME_OVERRIDE = lemonHome
+  env.LEMON_DESKTOP_RUNTIME_DIR_NAME = PRIMARY_IDENTITY.runtimeRootDirName
+  env.LEMON_DESKTOP_USER_DATA_DIR = userDataDir
   if (INTERNAL_DESKTOP_BUILD) {
-    env.LEMON_AI_HOME = hermesHome
-    delete env.HERMES_HOME
+    env.LEMON_HOME = lemonHome
+    delete env.LEMON_HOME
   } else {
-    env.HERMES_HOME = hermesHome
+    env.LEMON_HOME = lemonHome
   }
-  delete env.HERMES_DESKTOP_HERMES
-  delete env.HERMES_DESKTOP_HERMES_ROOT
+  delete env.LEMON_DESKTOP_LEMON
+  delete env.LEMON_DESKTOP_LEMON_ROOT
 
   const child = spawn(APP.binary, [], {
     cwd: os.homedir(),
@@ -362,14 +362,14 @@ function launchFresh() {
   console.log('\nFresh install sandbox:')
   console.log(`  root: ${sandbox}`)
   console.log(`  electron userData: ${userDataDir}`)
-  console.log(`  ${INTERNAL_DESKTOP_BUILD ? 'LEMON_AI_HOME' : 'HERMES_HOME'}: ${hermesHome}`)
+  console.log(`  ${INTERNAL_DESKTOP_BUILD ? 'LEMON_HOME' : 'LEMON_HOME'}: ${lemonHome}`)
   console.log(`  cwd: ${cwd}`)
 
-  return { runtimeRoot: path.join(hermesHome, PRIMARY_IDENTITY.runtimeRootDirName, 'venv') }
+  return { runtimeRoot: path.join(lemonHome, PRIMARY_IDENTITY.runtimeRootDirName, 'venv') }
 }
 
 // Validate the packaged bundle matches the thin-installer architecture:
-//   - The Hermes Agent Python payload is NOT shipped (it's fetched at first
+//   - The Lemon AI Python payload is NOT shipped (it's fetched at first
 //     launch via install.ps1's stage protocol).
 //   - install-stamp.json IS shipped in resources/ with a valid commit + branch.
 //   - node-pty IS shipped inside app.asar.unpacked/dist/node_modules/node-pty
@@ -383,9 +383,9 @@ function validateBundle() {
   }
 
   // Negative assertion: the OLD fat-installer factory payload must NOT be
-  // present anymore. If a stray ship of hermes_cli sneaks back in we want
+  // present anymore. If a stray ship of lemon_cli sneaks back in we want
   // to fail loudly rather than re-introduce the 400MB delta we just removed.
-  const staleFactoryMarker = path.join(APP.resourcesPath, 'hermes-agent', 'hermes_cli', 'main.py')
+  const staleFactoryMarker = path.join(APP.resourcesPath, 'lemon-agent', 'lemon_cli', 'main.py')
   if (exists(staleFactoryMarker)) {
     die(`Thin-installer regression: factory-payload file should NOT be in the package: ${staleFactoryMarker}`)
   }
@@ -480,14 +480,14 @@ function printArtifacts(options = {}) {
 
 function help() {
   console.log(`Usage:
-  npm run test:desktop:existing  # build packaged app, launch with normal PATH/existing Hermes
-  npm run test:desktop:fresh     # build packaged app, launch with temp userData + HERMES_HOME
+  npm run test:desktop:existing  # build packaged app, launch with normal PATH/existing Lemon AI
+  npm run test:desktop:fresh     # build packaged app, launch with temp userData + LEMON_HOME
   npm run test:desktop:dmg       # (macOS only) build DMG and open it
   npm run test:desktop:nsis      # (win32 only) build NSIS installer
   npm run test:desktop:all       # build installer, validate app payload, print paths
 
 Fast rerun (skip rebuild if the packaged app already exists):
-  HERMES_DESKTOP_SKIP_BUILD=1 npm run test:desktop:fresh
+  LEMON_DESKTOP_SKIP_BUILD=1 npm run test:desktop:fresh
 `)
 }
 

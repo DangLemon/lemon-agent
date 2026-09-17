@@ -31,10 +31,10 @@ const assetPath = (path: string): string => `${import.meta.env.BASE_URL}${path.r
 export const upstreamAppBrand: AppBrand = {
   accent: '#0053fd',
   accentForeground: '#ffffff',
-  agentName: 'the Hermes agent',
-  appName: 'Hermes',
+  agentName: 'the Lemon AI agent',
+  appName: 'Lemon AI',
   chatGuiName: 'the desktop Chat GUI',
-  displayName: 'Hermes Agent',
+  displayName: 'Lemon AI',
   lockupSrc: '',
   markSrc: assetPath('nous-girl.jpg'),
   mode: 'upstream',
@@ -43,10 +43,10 @@ export const upstreamAppBrand: AppBrand = {
   ring: '#0053fd',
   sidebarForeground: 'var(--ui-text-secondary)',
   urls: {
-    installer: 'https://hermes-agent.nousresearch.com/',
-    releaseNotes: 'https://github.com/NousResearch/hermes-agent/releases'
+    installer: 'https://github.com/DangLemon/lemon-agent/',
+    releaseNotes: 'https://github.com/DangLemon/lemon-agent/releases'
   },
-  wordmark: 'HERMES AGENT'
+  wordmark: 'LEMON AGENT'
 }
 
 export const lemonAppBrand: AppBrand = {
@@ -69,8 +69,8 @@ export const lemonAppBrand: AppBrand = {
     // and returns 404 until a stable release exists, which would make the
     // bundle recovery action unusable. The releases index always resolves and
     // exposes the current Lemon AI prerelease installer when one is available.
-    installer: 'https://github.com/DangLemon/hermes-agent/releases',
-    releaseNotes: 'https://github.com/DangLemon/hermes-agent/releases'
+    installer: 'https://github.com/DangLemon/lemon-agent/releases',
+    releaseNotes: 'https://github.com/DangLemon/lemon-agent/releases'
   },
   wordmark: 'Lemon AI'
 }
@@ -84,10 +84,10 @@ export const appBrand = appBrandForEnv
 const BRAND_VALUE_TOKEN_PREFIX = '\uE000lemon-brand-'
 const BRAND_VALUE_TOKEN_SUFFIX = '\uE001'
 const BRAND_SPAN_TOKEN_PREFIX = '\uE000lemon-span-'
-const HERMES_EXECUTABLE = /\bhermes\b/g
+const LEMON_EXECUTABLE = /\blemon\b/g
 
-const HERMES_TECHNICAL_CONTRACT =
-  /\/hermes(?=\/|\b)|@hermes\/[A-Za-z0-9][A-Za-z0-9._/-]*|\bhermes:\/\/[^\s<>"'`,;)]*|\bhermes:(?!\/\/)[A-Za-z0-9][A-Za-z0-9._:-]*|\bhermes[._/-][A-Za-z0-9][A-Za-z0-9._/-]*/g
+const LEMON_TECHNICAL_CONTRACT =
+  /\/lemon(?=\/|\b)|@lemon\/[A-Za-z0-9][A-Za-z0-9._/-]*|\blemon:\/\/[^\s<>"'`,;)]*|\blemon:(?!\/\/)[A-Za-z0-9][A-Za-z0-9._:-]*|\blemon[._/-][A-Za-z0-9][A-Za-z0-9._/-]*/g
 
 const BARE_TECHNICAL_CONTEXT_WORDS = new Set(['binary', 'command', 'executable', 'path'])
 
@@ -140,7 +140,7 @@ const CLI_PROSE_BOUNDARY_WORDS = new Set([
 // non-English words, so the English context/boundary heuristic below cannot
 // identify it. Keep the command heads that are shipped in user-facing copy
 // here; requiring a subcommand/argument after the head prevents ordinary
-// product prose such as "Hermes gateway is unavailable" from being treated as
+// product prose such as "Lemon AI gateway is unavailable" from being treated as
 // an executable command.
 const CLI_COMMAND_HEADS = new Set(['curator', 'debug', 'desktop', 'gateway', 'mcp', 'model', 'pets', 'project'])
 
@@ -265,8 +265,8 @@ function isCliTokenValue(token: string): boolean {
   return false
 }
 
-function scanHermesCliCommand(input: string, start: number): TextSpan {
-  let cursor = start + 'hermes'.length
+function scanLemonCliCommand(input: string, start: number): TextSpan {
+  let cursor = start + 'lemon'.length
   let end = cursor
   let consumedTokens = 0
 
@@ -338,21 +338,21 @@ function hasBareTechnicalContext(input: string, span: TextSpan): boolean {
     return true
   }
 
-  if (tokens.length !== 1 || input.slice(span.start, span.end) !== 'hermes') {
+  if (tokens.length !== 1 || input.slice(span.start, span.end) !== 'lemon') {
     return false
   }
 
   // In translated copy the word following the executable is often a
   // non-ASCII noun (for example, the Chinese/Japanese equivalent of
-  // "binary"). A lower-case standalone `hermes` at that boundary is the
-  // executable name, while an English prose continuation such as `hermes is`
+  // "binary"). A lower-case standalone `lemon` at that boundary is the
+  // executable name, while an English prose continuation such as `lemon is`
   // remains eligible for display branding.
   const firstCodePoint = input.slice(span.end).trimStart().codePointAt(0)
 
   return firstCodePoint === undefined || firstCodePoint > 0x7f
 }
 
-function shouldProtectHermesCliSpan(input: string, span: TextSpan): boolean {
+function shouldProtectLemonCliSpan(input: string, span: TextSpan): boolean {
   return (
     hasCodeOrQuoteBoundary(input, span.start, span.end) ||
     hasCliContext(input, span.start) ||
@@ -362,35 +362,35 @@ function shouldProtectHermesCliSpan(input: string, span: TextSpan): boolean {
   )
 }
 
-function protectHermesCliSpans(input: string, protect: (original: string) => string): string {
+function protectLemonCliSpans(input: string, protect: (original: string) => string): string {
   let output = ''
   let cursor = 0
-  HERMES_EXECUTABLE.lastIndex = 0
+  LEMON_EXECUTABLE.lastIndex = 0
 
-  for (let match = HERMES_EXECUTABLE.exec(input); match !== null; match = HERMES_EXECUTABLE.exec(input)) {
+  for (let match = LEMON_EXECUTABLE.exec(input); match !== null; match = LEMON_EXECUTABLE.exec(input)) {
     const start = match.index
-    const span = scanHermesCliCommand(input, start)
+    const span = scanLemonCliCommand(input, start)
 
     output += input.slice(cursor, start)
 
-    if (shouldProtectHermesCliSpan(input, span)) {
+    if (shouldProtectLemonCliSpan(input, span)) {
       output += protect(input.slice(span.start, span.end))
       cursor = span.end
-      HERMES_EXECUTABLE.lastIndex = span.end
+      LEMON_EXECUTABLE.lastIndex = span.end
     } else {
       output += input.slice(start, span.end)
       cursor = span.end
-      HERMES_EXECUTABLE.lastIndex = span.end
+      LEMON_EXECUTABLE.lastIndex = span.end
     }
   }
 
   return output + input.slice(cursor)
 }
 
-function protectHermesTechnicalContracts(input: string, protect: (original: string) => string): string {
-  HERMES_TECHNICAL_CONTRACT.lastIndex = 0
+function protectLemonTechnicalContracts(input: string, protect: (original: string) => string): string {
+  LEMON_TECHNICAL_CONTRACT.lastIndex = 0
 
-  return input.replace(HERMES_TECHNICAL_CONTRACT, (match, offset: number) => {
+  return input.replace(LEMON_TECHNICAL_CONTRACT, (match, offset: number) => {
     if (input[offset - 1] === '.') {
       return match
     }
@@ -438,8 +438,8 @@ function protectDisplaySpans(input: string): ProtectedBrandText {
   // names inside quotes/backticks remain brandable display copy unless the span
   // is a lower-case executable or technical contract identifier.
   const textWithProtectedUrls = input.replace(/https?:\/\/[^\s<>"'`]+/gi, protect)
-  const textWithProtectedContracts = protectHermesTechnicalContracts(textWithProtectedUrls, protect)
-  const text = protectHermesCliSpans(textWithProtectedContracts, protect)
+  const textWithProtectedContracts = protectLemonTechnicalContracts(textWithProtectedUrls, protect)
+  const text = protectLemonCliSpans(textWithProtectedContracts, protect)
 
   return {
     restore: value =>
@@ -452,12 +452,12 @@ function replaceBrandText(input: string, brand: AppBrand): string {
   const protectedSpans = protectDisplaySpans(input)
 
   const tokenized = protectedSpans.text
-    .replace(/~\/\.hermes(?=\/|\b)/gi, '~/.lemon-ai')
-    .replace(/\bHermes Desktop\b/gi, '{appName}')
-    .replace(/\bHermes Agent\b/gi, '{appName}')
-    .replace(/\bHermes backend\b/gi, '{appName} backend')
-    .replace(/\bHermes gateway\b/gi, '{appName} gateway')
-    .replace(/\bHermes\b/gi, '{appName}')
+    .replace(/~\/\.lemon-ai(?=\/|\b)/gi, '~/.lemon-ai')
+    .replace(/\bLemon\b/gi, '{appName}')
+    .replace(/\bLemon\b/gi, '{appName}')
+    .replace(/\bLemon backend\b/gi, '{appName} backend')
+    .replace(/\bLemon gateway\b/gi, '{appName} gateway')
+    .replace(/\bLemon\b/gi, '{appName}')
 
   return protectedSpans.restore(replaceAppBrandTokens(tokenized, brand))
 }
@@ -497,10 +497,10 @@ function brandTranslationFunction(
     // the value-preserving path below when a sentinel probe is not accepted.
   }
 
-  return replaceHermesBrandTerms(rendered, brand, args)
+  return replaceLemonBrandTerms(rendered, brand, args)
 }
 
-export function replaceHermesBrandTerms(
+export function replaceLemonBrandTerms(
   input: string,
   brand: AppBrand = appBrandForEnv(),
   preserveValues: readonly unknown[] = []
@@ -529,7 +529,7 @@ export function brandTranslationTree<T>(value: T, brand: AppBrand = appBrandForE
   }
 
   if (typeof value === 'string') {
-    return replaceHermesBrandTerms(value, brand) as T
+    return replaceLemonBrandTerms(value, brand) as T
   }
 
   if (typeof value === 'function') {
@@ -561,12 +561,12 @@ export function applyAppBrandRoot(
   mode: 'light' | 'dark' = root.classList.contains('dark') ? 'dark' : 'light'
 ): void {
   if (brand.mode !== 'internal-harness') {
-    delete root.dataset.hermesBrand
+    delete root.dataset.lemonBrand
 
     return
   }
 
-  root.dataset.hermesBrand = 'lemon'
+  root.dataset.lemonBrand = 'lemon'
 
   const vars: Record<string, string> = {
     '--lemon-brand-primary': brand.primary,

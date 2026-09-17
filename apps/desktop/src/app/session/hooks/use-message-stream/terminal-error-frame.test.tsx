@@ -115,26 +115,26 @@ describe('terminal error message.complete frames', () => {
   })
 
   it('preserves terminal error fields before storing them on the failed bubble', async () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
-    const sourceEnvPath = ['~/.hermes/', 'env'].join('.')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
+    const sourceEnvPath = ['~/.lemon-ai/', 'env'].join('.')
     mountStream()
     await start()
     await delta('…')
 
     await completeWithError({
-      text: 'Error: Hermes backend failed',
-      error: `Run 'hermes model', then check ${sourceEnvPath} because Hermes-4.5 failed in the Hermes backend.`,
+      text: 'Error: Lemon AI backend failed',
+      error: `Run 'lemon model', then check ${sourceEnvPath} because Hermes-4.5 failed in the Lemon AI backend.`,
       recoverable: true
     })
 
     const bubble = lastAssistant()
     expect(bubble?.error).toBe(
-      `Run 'hermes model', then check ${sourceEnvPath} because Hermes-4.5 failed in the Hermes backend.`
+      `Run 'lemon model', then check ${sourceEnvPath} because Hermes-4.5 failed in the Lemon AI backend.`
     )
   })
 
   it('brands only the static terminal error fallback when the backend omits error text', async () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
     mountStream()
     await start()
     await delta('…')

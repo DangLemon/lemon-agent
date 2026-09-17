@@ -94,7 +94,7 @@ vi.mock('./use-profile-prewarm', () => ({
   useProfilePrewarm: () => ({ cancelPrewarm: vi.fn(), startPrewarm: vi.fn() })
 }))
 
-vi.mock('@/hermes', () => ({
+vi.mock('@/lemon', () => ({
   getProfileSoul: vi.fn().mockResolvedValue({ content: '' }),
   updateProfileSoul: vi.fn()
 }))

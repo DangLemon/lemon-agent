@@ -11,14 +11,14 @@ import {
   profileScopeKey,
   saveCustomEndpoint,
   validateCustomEndpoint
-} from '@/hermes'
+} from '@/lemon'
 import { useI18n } from '@/i18n'
 import { Check, Globe, Loader2, Plus, Save, Zap } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { $activeGatewayRoute, activeGatewayConnectionId } from '@/store/gateway'
 import { $connection } from '@/store/session'
 import { $settingsRequestProfile } from '@/store/settings-scope'
-import type { CustomEndpoint, CustomEndpointUpdate, CustomEndpointValidationResponse } from '@/types/hermes'
+import type { CustomEndpoint, CustomEndpointUpdate, CustomEndpointValidationResponse } from '@/types/lemon'
 
 import { Pill, SettingsContent, SettingsSkeleton } from './primitives'
 import { SettingsProfileScope } from './profile-scope'

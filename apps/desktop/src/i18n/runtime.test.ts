@@ -19,7 +19,7 @@ describe('desktop i18n runtime translator', () => {
   it('translates string paths for the active runtime locale', () => {
     setRuntimeI18nLocale('zh')
 
-    expect(translateNow('boot.ready')).toBe('Hermes 桌面版已就绪')
+    expect(translateNow('boot.ready')).toBe('Lemon AI 桌面版已就绪')
     expect(translateNow('notifications.voice.noSpeechDetected')).toBe('没有检测到语音')
     expect(translateNow('composer.lookupNoMatches')).toBe('没有匹配项。')
     expect(translateNow('assistant.tool.statusRecovered')).toBe('已恢复')
@@ -30,11 +30,11 @@ describe('desktop i18n runtime translator', () => {
   })
 
   it('brands static internal copy without rewriting interpolated values', () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
 
-    const message = translateNow('assistant.approval.alwaysDescription', 'Hermes Agent.txt')
+    const message = translateNow('assistant.approval.alwaysDescription', 'Lemon AI.txt')
 
-    expect(message).toContain('“Hermes Agent.txt”')
+    expect(message).toContain('“Lemon AI.txt”')
     expect(message).toContain('~/.lemon-ai/config.yaml')
     expect(message).toContain('Lemon AI won’t ask again')
   })
@@ -78,7 +78,7 @@ describe('desktop i18n runtime translator', () => {
       boot.ready = undefined
       setRuntimeI18nLocale('ja')
 
-      expect(translateNow('boot.ready')).toBe('Hermes Desktop is ready')
+      expect(translateNow('boot.ready')).toBe('Lemon AI is ready')
     } finally {
       boot.ready = originalReady
     }

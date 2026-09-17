@@ -220,9 +220,9 @@ describe('ErrorBoundary assistant-ui lookup recovery', () => {
   })
 
   it('preserves raw root fallback error messages before displaying them', () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
-    const sourceEnvPath = ['~/.hermes/', 'env'].join('.')
-    const raw = `Run 'hermes model', then check ${sourceEnvPath} because Hermes-4.5 failed in the Hermes backend.`
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
+    const sourceEnvPath = ['~/.lemon-ai/', 'env'].join('.')
+    const raw = `Run 'lemon model', then check ${sourceEnvPath} because Hermes-4.5 failed in the Lemon AI backend.`
 
     const Bomb = makeBomb({ error: new Error(raw) })
 

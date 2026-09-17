@@ -48,26 +48,26 @@ import {
 import { dashboardFallbackArgs, sourceDeclaresServe } from './backend-command'
 import { createBackendConnectionState } from './backend-connection-state'
 import { BackendDialClaims } from './backend-dial-claim'
-import { buildDesktopBackendEnv, hermesManagedNodePathEntries, normalizeHermesHomeRoot } from './backend-env'
+import { buildDesktopBackendEnv, lemonManagedNodePathEntries, normalizeLemonHomeRoot } from './backend-env'
 import {
   isReauthRequiredError,
   makeNousCloudBackendDownError,
   makeUnsignedOauthError,
-  waitForHermesReady
+  waitForLemonReady
 } from './backend-health'
 import { backendCommandMatches, createBackendOwnership, createBackendShutdownCoordinator } from './backend-ownership'
 import {
-  canImportHermesCli,
+  canImportLemonCli,
   execProbeSync,
   PROBE_TIMEOUT_MS,
-  shouldTrustHermesOverride,
-  verifyHermesCli
+  shouldTrustLemonOverride,
+  verifyLemonCli
 } from './backend-probes'
 import { waitForDashboardPortAnnouncement } from './backend-ready'
 import { recycleOwnedBackend } from './backend-recycle'
 import { isPidAliveWindows, waitForBackendRelease } from './backend-release-gate'
 import { shouldAllowExternalRuntime } from './backend-resolution-policy'
-import { buildHermesBackendSpawnEnv } from './backend-spawn-env'
+import { buildLemonBackendSpawnEnv } from './backend-spawn-env'
 import {
   isHostKeyChangedBootFailure,
   isRetryableRemoteBootFailure,
@@ -421,7 +421,7 @@ import {
   scanVenvBlockers,
   stopSafeVenvBlockers
 } from './venv-blocker-scan'
-import { isHermesOwnedVenvDaemon } from './venv-holder-select'
+import { isLemonOwnedVenvDaemon } from './venv-holder-select'
 import { fetchMarketplaceThemes, searchMarketplaceThemes } from './vscode-marketplace'
 import { createWakeIndicatorWindowController } from './wake-indicator-window'
 import { enumerateWindowsFrontToBack, enumerationFailed, readWindowBelow } from './window-below'
@@ -442,8 +442,8 @@ import {
   buildPathExtCandidates,
   chooseUpdaterArgs,
   getVenvSitePackagesEntries,
-  resolveVenvHermesCommand
-} from './windows-hermes-path'
+  resolveVenvLemonCommand
+} from './windows-lemon-path'
 import {
   connectWindowsRemote,
   detectRemotePlatform,
@@ -471,12 +471,12 @@ import { isPackagedInstallPath as isPackagedInstallPathUnderRoots } from './work
 import { readWslWindowsClipboardImage } from './wsl-clipboard-image'
 import { resolvePickerDefaultPath, setActiveGatewayProfile, setWslBridgeProfileState } from './wsl-path-bridge'
 
-const USER_DATA_OVERRIDE = process.env.HERMES_DESKTOP_USER_DATA_DIR
+const USER_DATA_OVERRIDE = process.env.LEMON_DESKTOP_USER_DATA_DIR
 // Electron derives its default `userData` directory from the app name. The
 // internal bundle identity must be applied before the first `app.getPath`
 // call below; otherwise a Lemon build would still create its profile under a
-// Hermes-named directory even though the runtime home is branded.
-const INTERNAL_DESKTOP_PACKAGE = process.env.HERMES_DESKTOP_INTERNAL_PACKAGE === '1'
+// Lemon AI-named directory even though the runtime home is branded.
+const INTERNAL_DESKTOP_PACKAGE = process.env.LEMON_DESKTOP_INTERNAL_PACKAGE === '1'
 
 if (INTERNAL_DESKTOP_PACKAGE) {
   app.setName('Lemon AI')
@@ -488,8 +488,8 @@ if (USER_DATA_OVERRIDE) {
   app.setPath('userData', resolvedUserData)
 }
 
-const DEV_SERVER = process.env.HERMES_DESKTOP_DEV_SERVER
-const IS_PACKAGED = app.isPackaged || Boolean(process.env.HERMES_DESKTOP_IS_PACKAGED)
+const DEV_SERVER = process.env.LEMON_DESKTOP_DEV_SERVER
+const IS_PACKAGED = app.isPackaged || Boolean(process.env.LEMON_DESKTOP_IS_PACKAGED)
 const IS_MAC = process.platform === 'darwin'
 const IS_WINDOWS = process.platform === 'win32'
 const IS_WSL = isWslEnvironment()
@@ -520,7 +520,7 @@ const PRELOAD_PATH = path.join(APP_ROOT, 'dist', 'electron-preload.js')
 // GPU and never see it. Fall back to software rendering when a remote display
 // is detected; it's rock-steady over the wire and the CPU cost is negligible
 // next to the connection's latency. Must run before app `ready` — these
-// switches only apply pre-launch. Override with HERMES_DESKTOP_DISABLE_GPU
+// switches only apply pre-launch. Override with LEMON_DESKTOP_DISABLE_GPU
 // (1/true → always disable, 0/false → keep GPU on).
 const REMOTE_DISPLAY_REASON = detectRemoteDisplay()
 
@@ -530,7 +530,7 @@ if (REMOTE_DISPLAY_REASON) {
   // with only --disable-gpu: force compositing onto the CPU too.
   app.commandLine.appendSwitch('disable-gpu-compositing')
   console.log(
-    `[hermes] remote display detected (${REMOTE_DISPLAY_REASON}); disabling GPU hardware acceleration to prevent flicker`
+    `[lemon] remote display detected (${REMOTE_DISPLAY_REASON}); disabling GPU hardware acceleration to prevent flicker`
   )
 }
 
@@ -546,14 +546,14 @@ if (DEV_CDP.port) {
   // so a future edit can't widen it by omission.
   app.commandLine.appendSwitch('remote-debugging-address', '127.0.0.1')
   console.log(
-    `[hermes] renderer debugging on http://127.0.0.1:${DEV_CDP.port} — anything that can reach it ` +
-      'can run code in the renderer. HERMES_DESKTOP_CDP_PORT=off to disable.'
+    `[lemon] renderer debugging on http://127.0.0.1:${DEV_CDP.port} — anything that can reach it ` +
+      'can run code in the renderer. LEMON_DESKTOP_CDP_PORT=off to disable.'
   )
 } else {
   const why = describeDevCdpDecision(DEV_CDP)
 
   if (why) {
-    console.warn(`[hermes] ${why}`)
+    console.warn(`[lemon] ${why}`)
   }
 }
 
@@ -564,23 +564,23 @@ if (IS_WSL && !REMOTE_DISPLAY_REASON && fs.existsSync('/dev/dxg')) {
   app.commandLine.appendSwitch('ignore-gpu-blocklist')
   app.commandLine.appendSwitch('enable-gpu-rasterization')
   app.commandLine.appendSwitch('enable-zero-copy')
-  console.log('[hermes] WSL GPU passthrough (/dev/dxg) detected; enabling GPU acceleration')
+  console.log('[lemon] WSL GPU passthrough (/dev/dxg) detected; enabling GPU acceleration')
 }
 
 // Linux: point Chromium at the session's keychain backend so safeStorage can
 // encrypt remote gateway tokens (hardening.ts refuses to persist them without
-// it). The value arrives via HERMES_DESKTOP_PASSWORD_STORE, bridged by the
-// `hermes desktop` launcher from detection or `desktop.password_store` in
+// it). The value arrives via LEMON_DESKTOP_PASSWORD_STORE, bridged by the
+// `lemon desktop` launcher from detection or `desktop.password_store` in
 // config.yaml. Must run before app `ready` — the switch only applies pre-launch.
 const PASSWORD_STORE = resolveLinuxPasswordStore()
 
 if (PASSWORD_STORE.warning) {
-  console.warn(`[hermes] ${PASSWORD_STORE.warning}`)
+  console.warn(`[lemon] ${PASSWORD_STORE.warning}`)
 }
 
 if (PASSWORD_STORE.store) {
   app.commandLine.appendSwitch('password-store', PASSWORD_STORE.store)
-  console.log(`[hermes] using password-store backend: ${PASSWORD_STORE.store}`)
+  console.log(`[lemon] using password-store backend: ${PASSWORD_STORE.store}`)
 }
 
 // Windows sandbox / GPU breakpoint crash recovery (#38216).
@@ -590,7 +590,7 @@ if (PASSWORD_STORE.store) {
 // 0x80000003. After enough GPU deaths the browser process FATAL-exits before the
 // UI is usable. Must run before app `ready` so `--no-sandbox` applies to child
 // processes. The sticky marker recovers Start Menu / shortcut launches that
-// never go through `hermes desktop`; it is version-scoped so an app update
+// never go through `lemon desktop`; it is version-scoped so an app update
 // re-probes the sandbox instead of degrading forever.
 //
 // `windowsSandboxFallbackActive` = this process runs without the Chromium
@@ -611,15 +611,15 @@ if (IS_WINDOWS) {
   // engaged — icacls /T recurses the whole install tree, so healthy launches
   // skip it (the installer already granted the ACE at install time). Repair
   // targets the install dir only: granting AppContainer read on userData would
-  // expose Hermes sessions/config to every packaged app on the machine.
+  // expose Lemon AI sessions/config to every packaged app on the machine.
   if (shouldAttemptAclRepair(priorMarker)) {
     const exeDir = path.dirname(process.execPath)
     const acl = grantAllApplicationPackagesAcl(exeDir, { execFileSync })
 
     if (acl.ok) {
-      console.log(`[hermes] granted ALL APPLICATION PACKAGES RX on ${exeDir} (#38216)`)
+      console.log(`[lemon] granted ALL APPLICATION PACKAGES RX on ${exeDir} (#38216)`)
     } else if (acl.error && acl.error !== 'missing-target-or-exec') {
-      console.warn(`[hermes] AppContainer ACL grant failed on ${exeDir}: ${acl.error}`)
+      console.warn(`[lemon] AppContainer ACL grant failed on ${exeDir}: ${acl.error}`)
     }
   }
 
@@ -641,7 +641,7 @@ if (IS_WINDOWS) {
     app.commandLine.appendSwitch('no-sandbox')
     process.env.ELECTRON_DISABLE_SANDBOX = '1'
     console.log(
-      `[hermes] Windows sandbox fallback enabled (${sandboxDecision.reason}); launching with --no-sandbox (#38216)`
+      `[lemon] Windows sandbox fallback enabled (${sandboxDecision.reason}); launching with --no-sandbox (#38216)`
     )
   }
 
@@ -672,19 +672,19 @@ if (IS_WINDOWS) {
     }
 
     console.warn(
-      `[hermes] Windows GPU sandbox crashed (exit=${details?.exitCode}); relaunching once with --no-sandbox (#38216)`
+      `[lemon] Windows GPU sandbox crashed (exit=${details?.exitCode}); relaunching once with --no-sandbox (#38216)`
     )
 
     try {
       app.relaunch({ args: buildNoSandboxRelaunchArgs(process.argv.slice(1)) })
       void exitAfterBackendShutdown(0)
     } catch (error) {
-      console.error(`[hermes] --no-sandbox relaunch failed: ${error?.message || error}`)
+      console.error(`[lemon] --no-sandbox relaunch failed: ${error?.message || error}`)
     }
   })
 }
 
-ipcMain.handle('hermes:get-remote-display-reason', () => REMOTE_DISPLAY_REASON)
+ipcMain.handle('lemon:get-remote-display-reason', () => REMOTE_DISPLAY_REASON)
 
 // Keep the renderer's PROCESS priority normal while its windows are hidden —
 // a deprioritized renderer streams a live answer visibly slower once the
@@ -697,7 +697,7 @@ ipcMain.handle('hermes:get-remote-display-reason', () => REMOTE_DISPLAY_REASON)
 // `backgroundThrottling: false` on every chat window) pinned every renderer's
 // `document.visibilityState` to 'visible' forever — which silently turned all
 // the renderer's visibility-gated backstop polls and clock ticks into
-// always-on timers. A completely idle, minimized Hermes burned ~20% CPU
+// always-on timers. A completely idle, minimized Lemon AI burned ~20% CPU
 // around the clock. Throttling is now a runtime dial scoped to streaming:
 // see createStreamThrottle() — chat windows are unthrottled while any turn is
 // in flight (so a live answer keeps painting while blurred, occluded, or
@@ -740,7 +740,7 @@ function loadInstallStamp() {
       if (parsed && typeof parsed === 'object' && typeof parsed.commit === 'string' && parsed.commit.length >= 7) {
         if (parsed.schemaVersion !== INSTALL_STAMP_SCHEMA_VERSION) {
           console.warn(
-            `[hermes] install-stamp.json schemaVersion ${parsed.schemaVersion} != expected ${INSTALL_STAMP_SCHEMA_VERSION}; ignoring`
+            `[lemon] install-stamp.json schemaVersion ${parsed.schemaVersion} != expected ${INSTALL_STAMP_SCHEMA_VERSION}; ignoring`
           )
 
           continue
@@ -757,7 +757,7 @@ function loadInstallStamp() {
         })
       }
     } catch (e) {
-      console.warn(`[hermes] install-stamp.json found at ${p} , but parsing failed with ${e}`)
+      console.warn(`[lemon] install-stamp.json found at ${p} , but parsing failed with ${e}`)
       // Either ENOENT or malformed JSON; try the next candidate
     }
   }
@@ -769,13 +769,13 @@ const INSTALL_STAMP = loadInstallStamp()
 
 if (INSTALL_STAMP) {
   console.log(
-    `[hermes] install stamp: ${INSTALL_STAMP.commit.slice(0, 12)}${INSTALL_STAMP.branch ? ` (${INSTALL_STAMP.branch})` : ''}${INSTALL_STAMP.dirty ? ' [DIRTY]' : ''} from ${INSTALL_STAMP.source || 'unknown'}`
+    `[lemon] install stamp: ${INSTALL_STAMP.commit.slice(0, 12)}${INSTALL_STAMP.branch ? ` (${INSTALL_STAMP.branch})` : ''}${INSTALL_STAMP.dirty ? ' [DIRTY]' : ''} from ${INSTALL_STAMP.source || 'unknown'}`
   )
 } else if (IS_PACKAGED) {
   // Dev builds without a stamp are normal; packaged builds without one
   // mean the bootstrap won't know what to clone. Surface clearly.
   console.error(
-    '[hermes] WARNING: no install-stamp.json found in packaged build. First-launch bootstrap will not have a pinned ref to install.'
+    '[lemon] WARNING: no install-stamp.json found in packaged build. First-launch bootstrap will not have a pinned ref to install.'
   )
 }
 
@@ -786,7 +786,7 @@ const INTERNAL_DESKTOP_HARNESS = initializeInternalDesktopHarness({
   isWsl: IS_WSL,
   allowBuildResource:
     !IS_PACKAGED &&
-    Boolean(process.env['LEMON_AI_DESKTOP_HARNESS_CONFIG'] || process.env['HERMES_DESKTOP_HARNESS_CONFIG'])
+    Boolean(process.env['LEMON_DESKTOP_HARNESS_CONFIG'] || process.env['LEMON_DESKTOP_HARNESS_CONFIG'])
 })
 
 const INTERNAL_DESKTOP_BUILD = resolveInternalDesktopBuild({
@@ -801,7 +801,7 @@ const DESKTOP_RUNTIME_IDENTITY = resolveDesktopRuntimeIdentity({
 function runtimeUserText(value: string): string {
   const identity = DESKTOP_RUNTIME_IDENTITY
 
-  if (identity.appName === 'Hermes' && identity.posixHomeDirName === '.hermes') {
+  if (identity.appName === 'Lemon AI' && identity.posixHomeDirName === '.lemon-ai') {
     return value
   }
 
@@ -810,14 +810,14 @@ function runtimeUserText(value: string): string {
   const homePath = `~/${identity.posixHomeDirName}/`
 
   return value
-    .replaceAll('~/.hermes/', homePath)
-    .replaceAll('hermes backend', backendName)
-    .replaceAll('hermes gateway', gatewayName)
-    .replaceAll('Hermes backend', backendName)
-    .replaceAll('Hermes gateway', gatewayName)
-    .replaceAll('Hermes Desktop', identity.appName)
-    .replaceAll('Hermes Agent', identity.appName)
-    .replace(/\bHermes\b/g, identity.appName)
+    .replaceAll('~/.lemon-ai/', homePath)
+    .replaceAll('lemon backend', backendName)
+    .replaceAll('lemon gateway', gatewayName)
+    .replaceAll('Lemon AI backend', backendName)
+    .replaceAll('Lemon AI gateway', gatewayName)
+    .replaceAll('Lemon AI', identity.appName)
+    .replaceAll('Lemon AI', identity.appName)
+    .replace(/\bLemon\b/g, identity.appName)
 }
 
 function runtimeUserTemplate(strings: TemplateStringsArray, ...values: unknown[]): string {
@@ -828,23 +828,23 @@ function runtimeUserTemplate(strings: TemplateStringsArray, ...values: unknown[]
   }, '')
 }
 
-// HERMES_HOME — the user-facing root for desktop runtime data. The env var
-// name stays HERMES_HOME because the Python backend and CLI use it as a public
+// LEMON_HOME — the user-facing root for desktop runtime data. The env var
+// name stays LEMON_HOME because the Python backend and CLI use it as a public
 // contract, but internal Lemon AI builds choose Lemon-branded defaults.
 //
 // Defaults:
-//   Ordinary Windows: %LOCALAPPDATA%\hermes (matches install.ps1)
-//   Ordinary macOS / Linux: ~/.hermes (matches install.sh)
+//   Ordinary Windows: %LOCALAPPDATA%\Lemon AI (matches install.ps1)
+//   Ordinary macOS / Linux: ~/.lemon-ai (matches install.sh)
 //   Internal Lemon Windows: %LOCALAPPDATA%\Lemon AI
 //   Internal Lemon macOS / Linux: ~/.lemon-ai
 //
 // Legacy locations remain available only through explicit compatibility
-// inputs such as HERMES_HOME or HERMES_INSTALL_RUNTIME_DIR_NAME. Filesystem
-// contents never redirect an internal Lemon AI build into an ordinary Hermes
+// inputs such as LEMON_HOME or LEMON_INSTALL_RUNTIME_DIR_NAME. Filesystem
+// contents never redirect an internal Lemon AI build into an ordinary Lemon AI
 // installation.
 //
-// HERMES_DESKTOP_USER_DATA_DIR (used by test:desktop:fresh) puts the sandbox
-// HERMES_HOME beneath the throwaway userData dir so a fresh-install run never
+// LEMON_DESKTOP_USER_DATA_DIR (used by test:desktop:fresh) puts the sandbox
+// LEMON_HOME beneath the throwaway userData dir so a fresh-install run never
 // touches the user's real home.
 
 function pathExists(filePath) {
@@ -857,7 +857,7 @@ function pathExists(filePath) {
   }
 }
 
-function resolveHermesHome() {
+function resolveLemonHome() {
   const homeOverride = resolveDesktopHomeOverrideFromWindowsRegistry({
     env: process['env'],
     identity: DESKTOP_RUNTIME_IDENTITY,
@@ -866,7 +866,7 @@ function resolveHermesHome() {
   })
 
   if (homeOverride) {
-    return normalizeHermesHomeRoot(homeOverride)
+    return normalizeLemonHomeRoot(homeOverride)
   }
 
   if (USER_DATA_OVERRIDE) {
@@ -885,12 +885,12 @@ function resolveHermesHome() {
   return resolveDefaultDesktopHome({ homeDir: app.getPath('home'), identity: DESKTOP_RUNTIME_IDENTITY })
 }
 
-const HERMES_HOME = resolveHermesHome()
+const LEMON_HOME = resolveLemonHome()
 
 if (INTERNAL_DESKTOP_HARNESS.active) {
-  console.log('[hermes] internal Desktop harness active; forcing local managed runtime')
+  console.log('[lemon] internal Desktop harness active; forcing local managed runtime')
 } else if (INTERNAL_DESKTOP_HARNESS.diagnostic) {
-  console.warn(`[hermes] internal Desktop harness inactive: ${INTERNAL_DESKTOP_HARNESS.diagnostic}`)
+  console.warn(`[lemon] internal Desktop harness inactive: ${INTERNAL_DESKTOP_HARNESS.diagnostic}`)
 }
 
 function internalDesktopHarnessManagedDir() {
@@ -917,12 +917,12 @@ const HANDOFF_RESULT_OPTIONS = Object.freeze({
 
 function desktopRuntimeEnv() {
   return buildDesktopRuntimeEnv({
-    activeRuntimeRoot: ACTIVE_HERMES_ROOT,
+    activeRuntimeRoot: ACTIVE_LEMON_ROOT,
     harnessResourcePath: INTERNAL_DESKTOP_HARNESS.resourcePath,
-    hermesHome: HERMES_HOME,
+    lemonHome: LEMON_HOME,
     identity: DESKTOP_RUNTIME_IDENTITY,
     internalBuild: INTERNAL_DESKTOP_BUILD,
-    legacyHarnessConfigPath: process.env['HERMES_DESKTOP_HARNESS_CONFIG'],
+    legacyHarnessConfigPath: process.env['LEMON_DESKTOP_HARNESS_CONFIG'],
     updateRepository: resolveDesktopUpdateRepository()
   })
 }
@@ -935,7 +935,7 @@ async function seedInternalDesktopInitialProvider(backend, profile) {
   try {
     await runInternalDesktopInitialProviderSeed(INTERNAL_DESKTOP_HARNESS.resource, {
       backend,
-      hermesHome: HERMES_HOME,
+      lemonHome: LEMON_HOME,
       profile,
       resourcePath: INTERNAL_DESKTOP_HARNESS.resourcePath,
       seedScriptPath: INTERNAL_DESKTOP_HARNESS.seedScriptPath
@@ -947,16 +947,16 @@ async function seedInternalDesktopInitialProvider(backend, profile) {
   }
 }
 
-function pathWithHermesManagedNode(...entries) {
-  const managed = hermesManagedNodePathEntries(HERMES_HOME).filter(directoryExists)
+function pathWithLemonManagedNode(...entries) {
+  const managed = lemonManagedNodePathEntries(LEMON_HOME).filter(directoryExists)
 
   return [...managed, ...entries, process.env.PATH].filter(Boolean).join(path.delimiter)
 }
 
-// ACTIVE_HERMES_ROOT — the canonical mutable Hermes install. Same path
+// ACTIVE_LEMON_ROOT — the canonical mutable Lemon AI install. Same path
 // install.ps1 / install.sh use, so a desktop-only user and a CLI-only user end
 // up with identical layouts and can share one install.
-function resolveActiveHermesRoot(hermesHome) {
+function resolveActiveLemonRoot(lemonHome) {
   const runtimeDirNameOverride = resolveDesktopRuntimeDirNameOverrideFromWindowsRegistry({
     env: process['env'],
     identity: DESKTOP_RUNTIME_IDENTITY,
@@ -964,24 +964,24 @@ function resolveActiveHermesRoot(hermesHome) {
     readRegistry: readWindowsUserEnvVar
   })
 
-  return resolveDesktopRuntimeRoot(hermesHome, DESKTOP_RUNTIME_IDENTITY, runtimeDirNameOverride)
+  return resolveDesktopRuntimeRoot(lemonHome, DESKTOP_RUNTIME_IDENTITY, runtimeDirNameOverride)
 }
 
-const ACTIVE_HERMES_ROOT = resolveActiveHermesRoot(HERMES_HOME)
+const ACTIVE_LEMON_ROOT = resolveActiveLemonRoot(LEMON_HOME)
 // VENV_ROOT — venv lives inside the repo, exactly like install.ps1 does it.
-const VENV_ROOT = path.join(ACTIVE_HERMES_ROOT, 'venv')
+const VENV_ROOT = path.join(ACTIVE_LEMON_ROOT, 'venv')
 // BOOTSTRAP_COMPLETE_MARKER — written by the first-launch bootstrap runner
 // (Phase 1D) after install.ps1 has completed all stages and the user has
 // finished initial configuration. Presence of this marker means the install
 // is in a known-good state and we can skip the bootstrap flow on subsequent
-// boots, going straight to `resolveHermesBackend()`. Missing or stale marker
+// boots, going straight to `resolveLemonBackend()`. Missing or stale marker
 // means we re-run the bootstrap; install.ps1's stages are idempotent so a
 // re-run on an already-good install just discovers everything in place.
 //
-// We deliberately put the marker INSIDE ACTIVE_HERMES_ROOT (not alongside)
+// We deliberately put the marker INSIDE ACTIVE_LEMON_ROOT (not alongside)
 // so that deleting the checkout to start fresh also deletes the marker --
 // avoids the confusing "marker exists but checkout is gone" state.
-const BOOTSTRAP_COMPLETE_MARKER = path.join(ACTIVE_HERMES_ROOT, DESKTOP_RUNTIME_IDENTITY.bootstrapMarkerName)
+const BOOTSTRAP_COMPLETE_MARKER = path.join(ACTIVE_LEMON_ROOT, DESKTOP_RUNTIME_IDENTITY.bootstrapMarkerName)
 const BOOTSTRAP_MARKER_SCHEMA_VERSION = 1
 
 const DESKTOP_CONNECTION_CONFIG_PATH = path.join(app.getPath('userData'), 'connection.json')
@@ -995,24 +995,24 @@ const DESKTOP_UPDATE_CONFIG_PATH = path.join(app.getPath('userData'), 'updates.j
 const DESKTOP_WINDOW_STATE_PATH = path.join(app.getPath('userData'), 'window-state.json')
 const DESKTOP_BACKEND_OWNERSHIP_PATH = path.join(app.getPath('userData'), 'backend-ownership.json')
 const DESKTOP_MANAGED_SSH_RECOVERY_PATH = path.join(app.getPath('userData'), 'managed-ssh-update-recovery.json')
-// active-profile.json records which Hermes profile the desktop launches its
-// local backend as. When set, startHermes() passes `hermes --profile <name>
-// dashboard …`, which deterministically pins HERMES_HOME (see
-// _apply_profile_override in hermes_cli/main.py) and bypasses the sticky
-// ~/.hermes/active_profile file. Unset (null) preserves the legacy behavior:
+// active-profile.json records which Lemon AI profile the desktop launches its
+// local backend as. When set, startLemon() passes `lemon --profile <name>
+// dashboard …`, which deterministically pins LEMON_HOME (see
+// _apply_profile_override in lemon_cli/main.py) and bypasses the sticky
+// ~/.lemon-ai/active_profile file. Unset (null) preserves the legacy behavior:
 // no --profile flag, so the backend honors active_profile / default.
 const DESKTOP_PROFILE_CONFIG_PATH = path.join(app.getPath('userData'), 'active-profile.json')
-// Mirrors hermes_cli.profiles._PROFILE_ID_RE so we never hand the backend a
+// Mirrors lemon_cli.profiles._PROFILE_ID_RE so we never hand the backend a
 // value its profile resolver would reject and exit on.
 const PROFILE_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/
 // Branch we track for self-update. The GUI work has merged to main, so this
 // tracks main. User can also override at runtime via
-// hermesDesktop.updates.setBranch().
+// lemonDesktop.updates.setBranch().
 const DEFAULT_UPDATE_BRANCH = 'main'
-// desktop.log lives under HERMES_HOME/logs/ so it sits next to agent.log,
-// errors.log, gateway.log produced by hermes_logging.setup_logging — one log
+// desktop.log lives under LEMON_HOME/logs/ so it sits next to agent.log,
+// errors.log, gateway.log produced by lemon_logging.setup_logging — one log
 // directory per user, regardless of which UI surface produced the line.
-const DESKTOP_LOG_PATH = path.join(HERMES_HOME, 'logs', DESKTOP_RUNTIME_IDENTITY.desktopLogName)
+const DESKTOP_LOG_PATH = path.join(LEMON_HOME, 'logs', DESKTOP_RUNTIME_IDENTITY.desktopLogName)
 const DESKTOP_LOG_FLUSH_MS = 120
 const DESKTOP_LOG_BUFFER_MAX_CHARS = 64 * 1024
 // Bound desktop.log on disk. It is an append-only forensic log, so a boot loop
@@ -1021,7 +1021,7 @@ const DESKTOP_LOG_BUFFER_MAX_CHARS = 64 * 1024
 // bound — we have seen it reach ~326 GB and exhaust the disk, which then breaks
 // update/install (no room for git/venv/npm temp files).
 //
-// Mirror the Python logs (hermes_logging.py RotatingFileHandler, maxBytes x
+// Mirror the Python logs (lemon_logging.py RotatingFileHandler, maxBytes x
 // backupCount): cascade live -> .1 -> .2 -> .3, drop the oldest. Steady-state
 // stays bounded at ~(backupCount + 1) x cap however hard the app loops.
 //
@@ -1034,15 +1034,15 @@ const DESKTOP_LOG_MAX_BYTES = 10 * 1024 * 1024
 const DESKTOP_LOG_BACKUP_COUNT = 3
 const DESKTOP_LOG_DISCARD_BYTES = DESKTOP_LOG_MAX_BYTES * 4
 const desktopLogBackupPath = n => `${DESKTOP_LOG_PATH}.${n}`
-const BOOT_FAKE_MODE = process.env.HERMES_DESKTOP_BOOT_FAKE === '1'
-const BOOT_FAKE_ERROR = process.env.HERMES_DESKTOP_BOOT_FAKE_ERROR || ''
+const BOOT_FAKE_MODE = process.env.LEMON_DESKTOP_BOOT_FAKE === '1'
+const BOOT_FAKE_ERROR = process.env.LEMON_DESKTOP_BOOT_FAKE_ERROR || ''
 // Automated teardown (Playwright's app.close(), harness scripts) quits with
 // nobody to answer a modal, so the active-work confirmation would hang the
 // caller instead of letting the process exit. Force quits set this.
-const SKIP_QUIT_CONFIRM = process.env.HERMES_DESKTOP_SKIP_QUIT_CONFIRM === '1'
+const SKIP_QUIT_CONFIRM = process.env.LEMON_DESKTOP_SKIP_QUIT_CONFIRM === '1'
 
 const BOOT_FAKE_STEP_MS = (() => {
-  const raw = Number.parseInt(String(process.env.HERMES_DESKTOP_BOOT_FAKE_STEP_MS || ''), 10)
+  const raw = Number.parseInt(String(process.env.LEMON_DESKTOP_BOOT_FAKE_STEP_MS || ''), 10)
 
   if (!Number.isFinite(raw) || raw <= 0) {
     return 650
@@ -1051,7 +1051,7 @@ const BOOT_FAKE_STEP_MS = (() => {
   return Math.max(120, raw)
 })()
 
-const APP_NAME = process.env['HERMES_DESKTOP_APP_NAME'] || DESKTOP_RUNTIME_IDENTITY.appName
+const APP_NAME = process.env['LEMON_DESKTOP_APP_NAME'] || DESKTOP_RUNTIME_IDENTITY.appName
 
 const APP_COPYRIGHT = INTERNAL_DESKTOP_BUILD ? 'Copyright © 2026 Lemon Digital' : 'Copyright © 2026 Nous Research'
 
@@ -1092,7 +1092,7 @@ let rendererTitleBarTheme = null
 // tracks the window's effective appearance and ignores `backgroundColor` —
 // so a dark-themed app on a light-mode Mac flashes a white material on every
 // new window until the renderer covers it. The renderer reports its mode via
-// 'hermes:native-theme' ('dark' | 'light' | 'system'); we pin
+// 'lemon:native-theme' ('dark' | 'light' | 'system'); we pin
 // nativeTheme.themeSource to it and persist the value so cold launches paint
 // correctly before the renderer has even loaded.
 const NATIVE_THEME_CONFIG_PATH = path.join(app.getPath('userData'), 'native-theme.json')
@@ -1463,7 +1463,7 @@ app.setName(APP_NAME)
 // Windows toast notifications silently no-op unless an AppUserModelID is set:
 // `new Notification().show()` returns without error and nothing appears. The
 // AUMID must match the installed Start Menu shortcut's AUMID, which
-// electron-builder derives from the build `appId` (com.nousresearch.hermes) —
+// electron-builder derives from the build `appId` (com.nousresearch.lemon-ai) —
 // keep this string in sync with package.json `build.appId`. macOS/Linux don't
 // need this, so gate it on Windows. (Fixes: desktop approval/turn notifications
 // never firing on Windows.)
@@ -1471,13 +1471,13 @@ if (IS_WINDOWS) {
   app.setAppUserModelId(DESKTOP_RUNTIME_IDENTITY.appId)
 }
 
-// Seed the native About panel with the live Hermes version. This is refreshed
+// Seed the native About panel with the live Lemon AI version. This is refreshed
 // on every open via the explicit "About" menu handler (refreshAboutPanel), so
-// an in-place `hermes update` mid-session is reflected without an app restart;
+// an in-place `lemon update` mid-session is reflected without an app restart;
 // the seed here just covers the first open and any non-menu invocation path.
 app.setAboutPanelOptions({
   applicationName: APP_NAME,
-  applicationVersion: resolveHermesVersion(),
+  applicationVersion: resolveLemonVersion(),
   copyright: APP_COPYRIGHT
 })
 
@@ -1561,7 +1561,7 @@ const backendDialClaims = new BackendDialClaims()
 let softRehomeInProgress = false
 // Additional per-profile backends, keyed by profile name. The PRIMARY backend
 // (the desktop's launch profile) stays managed by backendConnectionState +
-// startHermes(); this pool only holds EXTRA profile
+// startLemon(); this pool only holds EXTRA profile
 // backends spawned lazily when a session belongs to a different profile. A user
 // with no named profiles never populates this map, so their experience is
 // byte-for-byte the single-backend behavior.
@@ -1572,7 +1572,7 @@ const profileDeletionGate = new ProfileDeletionGate()
 // exist while a non-primary profile is actively being chatted through.
 // Pool sizing is a device preference (Settings → Advanced → pool rows), not a
 // launch constant: mutable at runtime, persisted in userData, applied live.
-// The legacy HERMES_DESKTOP_POOL_* env vars remain the initial-value fallback
+// The legacy LEMON_DESKTOP_POOL_* env vars remain the initial-value fallback
 // for scripted/headless setups; after launch the stored preference wins.
 const POOL_LIMITS_PATH = path.join(app.getPath('userData'), 'pool-limits.json')
 
@@ -1589,8 +1589,8 @@ function readPersistedPoolLimits() {
     // setups keep working. Log which source won: a silently-ignored env var
     // here costs a scripted-setup user a debugging session.
     const fromEnv = clampPoolLimits({
-      maxBackends: Number(process.env.HERMES_DESKTOP_POOL_MAX) || undefined,
-      idleMs: Number(process.env.HERMES_DESKTOP_POOL_IDLE_MS) || undefined
+      maxBackends: Number(process.env.LEMON_DESKTOP_POOL_MAX) || undefined,
+      idleMs: Number(process.env.LEMON_DESKTOP_POOL_IDLE_MS) || undefined
     })
 
     if (fromEnv.maxBackends !== POOL_LIMITS_DEFAULTS.maxBackends || fromEnv.idleMs !== POOL_LIMITS_DEFAULTS.idleMs) {
@@ -1623,7 +1623,7 @@ function persistPoolLimits(limits) {
 // readPersistedPoolLimits() call below, because that call logs during module
 // evaluation; declaring these later crashed launch with `undefined.push` in
 // the packaged build (esbuild lowers the TDZ to undefined instead of throwing).
-const hermesLog = []
+const lemonLog = []
 let desktopLogBuffer = ''
 let desktopLogFlushTimer = null
 let desktopLogFlushPromise = Promise.resolve()
@@ -1669,7 +1669,7 @@ function setPoolLimits(raw) {
 //
 // The window is intentionally MUCH wider than the 60s ping cadence:
 //   * 1 missed ping    = +60s of apparent silence
-//   * WSL2 IPC stall  = the renderer's `hermes:backend:touch` roundtrips
+//   * WSL2 IPC stall  = the renderer's `lemon:backend:touch` roundtrips
 //                       through 9p; a single brief 9p hiccup can stretch a
 //                       ping to ~30s of observed silence (#95189: gateways
 //                       exited every ~2 min on WSL2 because the previous
@@ -1685,7 +1685,7 @@ function setPoolLimits(raw) {
 //     not when the idle reaper definitively tears a backend down.
 const POOL_KEEPALIVE_FRESH_MS = Math.max(
   120_000,
-  Number(process.env.HERMES_DESKTOP_POOL_KEEPALIVE_FRESH_MS) || 4 * 60_000
+  Number(process.env.LEMON_DESKTOP_POOL_KEEPALIVE_FRESH_MS) || 4 * 60_000
 )
 
 let poolIdleReaper = null
@@ -1700,13 +1700,13 @@ const RENDERER_RELOAD_WINDOW_MS = 60_000
 const RENDERER_RELOAD_MAX = 3
 const rendererReloadTimesRef: { current: number[] } = { current: [] }
 // Latched bootstrap failure: when the first-launch install fails, we hold
-// onto the error so subsequent startHermes() calls (e.g. the renderer's
+// onto the error so subsequent startLemon() calls (e.g. the renderer's
 // ensureGatewayOpen retrying after the WS won't open) return the same error
 // instead of re-running install.ps1 in a hot loop. Cleared explicitly by
 // the renderer's "Reload and retry" path or by quitting the app.
 let bootstrapFailure = null
 // Latched non-bootstrap backend spawn failure — stops getConnection() from
-// respawning hermes serve backend children in a tight loop while boot is broken.
+// respawning lemon serve backend children in a tight loop while boot is broken.
 let backendStartFailure = null
 // Latched CONFIRMED remote reauth failure. Remote failures deliberately do not
 // latch via backendStartFailure (they're usually transient and must stay
@@ -1746,7 +1746,7 @@ let bootProgressState = {
   error: null,
   fakeMode: BOOT_FAKE_MODE,
   isCloudBackendDown: false,
-  message: runtimeUserText('Waiting to start Hermes backend'),
+  message: runtimeUserText('Waiting to start Lemon AI backend'),
   phase: 'idle',
   progress: 0,
   retryable: false,
@@ -1886,10 +1886,10 @@ function rememberLog(chunk) {
   // at the same moment.  ISO-8601 UTC, matching agent.log/gateway.log.
   const stamp = new Date().toISOString()
   const lines = text.split(/\r?\n/).map(line => formatDesktopLogLine(line, stamp))
-  hermesLog.push(...lines)
+  lemonLog.push(...lines)
 
-  if (hermesLog.length > 300) {
-    hermesLog.splice(0, hermesLog.length - 300)
+  if (lemonLog.length > 300) {
+    lemonLog.splice(0, lemonLog.length - 300)
   }
 
   desktopLogBuffer += `${lines.join('\n')}\n`
@@ -2045,7 +2045,7 @@ function ensureWslWindowsFonts() {
 
   try {
     const confDir = path.join(app.getPath('home'), '.config', 'fontconfig', 'conf.d')
-    const confPath = path.join(confDir, '99-hermes-wsl-windows-fonts.conf')
+    const confPath = path.join(confDir, '99-lemon-wsl-windows-fonts.conf')
     let existing = ''
 
     try {
@@ -2098,7 +2098,7 @@ function broadcastBootProgress() {
     return
   }
 
-  webContents.send('hermes:boot-progress', bootProgressState)
+  webContents.send('lemon:boot-progress', bootProgressState)
 }
 
 // Bootstrap-event broadcast channel + state. The bootstrap runner emits a
@@ -2112,7 +2112,7 @@ function broadcastBootProgress() {
 //   - log:      bounded ring buffer of the last 200 log lines for the
 //               "Show details" affordance in the overlay
 //
-// The snapshot is queryable via the hermes:bootstrap:get IPC handler so a
+// The snapshot is queryable via the lemon:bootstrap:get IPC handler so a
 // reloaded renderer (e.g. devtools reload during dev) recovers state.
 // Bootstrap log ring: bounded buffer so a long install (npm + playwright
 // downloads can emit thousands of lines) doesn't grow unbounded in memory
@@ -2204,7 +2204,7 @@ function broadcastBootstrapEvent(ev) {
     return
   }
 
-  webContents.send('hermes:bootstrap:event', ev)
+  webContents.send('lemon:bootstrap:event', ev)
 }
 
 function getBootstrapState() {
@@ -2230,7 +2230,7 @@ function promptFirstRunSetupChoice(backend) {
     type: 'setup-choice',
     active: true,
     platform: backend.platform || process.platform,
-    activeRoot: backend.activeRoot || ACTIVE_HERMES_ROOT
+    activeRoot: backend.activeRoot || ACTIVE_LEMON_ROOT
   })
 }
 
@@ -2364,12 +2364,12 @@ function directoryExists(filePath) {
 }
 
 // --- in-app update mutual exclusion (#50238) -------------------------------
-// The Tauri updater writes HERMES_HOME/.hermes-update-in-progress for the whole
+// The Tauri updater writes LEMON_HOME/.lemon-ai-update-in-progress for the whole
 // duration of an `--update` run (see update.rs UpdateMarkerGuard). If the user
 // relaunches the desktop mid-update — because the window vanished with no
 // progress and looks crashed — a fresh instance must NOT spawn its own local
 // backend: that backend re-locks the venv shim, the updater's straggler cleanup
-// (`force_kill_other_hermes`, taskkill /IM hermes.exe) kills it, the launch
+// (`force_kill_other_lemon`, taskkill /IM lemon.exe) kills it, the launch
 // fails with the 45s "backend didn't come up" error, and the relaunch/kill
 // cycle loops. Instead the fresh instance parks until the update finishes, then
 // brings the backend up itself (it is the surviving instance — the updater's
@@ -2399,7 +2399,7 @@ const UPDATE_HANDOFF_DWELL_MS = 2500
 // reports as a blocker, aborting every update attempt.
 function updateGateDeps() {
   return {
-    hasLiveMarker: () => Boolean(readLiveUpdateMarker(HERMES_HOME, UPDATE_MARKER_OPTIONS)),
+    hasLiveMarker: () => Boolean(readLiveUpdateMarker(LEMON_HOME, UPDATE_MARKER_OPTIONS)),
     isUpdateInFlight: () => updateInFlight
   }
 }
@@ -2407,14 +2407,14 @@ function updateGateDeps() {
 // One-shot guard for the automatic bundle-swap relaunch below: the relaunched
 // instance carries this flag so a stamp that still mismatches (unreadable
 // resources, exotic packaging) can never produce a relaunch loop.
-const BUNDLE_SWAP_RELAUNCH_FLAG = '--hermes-bundle-swap-relaunched'
+const BUNDLE_SWAP_RELAUNCH_FLAG = '--lemon-bundle-swap-relaunched'
 
 // How long the parked instance waits for its own scheduled exit to land before
 // giving up and booting the stale build anyway. Better a torn renderer with a
 // banner than a window that never comes back.
 const BUNDLE_SWAP_RELAUNCH_FAILSAFE_MS = 15_000
 
-// The detached updater swaps the packaged bundle on disk AFTER `hermes update`
+// The detached updater swaps the packaged bundle on disk AFTER `lemon update`
 // exits (posix.sh mac_swap / windows.ps1). An instance reopened mid-update —
 // the #50238 gesture the gate above exists for — was launched from the
 // PRE-swap bundle, and the updater's `open` leg then merely focuses us (single
@@ -2487,7 +2487,7 @@ async function waitForUpdateToFinish() {
   // (previously a failed detached update was indistinguishable from
   // "nothing happened").
   try {
-    const result = readAndConsumeHandoffResult(HERMES_HOME, HANDOFF_RESULT_OPTIONS)
+    const result = readAndConsumeHandoffResult(LEMON_HOME, HANDOFF_RESULT_OPTIONS)
 
     if (result && result.ok && result.manual) {
       // Update landed but the user must act (reopen/reinstall/sandbox). On
@@ -2508,7 +2508,7 @@ async function waitForUpdateToFinish() {
       rememberLog(`[updates] detached update FAILED (exit ${result.exitCode}): ${userMessage}`)
       dialog.showErrorBox(
         `${DESKTOP_RUNTIME_IDENTITY.appName} update did not finish`,
-        `${userMessage}\n\nDetails: ${path.join(HERMES_HOME, 'logs', DESKTOP_RUNTIME_IDENTITY.updateHandoffLogName)}`
+        `${userMessage}\n\nDetails: ${path.join(LEMON_HOME, 'logs', DESKTOP_RUNTIME_IDENTITY.updateHandoffLogName)}`
       )
     }
   } catch (err) {
@@ -2568,7 +2568,7 @@ function findOnPath(command) {
   // On Windows, try PATHEXT extensions BEFORE the bare (empty-extension) name.
   // A real command must resolve via its .exe/.cmd (Windows command-resolution
   // semantics consult PATHEXT); an extensionless file — e.g. a Git-Bash
-  // shell-script shim named `hermes` — must not shadow `hermes.cmd`/`hermes.exe`.
+  // shell-script shim named `lemon` — must not shadow `lemon.cmd`/`lemon.exe`.
   // The empty entry is kept LAST so callers that already include the extension
   // (py.exe, pwsh.exe, powershell.exe) still resolve.
   const extensions = buildPathExtCandidates(process.env.PATHEXT, IS_WINDOWS)
@@ -2590,17 +2590,17 @@ function isCommandScript(command) {
   return IS_WINDOWS && /\.(cmd|bat)$/i.test(command || '')
 }
 
-function unwrapWindowsVenvHermesCommand(command, backendArgs) {
-  return resolveVenvHermesCommand(command, backendArgs, {
+function unwrapWindowsVenvLemonCommand(command, backendArgs) {
+  return resolveVenvLemonCommand(command, backendArgs, {
     isWindows: IS_WINDOWS,
     isCommandScript,
     fileExists,
     directoryExists,
-    canImportHermesCli,
+    canImportLemonCli,
     getVenvPython,
     getVenvSitePackagesEntries,
     buildDesktopBackendEnv: opts => buildDesktopBackendEnv({ ...opts, managedDir: internalDesktopHarnessManagedDir() }),
-    hermesHome: HERMES_HOME,
+    lemonHome: LEMON_HOME,
     resolvePath: (...segments) => path.resolve(...segments),
     dirname: p => path.dirname(p),
     basename: p => path.basename(p),
@@ -2609,14 +2609,14 @@ function unwrapWindowsVenvHermesCommand(command, backendArgs) {
 }
 
 // Does the resolved runtime understand the `serve` subcommand? The desktop
-// spawns `hermes serve`; runtimes older than serve only have `dashboard`. We
+// spawns `lemon serve`; runtimes older than serve only have `dashboard`. We
 // detect support so getBackendArgsForRuntime() can route old runtimes through
 // the legacy `dashboard --no-open` form instead of crashing on an unknown
 // subcommand (would brick every user mid-upgrade — #54568 follow-up).
 //
 // Fast path: read the runtime's own dashboard.py (instant, covers managed
 // installs, dev checkouts, and the Windows venv). Fallback: probe the CLI once
-// (covers a bare `hermes` resolved from PATH with no known source root). Result
+// (covers a bare `lemon` resolved from PATH with no known source root). Result
 // is cached per resolved runtime so we probe at most once per backend.
 const _serveSupportCache = new Map()
 
@@ -2635,7 +2635,7 @@ function backendSupportsServe(backend) {
 
   if (backend.root) {
     try {
-      const src = fs.readFileSync(path.join(backend.root, 'hermes_cli', 'subcommands', 'dashboard.py'), 'utf8')
+      const src = fs.readFileSync(path.join(backend.root, 'lemon_cli', 'subcommands', 'dashboard.py'), 'utf8')
       supported = sourceDeclaresServe(src)
     } catch {
       supported = null // source unreadable — fall through to the probe
@@ -2647,17 +2647,17 @@ function backendSupportsServe(backend) {
       const prefix = backend.args && backend.args[0] === '-m' ? backend.args.slice(0, 2) : []
       // Same cold-Windows Python-startup class as the runtime probes
       // (#61764/#72632/#72707): `serve --help` imports at least as much as
-      // `hermes --version` (~10.5s measured cold), and a false negative here
+      // `lemon --version` (~10.5s measured cold), and a false negative here
       // is cached for the process lifetime, silently routing a modern
       // runtime through the legacy `dashboard` form. Share the probe budget
       // and its timeout-only retry instead of a thinner local bound.
       execProbeSync(backend.command, [...prefix, 'serve', '--help'], {
         cwd: backend.root || undefined,
-        env: { ...process.env, HERMES_HOME, ...(backend.env || {}) },
+        env: { ...process.env, LEMON_HOME, ...(backend.env || {}) },
         timeout: PROBE_TIMEOUT_MS,
         stdio: 'ignore',
         // `.cmd`/`.bat` shim backends carry shell: true in their descriptor
-        // (see resolveHermesBackend step 4); execFileSync of a .cmd without
+        // (see resolveLemonBackend step 4); execFileSync of a .cmd without
         // shell throws EINVAL on modern Node, which the catch below would
         // mis-cache as "serve unsupported" for the process lifetime.
         shell: Boolean(backend.shell),
@@ -2727,12 +2727,12 @@ function looksLikeDesktopAppBinary(commandPath) {
   )
 }
 
-function isHermesSourceRoot(root) {
-  return directoryExists(root) && fileExists(path.join(root, 'hermes_cli', 'main.py'))
+function isLemonSourceRoot(root) {
+  return directoryExists(root) && fileExists(path.join(root, 'lemon_cli', 'main.py'))
 }
 
 function findPythonForRoot(root) {
-  const override = process.env.HERMES_DESKTOP_PYTHON
+  const override = process.env.LEMON_DESKTOP_PYTHON
 
   if (override && fileExists(override)) {
     return override
@@ -2780,7 +2780,7 @@ function findSystemPython() {
   //      miss real Python 3.13 installs (user-reported case).
   //
   // We also restrict ourselves to Python 3.11–3.13. 3.14 is the latest
-  // CPython but several Hermes deps (notably pywinpty's Rust-built
+  // CPython but several Lemon AI deps (notably pywinpty's Rust-built
   // windows_x86_64_msvc crate) don't yet publish 3.14 wheels, and
   // `pip install -e .` falls back to source-build, which fails without
   // a Rust toolchain. install.ps1 sidesteps this by pinning to 3.11
@@ -2876,7 +2876,7 @@ function findSystemPython() {
           hiddenWindowsChildOptions({
             encoding: 'utf8',
             stdio: ['ignore', 'pipe', 'ignore'],
-            // Bare interpreter startup — much lighter than the hermes-import
+            // Bare interpreter startup — much lighter than the lemon-import
             // probes, but still python.exe under cold cache / AV scan, so
             // share the probe budget rather than running unbounded (this
             // synchronous exec previously had no timeout at all).
@@ -2904,7 +2904,7 @@ function findSystemPython() {
   return null
 }
 
-// findGitBash — locate bash.exe on Windows. Resolves HERMES_GIT_BASH_PATH
+// findGitBash — locate bash.exe on Windows. Resolves LEMON_GIT_BASH_PATH
 // first (mirrors tools/environments/local.py:_find_bash), then PortableGit,
 // standard install locations, and finally PATH.
 function findGitBash() {
@@ -2913,7 +2913,7 @@ function findGitBash() {
     env: process.env,
     fileExists,
     findOnPath,
-    hermesHome: HERMES_HOME,
+    lemonHome: LEMON_HOME,
     localAppDataProductDirs: [
       DESKTOP_RUNTIME_IDENTITY.windowsLocalAppDataDirName,
       ...DESKTOP_RUNTIME_IDENTITY.legacyWindowsLocalAppDataDirNames
@@ -2972,7 +2972,7 @@ function venvRootForPython(python: string, root: string) {
 // This makes "no flashing windows" a property of the one backend launch rather
 // than a flag that has to be remembered at every descendant spawn site. Restoring
 // console python also restores stdout, so the backend announces its port on the
-// normal HERMES_DASHBOARD_READY stdout line and no ready-file side channel is
+// normal LEMON_DASHBOARD_READY stdout line and no ready-file side channel is
 // needed.
 
 function makeDashboardReadyFile() {
@@ -2984,7 +2984,7 @@ function makeDashboardReadyFile() {
 
 // resolveGitBinary — locate git.exe for desktop update checks. A fresh
 // installer-driven Windows install may only have PortableGit under the selected
-// HERMES_HOME (Lemon AI uses %LOCALAPPDATA%\Lemon AI), so probe the active home
+// LEMON_HOME (Lemon AI uses %LOCALAPPDATA%\Lemon AI), so probe the active home
 // first, then legacy product dirs, standard Git-for-Windows, then PATH. Cached
 // after first probe.
 let _gitBinaryCache = null
@@ -2999,7 +2999,7 @@ function resolveGitBinary() {
     env: process.env,
     fileExists,
     findOnPath,
-    hermesHome: HERMES_HOME,
+    lemonHome: LEMON_HOME,
     localAppDataProductDirs: [
       DESKTOP_RUNTIME_IDENTITY.windowsLocalAppDataDirName,
       ...DESKTOP_RUNTIME_IDENTITY.legacyWindowsLocalAppDataDirNames
@@ -3038,11 +3038,11 @@ function resolveGhBinary() {
   return _ghBinaryCache
 }
 
-function recentHermesLog() {
-  return hermesLog.slice(-20).join('\n')
+function recentLemonLog() {
+  return lemonLog.slice(-20).join('\n')
 }
 
-// ─── Self-update (git-pull against the running backend's hermes root) ──────
+// ─── Self-update (git-pull against the running backend's lemon root) ──────
 
 function readDesktopUpdateConfig() {
   try {
@@ -3129,16 +3129,16 @@ function writeZoomState(zoomLevel) {
 }
 
 // Match the backend's source resolution but bias toward a real git checkout.
-// Dev → SOURCE_REPO_ROOT. Packaged/CLI install → ACTIVE_HERMES_ROOT.
-// HERMES_DESKTOP_HERMES_ROOT always wins so devs can pin a worktree.
+// Dev → SOURCE_REPO_ROOT. Packaged/CLI install → ACTIVE_LEMON_ROOT.
+// LEMON_DESKTOP_LEMON_ROOT always wins so devs can pin a worktree.
 function resolveUpdateRoot() {
   const candidates = [
-    process.env.HERMES_DESKTOP_HERMES_ROOT && path.resolve(process.env.HERMES_DESKTOP_HERMES_ROOT),
-    !IS_PACKAGED && isHermesSourceRoot(SOURCE_REPO_ROOT) ? SOURCE_REPO_ROOT : null,
-    isHermesSourceRoot(ACTIVE_HERMES_ROOT) ? ACTIVE_HERMES_ROOT : null
+    process.env.LEMON_DESKTOP_LEMON_ROOT && path.resolve(process.env.LEMON_DESKTOP_LEMON_ROOT),
+    !IS_PACKAGED && isLemonSourceRoot(SOURCE_REPO_ROOT) ? SOURCE_REPO_ROOT : null,
+    isLemonSourceRoot(ACTIVE_LEMON_ROOT) ? ACTIVE_LEMON_ROOT : null
   ].filter(Boolean)
 
-  return candidates.find(c => directoryExists(path.join(c, '.git'))) || candidates[0] || ACTIVE_HERMES_ROOT
+  return candidates.find(c => directoryExists(path.join(c, '.git'))) || candidates[0] || ACTIVE_LEMON_ROOT
 }
 
 function runGit(args, options: any = {}): Promise<{ code: number; stdout: string; stderr: string }> {
@@ -3184,7 +3184,7 @@ function resolveDesktopUpdateRepository() {
     // The packaged identity is the authority for the fallback. This keeps a
     // Lemon build on its own repository even when an older/partial package is
     // missing lemon-ai-harness.json.
-    HERMES_DESKTOP_INTERNAL: INTERNAL_DESKTOP_BUILD ? '1' : process.env['HERMES_DESKTOP_INTERNAL']
+    LEMON_DESKTOP_INTERNAL: INTERNAL_DESKTOP_BUILD ? '1' : process.env['LEMON_DESKTOP_INTERNAL']
   }
 
   try {
@@ -3194,7 +3194,7 @@ function resolveDesktopUpdateRepository() {
 
     return resolveBootstrapSourceRepository({
       resourcesPath: null,
-      environ: { HERMES_DESKTOP_INTERNAL: INTERNAL_DESKTOP_BUILD ? '1' : undefined }
+      environ: { LEMON_DESKTOP_INTERNAL: INTERNAL_DESKTOP_BUILD ? '1' : undefined }
     })
   }
 }
@@ -3235,7 +3235,7 @@ function emitUpdateProgress(payload) {
   rememberLog(`[updates] ${merged.stage}: ${merged.message || merged.error || ''}`)
 
   for (const window of BrowserWindow.getAllWindows()) {
-    window.webContents.send('hermes:updates:progress', merged)
+    window.webContents.send('lemon:updates:progress', merged)
   }
 }
 
@@ -3275,7 +3275,7 @@ async function checkUpdates() {
       supported: false,
       reason: 'not-a-git-checkout',
       message: `${updateRoot} isn't a git checkout — desktop self-update only runs against a source install.`,
-      hermesRoot: updateRoot,
+      lemonRoot: updateRoot,
       branch
     }
   }
@@ -3302,7 +3302,7 @@ async function checkUpdates() {
       branch,
       error: 'fetch-failed',
       message: firstLine(fetched.stderr) || 'git fetch failed.',
-      hermesRoot: updateRoot,
+      lemonRoot: updateRoot,
       fetchedAt: Date.now()
     }
   }
@@ -3350,7 +3350,7 @@ async function checkUpdates() {
     targetSha,
     commits,
     dirty: dirtyStr.length > 0,
-    hermesRoot: updateRoot,
+    lemonRoot: updateRoot,
     fetchedAt: Date.now()
   }
 }
@@ -3375,7 +3375,7 @@ async function fetchCompareBehindCount({ currentSha, originUrl, sourceRepository
           headers: {
             Accept: 'application/vnd.github+json',
             // GitHub requires a UA on api.github.com; requests without one 403.
-            'User-Agent': 'hermes-desktop-update-check'
+            'User-Agent': 'lemon-desktop-update-check'
           },
           timeout: 10_000
         },
@@ -3449,13 +3449,13 @@ let quitPromptOpen = false
 let quitConfirmedWithActiveWork = false
 
 // Resolve the staged updater binary the desktop may hand an update to. On
-// Windows that binary owns ALL repo mutation — running `hermes update` +
+// Windows that binary owns ALL repo mutation — running `lemon update` +
 // rebuilding the desktop — so the desktop never touches its own bits while
 // running. macOS/Linux stage the same binary but deliberately do not use it;
 // see resolveStagedUpdaterBinary for the policy and for #74836. Returns null
 // whenever no hand-off applies; callers degrade gracefully.
 function resolveUpdaterBinary() {
-  return resolveStagedUpdaterBinary(HERMES_HOME, {
+  return resolveStagedUpdaterBinary(LEMON_HOME, {
     fileExists,
     isWindows: IS_WINDOWS,
     stagedUpdaterNames: DESKTOP_RUNTIME_IDENTITY.stagedUpdaterNames
@@ -3490,13 +3490,13 @@ function repairMacUpdaterHelper(updater) {
   }
 }
 
-// Path to the venv shim whose lock decides whether `hermes update` can write
+// Path to the venv shim whose lock decides whether `lemon update` can write
 // fresh entry points. On Windows this is the file the running backend
-// `hermes.exe` holds open; on POSIX it's never mandatory-locked.
-function venvHermesShimPath(updateRoot) {
+// `lemon.exe` holds open; on POSIX it's never mandatory-locked.
+function venvLemonShimPath(updateRoot) {
   return IS_WINDOWS
-    ? path.join(updateRoot, 'venv', 'Scripts', 'hermes.exe')
-    : path.join(updateRoot, 'venv', 'bin', 'hermes')
+    ? path.join(updateRoot, 'venv', 'Scripts', 'lemon.exe')
+    : path.join(updateRoot, 'venv', 'bin', 'lemon')
 }
 
 // Best-effort lock probe mirroring the Rust updater's is_locked(): a running
@@ -3529,15 +3529,15 @@ function isShimLocked(shimPath) {
   }
 }
 
-// Kill only Hermes-OWNED venv daemons (the memory plugin's hindsight daemon:
+// Kill only Lemon AI-OWNED venv daemons (the memory plugin's hindsight daemon:
 // exe under venv\Scripts AND cmdline referencing hindsight_api.main). The
 // daemon is spawned DETACHED, so it outlives the backend tree-kill and keeps
-// venv files mapped. External holders (a user terminal running `hermes`,
+// venv files mapped. External holders (a user terminal running `lemon`,
 // unrelated scripts) are NOT killed — scanVenvBlockers reports them and the
 // hand-off aborts, per existing design. Selection lives in the pure
 // venv-holder-select module (ordinal path-prefix, no PowerShell -like
 // wildcard hazards) so it's testable without Electron.
-function killHermesOwnedVenvDaemons(updateRoot) {
+function killLemonOwnedVenvDaemons(updateRoot) {
   if (!IS_WINDOWS) {
     return
   }
@@ -3560,7 +3560,7 @@ function killHermesOwnedVenvDaemons(updateRoot) {
     const parsed = JSON.parse(String(out || '[]'))
 
     holders = (Array.isArray(parsed) ? parsed : [parsed]).filter(p =>
-      isHermesOwnedVenvDaemon(p?.ExecutablePath, p?.CommandLine, scriptsDir)
+      isLemonOwnedVenvDaemon(p?.ExecutablePath, p?.CommandLine, scriptsDir)
     )
   } catch {
     // Best-effort: the venv-blocker scan downstream is the real backstop.
@@ -3571,15 +3571,15 @@ function killHermesOwnedVenvDaemons(updateRoot) {
     const pid = Number(holder?.ProcessId)
 
     if (Number.isInteger(pid) && pid > 0) {
-      rememberLog(`[updates] stopping Hermes-owned venv daemon (hindsight) PID ${pid} before hand-off`)
+      rememberLog(`[updates] stopping Lemon AI-owned venv daemon (hindsight) PID ${pid} before hand-off`)
       forceKillProcessTree(pid)
     }
   }
 }
 
 // Force-kill the entire process TREE rooted at each PID. Node's child.kill()
-// only signals the direct child, so on Windows a backend `hermes.exe` that
-// spawned its own grandchildren (a `hermes` REPL, a pty terminal session, the
+// only signals the direct child, so on Windows a backend `lemon.exe` that
+// spawned its own grandchildren (a `lemon` REPL, a pty terminal session, the
 // gateway) would survive and keep the venv shim locked. taskkill /T /F reaps
 // the whole tree synchronously. Windows-only: this is called solely from the
 // Windows shim-unlock path, and the backend is NOT spawned detached (so it's
@@ -3802,7 +3802,7 @@ async function claimBackendChild(child, command, profile, nonce, outputTail: Bac
     stopBackendChild(child)
     await waitForBackendExit(child)
     throw new Error(
-      `Hermes backend (PID ${child.pid}) died before its identity could be recorded: ${decision.reason}${outputTail?.describe() ?? ''}`
+      `Lemon AI backend (PID ${child.pid}) died before its identity could be recorded: ${decision.reason}${outputTail?.describe() ?? ''}`
     )
   }
 
@@ -3811,7 +3811,7 @@ async function claimBackendChild(child, command, profile, nonce, outputTail: Bac
   if (decision.action === 'degrade') {
     startMarker = pidOnlyStartMarker(child.pid)
     rememberLog(
-      `WARNING: process start marker probe failed for live Hermes backend PID ${child.pid}; ` +
+      `WARNING: process start marker probe failed for live Lemon AI backend PID ${child.pid}; ` +
         `claiming with PID-only identity instead of stopping it: ${decision.reason}`
     )
   } else {
@@ -3832,20 +3832,20 @@ async function claimBackendChild(child, command, profile, nonce, outputTail: Bac
       parentStartMarker: await desktopParentStartMarker()
     })
 
-    child.hermesBackendIdentity = identity
+    child.lemonBackendIdentity = identity
 
     return identity
   } catch (error) {
     stopBackendChild(child)
     await waitForBackendExit(child)
     throw new Error(
-      `Could not persist ownership for the Hermes backend: ${error.message}${outputTail?.describe() ?? ''}`
+      `Could not persist ownership for the Lemon AI backend: ${error.message}${outputTail?.describe() ?? ''}`
     )
   }
 }
 
 function releaseBackendChild(child) {
-  const identity = child?.hermesBackendIdentity
+  const identity = child?.lemonBackendIdentity
 
   if (!identity) {
     return
@@ -3878,9 +3878,9 @@ function reapOrphanedBackendsOnce() {
 
 // Before handing off the update on Windows, the desktop MUST stop every backend
 // it spawned and WAIT for the venv shim to actually unlock. The old code did
-// `hermesProcess.kill('SIGTERM')` + `app.quit()` fire-and-forget: SIGTERM on
+// `lemonProcess.kill('SIGTERM')` + `app.quit()` fire-and-forget: SIGTERM on
 // Windows doesn't reap the backend's grandchildren, and quit didn't wait for
-// teardown, so the updater raced a still-locked `hermes.exe`, the quarantine
+// teardown, so the updater raced a still-locked `lemon.exe`, the quarantine
 // rename failed, uv's `pip install` hit "Access is denied", and the git path
 // bailed into a full ZIP re-download that ALSO couldn't write the locked shim —
 // a half-applied install (ryanc's update.log). Here we tree-kill the primary +
@@ -3898,8 +3898,8 @@ async function releaseBackendLockForUpdate(updateRoot) {
 
 // Shared backend teardown + venv-shim unlock wait. Used by BOTH the self-update
 // hand-off and the desktop uninstaller — they have the identical Windows
-// problem: the desktop's backend (and the grandchildren IT spawned — a hermes
-// REPL, a pty terminal, the gateway) keep `hermes.exe` and other files in the
+// problem: the desktop's backend (and the grandchildren IT spawned — a lemon
+// REPL, a pty terminal, the gateway) keep `lemon.exe` and other files in the
 // venv mandatory-locked, so any in-place replace/delete of the install tree
 // races a live handle and half-fails (#37532). We tree-kill every backend PID
 // the desktop owns, then poll the shim until it's genuinely writable.
@@ -3911,18 +3911,18 @@ async function releaseBackendLock(updateRoot, tag) {
     return { unlocked: true }
   }
 
-  const hermesProcess = backendConnectionState.getProcess()
+  const lemonProcess = backendConnectionState.getProcess()
 
   // Seed the release gate with every PID we are about to signal: the
   // supervised primary backend and all pool backends. The gate waits for
   // these to actually LEAVE the process table, not just for the shim to
-  // unlock — the shim probe only covers venv\Scripts\hermes.exe, but the
-  // backend is `python.exe -m hermes_cli.main serve`, which need not hold
+  // unlock — the shim probe only covers venv\Scripts\lemon.exe, but the
+  // backend is `python.exe -m lemon_cli.main serve`, which need not hold
   // the shim at all (#74805 first-attempt race).
   const initialPids = []
 
-  if (hermesProcess && Number.isInteger(hermesProcess.pid)) {
-    initialPids.push(hermesProcess.pid)
+  if (lemonProcess && Number.isInteger(lemonProcess.pid)) {
+    initialPids.push(lemonProcess.pid)
   }
 
   for (const entry of backendPool.values()) {
@@ -3931,7 +3931,7 @@ async function releaseBackendLock(updateRoot, tag) {
     }
   }
 
-  stopBackendTreesForUpdate(hermesProcess, {
+  stopBackendTreesForUpdate(lemonProcess, {
     forceKillProcessTree,
     stopAllPoolBackends
   })
@@ -3943,21 +3943,21 @@ async function releaseBackendLock(updateRoot, tag) {
   // launcher (venv\Scripts\python.exe) keeps the venv mandatory-locked and
   // the 15s gate aborts the hand-off before the venv-blocker scan's
   // pausable-gateway exemption ever gets a chance (#70337). Delegate to
-  // `hermes gateway stop --all`: the CLI discovers every profile's gateway
+  // `lemon gateway stop --all`: the CLI discovers every profile's gateway
   // (launcher + worker — gateway.pid records only the uv WORKER, and
   // taskkill /T from the worker never reaches its parent), drains in-flight
   // agents, and force-kills survivors. Best-effort; abort paths restore via
   // startGatewaysAfterUpdateAbort. No-op off Windows.
-  stopGatewayBeforeUpdate(venvHermesShimPath(updateRoot), HERMES_HOME)
+  stopGatewayBeforeUpdate(venvLemonShimPath(updateRoot), LEMON_HOME)
 
-  // Reap Hermes-OWNED venv daemons the tree-kill above cannot reach: the
+  // Reap Lemon AI-OWNED venv daemons the tree-kill above cannot reach: the
   // memory plugin's hindsight daemon is spawned DETACHED (it outlives the
   // backend) yet runs off venv\Scripts\pythonw.exe, keeping venv files
   // mapped past the backend teardown (#75477/#75478). Narrowly scoped
   // (venv-holder-select) — external holders are never killed here.
-  killHermesOwnedVenvDaemons(updateRoot)
+  killLemonOwnedVenvDaemons(updateRoot)
 
-  const shim = venvHermesShimPath(updateRoot)
+  const shim = venvLemonShimPath(updateRoot)
 
   const gate = await waitForBackendRelease(
     initialPids,
@@ -3967,10 +3967,10 @@ async function releaseBackendLock(updateRoot, tag) {
       collectStragglerPids: () => {
         const stragglers = []
 
-        const currentHermesProcess = backendConnectionState.getProcess()
+        const currentLemonProcess = backendConnectionState.getProcess()
 
-        if (currentHermesProcess && Number.isInteger(currentHermesProcess.pid)) {
-          stragglers.push(currentHermesProcess.pid)
+        if (currentLemonProcess && Number.isInteger(currentLemonProcess.pid)) {
+          stragglers.push(currentLemonProcess.pid)
         }
 
         for (const entry of backendPool.values()) {
@@ -4011,8 +4011,8 @@ async function releaseBackendLock(updateRoot, tag) {
 //
 // The desktop is a pure consumer: it does NOT git pull / pip install / rebuild
 // itself (the old open-coded git dance lived here and drifted from
-// `hermes update`). Instead we spawn the staged Hermes-Setup binary with
-// --update and quit, so it can run `hermes update` (which refuses while we
+// `lemon update`). Instead we spawn the staged Lemon AI-Setup binary with
+// --update and quit, so it can run `lemon update` (which refuses while we
 // hold the venv shim) and rebuild the desktop with our exe already gone.
 //
 // Detection (checkUpdates / commit changelog / "N behind") stays in the UI;
@@ -4029,21 +4029,21 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
 
     if (!updater && !IS_WINDOWS) {
       // macOS/Linux: hand off to the repo-owned posix script — same shape as
-      // Windows (quit → detached orchestrator → `hermes update` → relaunch),
+      // Windows (quit → detached orchestrator → `lemon update` → relaunch),
       // minus the venv-lock gauntlet POSIX doesn't need. The old in-app
       // updater (applyUpdatesPosixInApp) is gone with everything it dragged
-      // in: the HERMES_DESKTOP_CHILD_PID reaper-exclusion dance (#37532),
+      // in: the LEMON_DESKTOP_CHILD_PID reaper-exclusion dance (#37532),
       // the in-window rebuild retry, and the relaunch-outcome matrix — the
       // script owns swap/relaunch, and the app is DEAD during the update so
       // there is nothing to reap around. Checkouts that predate the script
-      // get the manual `hermes update` card once; their next update pulls it.
+      // get the manual `lemon update` card once; their next update pulls it.
       return await applyUpdatesPosixHandoff(opts)
     }
 
     if (!updater) {
       // No staged updater binary — this is a CLI-installed user (they ran
-      // `hermes desktop`, never the Tauri installer that self-copies
-      // hermes-setup.exe into HERMES_HOME). On Windows the repo hand-off
+      // `lemon desktop`, never the Tauri installer that self-copies
+      // lemon-setup.exe into LEMON_HOME). On Windows the repo hand-off
       // script serves them just as well as installer users — it only needs
       // PowerShell and the checkout — so fall through to the normal hand-off
       // when the script exists. Only when the checkout predates the script do
@@ -4051,14 +4051,14 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
       const updateRoot = resolveUpdateRoot()
 
       if (!resolveUpdateScriptHandoff(updateRoot)) {
-        // They DO have a working `hermes` on PATH / in the venv, so the
+        // They DO have a working `lemon` on PATH / in the venv, so the
         // correct path is the one-liner in their native medium. We show the
         // EXACT command, branch-pinned to the checkout they're on — bare
-        // `hermes update` defaults to main and would silently switch a
+        // `lemon update` defaults to main and would silently switch a
         // bb/gui (or any non-main) install off-branch. Mirror the GUI
         // button's contract: append --branch <current> for non-main
         // checkouts, keep it bare for main so the card stays clean.
-        let command = 'hermes update'
+        let command = 'lemon update'
         const updateRepository = resolveDesktopUpdateRepository()
 
         let originReady
@@ -4086,23 +4086,23 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
             const branch = await resolveHealedBranch(updateRoot, current, updateRepository)
 
             if (branch !== 'main') {
-              command = `hermes update --branch ${branch}`
+              command = `lemon update --branch ${branch}`
             }
           }
         } catch {
-          // Best-effort: fall back to bare `hermes update` if branch detection fails.
+          // Best-effort: fall back to bare `lemon update` if branch detection fails.
         }
 
         rememberLog(`[updates] no staged updater; surfacing manual \`${command}\` for CLI install at ${updateRoot}`)
         emitUpdateProgress({ stage: 'manual', message: command, percent: null })
 
-        return { ok: true, manual: true, command, hermesRoot: updateRoot }
+        return { ok: true, manual: true, command, lemonRoot: updateRoot }
       }
 
       rememberLog('[updates] no staged updater; using repo hand-off script for CLI install')
     }
 
-    const handoffConflict = updateHandoffConflict(HERMES_HOME, UPDATE_MARKER_OPTIONS)
+    const handoffConflict = updateHandoffConflict(LEMON_HOME, UPDATE_MARKER_OPTIONS)
 
     if (handoffConflict) {
       // A different updater already owns the marker — most often a previous
@@ -4146,38 +4146,38 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
     // ── Pre-flight state.db integrity guard (#68474) ─────────────────
     // Emergency backup and header verification before the update touches
     // anything.  Runs while the backend is still alive.
-    preflightStateDb(HERMES_HOME, rememberLog)
+    preflightStateDb(LEMON_HOME, rememberLog)
 
     // Stop our own backend(s) and wait for the venv shim to unlock BEFORE we
     // spawn the updater. Without this the updater races a still-locked
-    // hermes.exe (held by the backend child / its grandchildren) and the update
+    // lemon.exe (held by the backend child / its grandchildren) and the update
     // bricks. See releaseBackendLockForUpdate for the full failure analysis.
     const lock = await releaseBackendLockForUpdate(updateRoot)
 
     if (!lock.unlocked) {
       // Something OUTSIDE this app holds the venv (a second window, a user
-      // terminal running hermes, an unkillable child). Handing off anyway
+      // terminal running lemon, an unkillable child). Handing off anyway
       // guarantees a half-updated venv — abort loudly instead and let the
       // user close the holder and retry. Restart our own backend so the app
       // keeps working after the failed attempt.
       const message =
         `Update aborted: another process is holding the ${DESKTOP_RUNTIME_IDENTITY.appName} install open ` +
-        `(a second ${DESKTOP_RUNTIME_IDENTITY.appName} window or a terminal running hermes?). Close it and retry.`
+        `(a second ${DESKTOP_RUNTIME_IDENTITY.appName} window or a terminal running lemon?). Close it and retry.`
 
       emitUpdateProgress({ stage: 'error', message, percent: null })
-      startHermes().catch(() => {})
+      startLemon().catch(() => {})
 
       if (IS_WINDOWS) {
         // The pre-gate `gateway stop --all` (#70337) took every profile's
         // gateway down for an update that never happened — bring them back.
-        startGatewaysAfterUpdateAbort(venvHermesShimPath(updateRoot))
+        startGatewaysAfterUpdateAbort(venvLemonShimPath(updateRoot))
       }
 
       return { ok: false, error: message }
     }
 
     // Preflight: after releasing our own backends, check for remaining
-    // Hermes processes running from this venv.  The updater normally refuses
+    // Lemon AI processes running from this venv.  The updater normally refuses
     // when it detects a holder, but because the updater is spawned detached
     // with stdio:ignore, the user never sees that refusal and the update
     // silently fails.  This preflight detects holders early and gives the
@@ -4221,10 +4221,10 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
 
         rememberLog(`[updates] venv-blocked: ${scanOutcome.result.processes.length} process(es) hold the install`)
         emitUpdateProgress({ stage: 'error', message, percent: null })
-        startHermes().catch(() => {})
+        startLemon().catch(() => {})
         // Restore the gateways the pre-gate stop took down (#70337 drain
         // semantics): the update aborted, so nothing else will relaunch them.
-        startGatewaysAfterUpdateAbort(venvHermesShimPath(updateRoot))
+        startGatewaysAfterUpdateAbort(venvLemonShimPath(updateRoot))
 
         return { ok: false, error: 'venv-blocked', message, blockers: scanOutcome.result.processes }
       }
@@ -4234,23 +4234,23 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
 
         rememberLog(`[updates] venv-blocker probe failed: ${scanOutcome.error}`)
         emitUpdateProgress({ stage: 'error', message, percent: null })
-        startHermes().catch(() => {})
+        startLemon().catch(() => {})
         // Same drain-semantics restore as the venv-blocked abort above.
-        startGatewaysAfterUpdateAbort(venvHermesShimPath(updateRoot))
+        startGatewaysAfterUpdateAbort(venvLemonShimPath(updateRoot))
 
         return { ok: false, error: 'venv-probe-failed', message }
       }
     }
 
     // Detached so the updater outlives this process — it needs us GONE before
-    // `hermes update` will run (the venv shim is locked while we live).
+    // `lemon update` will run (the venv shim is locked while we live).
     //
     // Prefer the repo-owned hand-off script over the staged Tauri binary.
     // The staged binary is frozen (no self-update path) and historically runs
     // months-stale updater logic — pre-#67369 cache resolver, pre-#74782
     // marker adoption — producing failures that were fixed on main long ago
     // (2026-08-09 incident). scripts/desktop-update/windows.ps1 ships WITH the
-    // checkout, so each `hermes update` refreshes the code that drives the
+    // checkout, so each `lemon update` refreshes the code that drives the
     // next one. Checkouts that predate the script fall back to the binary
     // path unchanged.
     const scriptHandoff = resolveUpdateScriptHandoff(updateRoot)
@@ -4278,13 +4278,13 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
       ])
 
       child = spawnUpdaterProcess(wrapped.command, wrapped.args, {
-        cwd: HERMES_HOME,
+        cwd: LEMON_HOME,
         env: {
           ...process.env,
           ...desktopRuntimeEnv(),
-          HERMES_HOME,
-          HERMES_UPDATE_STARTED_AT: String(updateStartedAt),
-          PATH: pathWithHermesManagedNode(venvBin)
+          LEMON_HOME,
+          LEMON_UPDATE_STARTED_AT: String(updateStartedAt),
+          PATH: pathWithLemonManagedNode(venvBin)
         },
         detached: true,
         stdio: 'ignore'
@@ -4295,10 +4295,10 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
       // the first moments of the hand-off — the script's step 0 overwrites it
       // with its own live $PID, and if the script never starts the wrapper's
       // dead pid makes the marker read as stale and self-delete (no wedge).
-      // The `hermes update` child adopts the SCRIPT's claim via
+      // The `lemon update` child adopts the SCRIPT's claim via
       // update_lock.py's process-ancestry rule; no mtime heuristics needed.
       if (Number.isInteger(child.pid)) {
-        writeUpdateMarker(HERMES_HOME, child.pid, { ...UPDATE_MARKER_OPTIONS, startedAt: updateStartedAt })
+        writeUpdateMarker(LEMON_HOME, child.pid, { ...UPDATE_MARKER_OPTIONS, startedAt: updateStartedAt })
       }
 
       rememberLog(
@@ -4306,12 +4306,12 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
       )
     } else {
       child = spawnUpdaterProcess(updater, updaterArgs, {
-        cwd: HERMES_HOME,
+        cwd: LEMON_HOME,
         env: {
           ...process.env,
           ...desktopRuntimeEnv(),
-          HERMES_HOME,
-          PATH: pathWithHermesManagedNode(venvBin)
+          LEMON_HOME,
+          PATH: pathWithLemonManagedNode(venvBin)
         },
         detached: true,
         stdio: 'ignore'
@@ -4327,13 +4327,13 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
       //
       // SKIPPED for pre-#74782 staged updaters: those have no self-PID
       // exclusion, so they read this very marker as a foreign live owner and
-      // abort with "Another Hermes update is already running (PID <itself>)" —
+      // abort with "Another Lemon AI update is already running (PID <itself>)" —
       // an unbreakable loop, because the update that would replace the stale
       // binary is the one being refused. Losing the anti-respawn hardening is
       // strictly better than never updating again, and the updater still writes
       // its own marker moments later.
       if (Number.isInteger(child.pid) && stagedUpdaterSupportsPrewrittenMarker(updater)) {
-        writeUpdateMarker(HERMES_HOME, child.pid, UPDATE_MARKER_OPTIONS)
+        writeUpdateMarker(LEMON_HOME, child.pid, UPDATE_MARKER_OPTIONS)
       } else if (Number.isInteger(child.pid)) {
         rememberLog(
           `[updates] skipping marker pre-write: staged updater predates self-adopt (${updater}); it would refuse its own claim`
@@ -4361,15 +4361,15 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
     const handoffOutcome = await observeUpdaterHandoff(child, UPDATE_HANDOFF_DWELL_MS)
 
     if (!handoffOutcome.ok) {
-      const message = runtimeUserTemplate`Update failed to start: ${handoffOutcome.message}. Hermes will keep running — try again, or run \`hermes update\` from a terminal.`
+      const message = runtimeUserTemplate`Update failed to start: ${handoffOutcome.message}. Lemon AI will keep running — try again, or run \`lemon update\` from a terminal.`
 
       rememberLog(`[updates] hand-off not viable, aborting quit: ${handoffOutcome.message}`)
       emitUpdateProgress({ stage: 'error', message, percent: null })
-      startHermes().catch(() => {})
+      startLemon().catch(() => {})
 
       if (IS_WINDOWS) {
         // Same drain-semantics restore as the earlier abort paths (#70337).
-        startGatewaysAfterUpdateAbort(venvHermesShimPath(updateRoot))
+        startGatewaysAfterUpdateAbort(venvLemonShimPath(updateRoot))
       }
 
       return { ok: false, error: 'updater-spawn-failed', message }
@@ -4400,7 +4400,7 @@ async function handOffWindowsBootstrapRecovery(reason) {
     return false
   }
 
-  const handoffConflict = updateHandoffConflict(HERMES_HOME, UPDATE_MARKER_OPTIONS)
+  const handoffConflict = updateHandoffConflict(LEMON_HOME, UPDATE_MARKER_OPTIONS)
 
   if (handoffConflict) {
     // Same hazard as applyUpdates (#75778): a live foreign updater already
@@ -4438,13 +4438,13 @@ async function handOffWindowsBootstrapRecovery(reason) {
     : configuredBranch || DEFAULT_UPDATE_BRANCH
 
   const venvBin = path.join(updateRoot, 'venv', IS_WINDOWS ? 'Scripts' : 'bin')
-  const venvHermes = path.join(venvBin, IS_WINDOWS ? 'hermes.exe' : 'hermes')
+  const venvLemon = path.join(venvBin, IS_WINDOWS ? 'lemon.exe' : 'lemon')
   const venvPython = path.join(venvBin, IS_WINDOWS ? 'python.exe' : 'python')
 
-  // The updater invokes the venv's Hermes launcher, which in turn requires the
+  // The updater invokes the venv's Lemon AI launcher, which in turn requires the
   // venv interpreter. A bootstrap-complete marker proves only that setup once
   // finished; it can outlive a manually removed or quarantined venv. Sending a
-  // marker-only install through --update dead-ends at "Could not find the hermes
+  // marker-only install through --update dead-ends at "Could not find the lemon
   // CLI" instead of rebuilding the runtime, so only a runnable pair gets the
   // gentle update path. Partial or missing runtimes go through full repair.
   const updaterArgs = chooseUpdaterArgs(
@@ -4452,7 +4452,7 @@ async function handOffWindowsBootstrapRecovery(reason) {
       hasBootstrapMarker:
         fileExists(path.join(updateRoot, DESKTOP_RUNTIME_IDENTITY.bootstrapMarkerName)) ||
         DESKTOP_RUNTIME_IDENTITY.legacyBootstrapMarkerNames.some(name => fileExists(path.join(updateRoot, name))),
-      hasVenvHermes: fileExists(venvHermes),
+      hasVenvLemon: fileExists(venvLemon),
       hasVenvPython: fileExists(venvPython)
     },
     branch
@@ -4461,12 +4461,12 @@ async function handOffWindowsBootstrapRecovery(reason) {
   await releaseBackendLockForUpdate(updateRoot)
 
   const child = spawnUpdaterProcess(updater, updaterArgs, {
-    cwd: HERMES_HOME,
+    cwd: LEMON_HOME,
     env: {
       ...process.env,
       ...desktopRuntimeEnv(),
-      HERMES_HOME,
-      PATH: pathWithHermesManagedNode(venvBin)
+      LEMON_HOME,
+      PATH: pathWithLemonManagedNode(venvBin)
     },
     detached: true,
     stdio: 'ignore'
@@ -4478,7 +4478,7 @@ async function handOffWindowsBootstrapRecovery(reason) {
   // exclusion: a pre-#74782 binary would refuse its own pre-written claim and
   // strand the very recovery meant to heal the install.
   if (Number.isInteger(child.pid) && stagedUpdaterSupportsPrewrittenMarker(updater)) {
-    writeUpdateMarker(HERMES_HOME, child.pid, UPDATE_MARKER_OPTIONS)
+    writeUpdateMarker(LEMON_HOME, child.pid, UPDATE_MARKER_OPTIONS)
   } else if (Number.isInteger(child.pid)) {
     rememberLog(
       `[bootstrap] skipping marker pre-write: staged updater predates self-adopt (${updater}); it would refuse its own claim`
@@ -4535,9 +4535,9 @@ function runningAppBundle() {
 // intact before any update process mutates the install.  Runs in the
 // desktop Electron process itself, before the backend is killed and
 // before the updater is spawned — a separate safety net from the
-// Python-level pre-update snapshot inside `hermes update`.
-function preflightStateDb(hermesHome, rememberLog) {
-  const stateDbPath = path.join(hermesHome, 'state.db')
+// Python-level pre-update snapshot inside `lemon update`.
+function preflightStateDb(lemonHome, rememberLog) {
+  const stateDbPath = path.join(lemonHome, 'state.db')
 
   if (!fileExists(stateDbPath)) {
     rememberLog('[updates] state.db pre-flight: not found (fresh install?)')
@@ -4573,7 +4573,7 @@ function preflightStateDb(hermesHome, rememberLog) {
       // Emergency timestamped backup, separate from the Python-level snapshot.
       const ts = new Date().toISOString().replace(/[:.]/g, '-')
 
-      const emergencyPath = path.join(hermesHome, `state.db.pre-update-emergency-${ts}.bak`)
+      const emergencyPath = path.join(lemonHome, `state.db.pre-update-emergency-${ts}.bak`)
 
       try {
         fs.copyFileSync(stateDbPath, emergencyPath)
@@ -4583,7 +4583,7 @@ function preflightStateDb(hermesHome, rememberLog) {
 
         // Prune to the 2 most recent emergency backups.
         try {
-          const homeDir = fs.readdirSync(hermesHome)
+          const homeDir = fs.readdirSync(lemonHome)
 
           const backups = homeDir
             .filter(
@@ -4597,7 +4597,7 @@ function preflightStateDb(hermesHome, rememberLog) {
 
           for (const old of backups.slice(2)) {
             try {
-              fs.unlinkSync(path.join(hermesHome, old))
+              fs.unlinkSync(path.join(lemonHome, old))
             } catch {
               void 0
             }
@@ -4618,8 +4618,8 @@ function preflightStateDb(hermesHome, rememberLog) {
 
 // macOS/Linux update hand-off: spawn the repo-owned posix orchestrator
 // (scripts/desktop-update/posix.sh) detached and QUIT. The script waits us
-// out, runs `hermes update`, swaps/relaunches the app bundle, and writes
-// .hermes-update-result.json for the relaunched Desktop to surface. It shows
+// out, runs `lemon update`, swaps/relaunches the app bundle, and writes
+// .lemon-ai-update-result.json for the relaunched Desktop to surface. It shows
 // its own tiny shim window (or nothing, headless) — this process only needs
 // to leave. Checkouts that predate the script get the manual card once.
 async function applyUpdatesPosixHandoff(opts: any) {
@@ -4644,12 +4644,12 @@ async function applyUpdatesPosixHandoff(opts: any) {
       return { ok: false, error: 'origin-config-failed', message }
     }
 
-    emitUpdateProgress({ stage: 'manual', message: 'hermes update', percent: null })
+    emitUpdateProgress({ stage: 'manual', message: 'lemon update', percent: null })
 
-    return { ok: true, manual: true, command: 'hermes update', hermesRoot: updateRoot }
+    return { ok: true, manual: true, command: 'lemon update', lemonRoot: updateRoot }
   }
 
-  const handoffConflict = updateHandoffConflict(HERMES_HOME, UPDATE_MARKER_OPTIONS)
+  const handoffConflict = updateHandoffConflict(LEMON_HOME, UPDATE_MARKER_OPTIONS)
 
   if (handoffConflict) {
     // Same hazard as the Windows path (#75778): a live foreign updater
@@ -4661,7 +4661,7 @@ async function applyUpdatesPosixHandoff(opts: any) {
   }
 
   // ── Pre-flight state.db integrity guard (#68474) ──
-  preflightStateDb(HERMES_HOME, rememberLog)
+  preflightStateDb(LEMON_HOME, rememberLog)
 
   const updateRepository = resolveDesktopUpdateRepository()
   const originReady = await ensureUpdateOriginRepository(updateRoot, updateRepository)
@@ -4717,13 +4717,13 @@ async function applyUpdatesPosixHandoff(opts: any) {
   }
 
   const child = spawnUpdaterProcess(handoff.command, args, {
-    cwd: HERMES_HOME,
+    cwd: LEMON_HOME,
     env: {
       ...process.env,
       ...desktopRuntimeEnv(),
-      HERMES_HOME,
-      HERMES_UPDATE_STARTED_AT: String(updateStartedAt),
-      PATH: pathWithHermesManagedNode(path.join(updateRoot, 'venv', 'bin'))
+      LEMON_HOME,
+      LEMON_UPDATE_STARTED_AT: String(updateStartedAt),
+      PATH: pathWithLemonManagedNode(path.join(updateRoot, 'venv', 'bin'))
     },
     detached: true,
     stdio: 'ignore'
@@ -4733,7 +4733,7 @@ async function applyUpdatesPosixHandoff(opts: any) {
   // until the script claims the marker with its own pid as step 0. If the
   // script never starts, the dead pid reads as stale and self-deletes.
   if (Number.isInteger(child.pid)) {
-    writeUpdateMarker(HERMES_HOME, child.pid, { ...UPDATE_MARKER_OPTIONS, startedAt: updateStartedAt })
+    writeUpdateMarker(LEMON_HOME, child.pid, { ...UPDATE_MARKER_OPTIONS, startedAt: updateStartedAt })
   }
 
   rememberLog(`[updates] launched posix hand-off: ${handoff.scriptPath} (branch ${branch}); quitting to hand off`)
@@ -4752,7 +4752,7 @@ async function applyUpdatesPosixHandoff(opts: any) {
   const handoffOutcome = await observeUpdaterHandoff(child, UPDATE_HANDOFF_DWELL_MS)
 
   if (!handoffOutcome.ok) {
-    const message = runtimeUserTemplate`Update failed to start: ${handoffOutcome.message}. Hermes will keep running — try again, or run \`hermes update\` from a terminal.`
+    const message = runtimeUserTemplate`Update failed to start: ${handoffOutcome.message}. Lemon AI will keep running — try again, or run \`lemon update\` from a terminal.`
 
     rememberLog(`[updates] posix hand-off not viable, aborting quit: ${handoffOutcome.message}`)
     emitUpdateProgress({ stage: 'error', message, percent: null })
@@ -4797,7 +4797,7 @@ function bootstrapMarkerCandidatePaths() {
   return Array.from(
     new Set([
       BOOTSTRAP_COMPLETE_MARKER,
-      ...DESKTOP_RUNTIME_IDENTITY.legacyBootstrapMarkerNames.map(name => path.join(ACTIVE_HERMES_ROOT, name))
+      ...DESKTOP_RUNTIME_IDENTITY.legacyBootstrapMarkerNames.map(name => path.join(ACTIVE_LEMON_ROOT, name))
     ])
   )
 }
@@ -4814,7 +4814,7 @@ function readBootstrapMarker() {
   return null
 }
 
-// Marker-independent: is the canonical install at ACTIVE_HERMES_ROOT actually
+// Marker-independent: is the canonical install at ACTIVE_LEMON_ROOT actually
 // runnable right now? A complete CLI install (`install.sh --include-desktop`)
 // or a DMG launch over a prior CLI install satisfies this WITHOUT the desktop
 // ever having written the bootstrap marker -- so we must be able to recognise
@@ -4823,11 +4823,11 @@ function isActiveRuntimeUsable() {
   const venvPython = getVenvPython(VENV_ROOT)
 
   return (
-    isHermesSourceRoot(ACTIVE_HERMES_ROOT) &&
+    isLemonSourceRoot(ACTIVE_LEMON_ROOT) &&
     fileExists(venvPython) &&
-    canImportHermesCli(venvPython, {
+    canImportLemonCli(venvPython, {
       env: {
-        PYTHONPATH: [ACTIVE_HERMES_ROOT, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter)
+        PYTHONPATH: [ACTIVE_LEMON_ROOT, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter)
       }
     })
   )
@@ -4835,7 +4835,7 @@ function isActiveRuntimeUsable() {
 
 function activeRuntimeState() {
   // We DELIBERATELY do NOT verify that the checkout is currently at the
-  // pinned commit -- users update via the in-app update path or `hermes
+  // pinned commit -- users update via the in-app update path or `lemon
   // update`, which moves HEAD legitimately. The marker only attests "a
   // desktop-managed bootstrap ran here at least once"; runtime usability is
   // what decides whether we can actually launch.
@@ -4859,7 +4859,7 @@ function writeBootstrapMarker(payload) {
 }
 
 function resolveWebDist() {
-  const override = process.env.HERMES_DESKTOP_WEB_DIST
+  const override = process.env.LEMON_DESKTOP_WEB_DIST
 
   if (override && directoryExists(path.resolve(override))) {
     return path.resolve(override)
@@ -4883,7 +4883,7 @@ function resolveWebDist() {
     rememberLog(
       `[web-dist] dashboard frontend dir resolved to an asar-internal path that ` +
         `is not a real directory: ${fallback}. Static routes will 404. ` +
-        `Ensure dist/** is unpacked (asarUnpack) or set HERMES_DESKTOP_WEB_DIST.`
+        `Ensure dist/** is unpacked (asarUnpack) or set LEMON_DESKTOP_WEB_DIST.`
     )
   }
 
@@ -4934,7 +4934,7 @@ function resolveRendererIndex() {
     rememberLog(
       `[renderer] every renderer bundle is incomplete (${present.join(', ')}). ` +
         `The last update replaced the app while its files were locked. ` +
-        `Repair with: hermes desktop --force-build`
+        `Repair with: lemon desktop --force-build`
     )
 
     return present[0]
@@ -4946,7 +4946,7 @@ function resolveRendererIndex() {
   rememberLog(
     `[renderer] index.html not found — the desktop app was packaged without a ` +
       `renderer bundle. Tried: ${candidates.join(', ')}. ` +
-      `Rebuild with: hermes desktop --force-build`
+      `Rebuild with: lemon desktop --force-build`
   )
 
   return candidates[0]
@@ -4967,9 +4967,9 @@ function isPackagedInstallPath(dir) {
   })
 }
 
-function resolveHermesCwd() {
+function resolveLemonCwd() {
   // In a packaged build, `process.cwd()` resolves to the install root (e.g.
-  // `…/win-unpacked` on Windows or `/Applications/Hermes.app/Contents/...`
+  // `…/win-unpacked` on Windows or `/Applications/Lemon AI.app/Contents/...`
   // on macOS). Sessions spawned there leave files inside the app bundle
   // and bewilder users when "where did my files go?" is the install dir.
   // The user-configurable default project directory wins over everything,
@@ -4977,7 +4977,7 @@ function resolveHermesCwd() {
   // real directory), then the home dir.
   const candidates = [
     readDefaultProjectDir(),
-    process.env.HERMES_DESKTOP_CWD,
+    process.env.LEMON_DESKTOP_CWD,
     IS_PACKAGED ? null : process.env.INIT_CWD,
     IS_PACKAGED ? null : process.cwd(),
     !IS_PACKAGED ? SOURCE_REPO_ROOT : null,
@@ -5007,7 +5007,7 @@ function sanitizeWorkspaceCwd(cwd) {
   const trimmed = typeof cwd === 'string' ? cwd.trim() : ''
 
   if (!trimmed || isPackagedInstallPath(trimmed)) {
-    return { cwd: resolveHermesCwd(), sanitized: Boolean(trimmed) }
+    return { cwd: resolveLemonCwd(), sanitized: Boolean(trimmed) }
   }
 
   try {
@@ -5020,7 +5020,7 @@ function sanitizeWorkspaceCwd(cwd) {
     // Fall through to the resolved default.
   }
 
-  return { cwd: resolveHermesCwd(), sanitized: Boolean(trimmed) }
+  return { cwd: resolveLemonCwd(), sanitized: Boolean(trimmed) }
 }
 
 // Persisted "Default project directory" — surfaced as a setting in the
@@ -5085,9 +5085,9 @@ function createPythonBackend(root, label, backendArgs, options: any = {}) {
     kind: 'python',
     label,
     command,
-    args: ['-m', 'hermes_cli.main', ...backendArgs],
+    args: ['-m', 'lemon_cli.main', ...backendArgs],
     env: buildDesktopBackendEnv({
-      hermesHome: HERMES_HOME,
+      lemonHome: LEMON_HOME,
       pythonPathEntries: [root, ...getVenvSitePackagesEntries(venvRoot)],
       venvRoot,
       managedDir: internalDesktopHarnessManagedDir()
@@ -5098,7 +5098,7 @@ function createPythonBackend(root, label, backendArgs, options: any = {}) {
   }
 }
 
-// createActiveBackend — build a backend pointing at ACTIVE_HERMES_ROOT, the
+// createActiveBackend — build a backend pointing at ACTIVE_LEMON_ROOT, the
 // canonical install location shared with the CLI installer. The venv at
 // VENV_ROOT may not exist yet on first run; bootstrap=true tells
 // ensureRuntime() to create / refresh it before launch.
@@ -5108,16 +5108,16 @@ function createActiveBackend(backendArgs) {
 
   return {
     kind: 'python',
-    label: `${DESKTOP_RUNTIME_IDENTITY.appName} at ${ACTIVE_HERMES_ROOT}`,
+    label: `${DESKTOP_RUNTIME_IDENTITY.appName} at ${ACTIVE_LEMON_ROOT}`,
     command,
-    args: ['-m', 'hermes_cli.main', ...backendArgs],
+    args: ['-m', 'lemon_cli.main', ...backendArgs],
     env: buildDesktopBackendEnv({
-      hermesHome: HERMES_HOME,
-      pythonPathEntries: [ACTIVE_HERMES_ROOT, ...getVenvSitePackagesEntries(VENV_ROOT)],
+      lemonHome: LEMON_HOME,
+      pythonPathEntries: [ACTIVE_LEMON_ROOT, ...getVenvSitePackagesEntries(VENV_ROOT)],
       venvRoot: VENV_ROOT,
       managedDir: internalDesktopHarnessManagedDir()
     }),
-    root: ACTIVE_HERMES_ROOT,
+    root: ACTIVE_LEMON_ROOT,
     bootstrap: true,
     shell: false
   }
@@ -5125,18 +5125,18 @@ function createActiveBackend(backendArgs) {
 
 function externalDesktopBackendEnv() {
   return buildDesktopBackendEnv({
-    hermesHome: HERMES_HOME,
+    lemonHome: LEMON_HOME,
     managedDir: internalDesktopHarnessManagedDir()
   })
 }
 
-function resolveHermesBackend(backendArgs) {
-  // 1. Explicit override -- HERMES_DESKTOP_HERMES_ROOT points at a developer
+function resolveLemonBackend(backendArgs) {
+  // 1. Explicit override -- LEMON_DESKTOP_LEMON_ROOT points at a developer
   //    checkout. Honour it as-is (no bootstrap; the user is driving).
-  const overrideRoot = process.env.HERMES_DESKTOP_HERMES_ROOT && path.resolve(process.env.HERMES_DESKTOP_HERMES_ROOT)
+  const overrideRoot = process.env.LEMON_DESKTOP_LEMON_ROOT && path.resolve(process.env.LEMON_DESKTOP_LEMON_ROOT)
 
-  if (overrideRoot && isHermesSourceRoot(overrideRoot)) {
-    const backend = createPythonBackend(overrideRoot, `Hermes source at ${overrideRoot}`, backendArgs)
+  if (overrideRoot && isLemonSourceRoot(overrideRoot)) {
+    const backend = createPythonBackend(overrideRoot, `Lemon AI source at ${overrideRoot}`, backendArgs)
 
     if (backend) {
       return backend
@@ -5145,18 +5145,18 @@ function resolveHermesBackend(backendArgs) {
 
   // 2. Development source -- when running `npm run dev` from a checkout, the
   //    cloned repo at SOURCE_REPO_ROOT takes precedence over ACTIVE and any
-  //    installed `hermes` on PATH so local Python edits are actually exercised.
-  //    (In dev with no checkout, SOURCE_REPO_ROOT won't pass isHermesSourceRoot.)
-  if (!IS_PACKAGED && isHermesSourceRoot(SOURCE_REPO_ROOT)) {
-    const backend = createPythonBackend(SOURCE_REPO_ROOT, `Hermes source at ${SOURCE_REPO_ROOT}`, backendArgs)
+  //    installed `lemon` on PATH so local Python edits are actually exercised.
+  //    (In dev with no checkout, SOURCE_REPO_ROOT won't pass isLemonSourceRoot.)
+  if (!IS_PACKAGED && isLemonSourceRoot(SOURCE_REPO_ROOT)) {
+    const backend = createPythonBackend(SOURCE_REPO_ROOT, `Lemon AI source at ${SOURCE_REPO_ROOT}`, backendArgs)
 
     if (backend) {
       return backend
     }
   }
 
-  // 3. ACTIVE_HERMES_ROOT — the canonical install at
-  //    %LOCALAPPDATA%\\hermes\\hermes-agent (Windows) or ~/.hermes/hermes-agent.
+  // 3. ACTIVE_LEMON_ROOT — the canonical install at
+  //    %LOCALAPPDATA%\\lemon\\lemon-agent (Windows) or ~/.lemon-ai/lemon-agent.
   //    A valid bootstrap marker proves Desktop finished the first-run install
   //    flow, but marker provenance is NOT the same thing as runtime usability:
   //    the CLI can create the exact same repo+venv layout, and older desktop
@@ -5168,7 +5168,7 @@ function resolveHermesBackend(backendArgs) {
   if (activeRuntime.shouldUseActiveRuntime && !bootstrapRepairRequested) {
     if (!activeRuntime.hasValidMarker) {
       rememberLog(
-        `[bootstrap] Active Hermes runtime at ${ACTIVE_HERMES_ROOT} is usable but the bootstrap marker is missing or stale; skipping first-run bootstrap.`
+        `[bootstrap] Active Lemon AI runtime at ${ACTIVE_LEMON_ROOT} is usable but the bootstrap marker is missing or stale; skipping first-run bootstrap.`
       )
     }
 
@@ -5179,71 +5179,71 @@ function resolveHermesBackend(backendArgs) {
     rememberLog('[bootstrap] repair requested; bypassing the usable active runtime to re-run the installer')
   }
 
-  // 4. Existing `hermes` on PATH -- installed via install.ps1 / install.sh from
+  // 4. Existing `lemon` on PATH -- installed via install.ps1 / install.sh from
   //    a previous tool-only setup, or pip-installed system-wide. Use it but
   //    do NOT write a bootstrap marker; the user did this themselves and we
   //    don't want to take ownership of an install we didn't perform.
-  //    HERMES_DESKTOP_IGNORE_EXISTING=1 forces the bootstrap path for testing.
-  const hermesOverride = process.env.HERMES_DESKTOP_HERMES
+  //    LEMON_DESKTOP_IGNORE_EXISTING=1 forces the bootstrap path for testing.
+  const lemonOverride = process.env.LEMON_DESKTOP_LEMON
 
   const allowExternalRuntime = shouldAllowExternalRuntime({
-    explicitCommand: hermesOverride,
+    explicitCommand: lemonOverride,
     internalHarnessActive: INTERNAL_DESKTOP_HARNESS.active
   })
 
-  if (allowExternalRuntime && process.env['HERMES_DESKTOP_IGNORE_EXISTING'] !== '1') {
-    let hermesCommand = null
+  if (allowExternalRuntime && process.env['LEMON_DESKTOP_IGNORE_EXISTING'] !== '1') {
+    let lemonCommand = null
 
-    if (hermesOverride) {
-      const resolvedOverride = findOnPath(hermesOverride)
+    if (lemonOverride) {
+      const resolvedOverride = findOnPath(lemonOverride)
 
       if (resolvedOverride) {
-        hermesCommand = resolvedOverride
-      } else if (!isWindowsBinaryPathInWsl(hermesOverride, { isWsl: IS_WSL })) {
-        hermesCommand = hermesOverride
+        lemonCommand = resolvedOverride
+      } else if (!isWindowsBinaryPathInWsl(lemonOverride, { isWsl: IS_WSL })) {
+        lemonCommand = lemonOverride
       } else {
-        rememberLog(`Ignoring Windows Hermes override under WSL: ${hermesOverride}`)
+        rememberLog(`Ignoring Windows Lemon AI override under WSL: ${lemonOverride}`)
       }
     } else {
-      hermesCommand = findOnPath('hermes')
+      lemonCommand = findOnPath('lemon')
     }
 
-    if (hermesCommand) {
-      if (looksLikeDesktopAppBinary(hermesCommand)) {
-        rememberLog(`Ignoring desktop app executable on PATH while resolving Hermes CLI: ${hermesCommand}`)
-        hermesCommand = null
+    if (lemonCommand) {
+      if (looksLikeDesktopAppBinary(lemonCommand)) {
+        rememberLog(`Ignoring desktop app executable on PATH while resolving Lemon AI CLI: ${lemonCommand}`)
+        lemonCommand = null
       }
     }
 
-    if (hermesCommand) {
-      const unwrapped = unwrapWindowsVenvHermesCommand(hermesCommand, backendArgs)
+    if (lemonCommand) {
+      const unwrapped = unwrapWindowsVenvLemonCommand(lemonCommand, backendArgs)
 
       if (unwrapped) {
         return unwrapped
       }
 
-      // Smoke-test the candidate before trusting it. A `hermes` shim
+      // Smoke-test the candidate before trusting it. A `lemon` shim
       // left behind by a half-uninstalled pip install (or a venv
       // entry-point pointing at a deleted interpreter) still resolves
       // via findOnPath but explodes on spawn -- the user then sees a
       // dead backend instead of the first-launch installer. The cheap
       // `--version` probe (see backend-probes.ts) catches that case
       // and lets the resolver fall through to step 6 / bootstrap.
-      const shellForProbe = isCommandScript(hermesCommand)
+      const shellForProbe = isCommandScript(lemonCommand)
 
-      // HERMES_DESKTOP_HERMES is an explicit deployment override (used by
+      // LEMON_DESKTOP_LEMON is an explicit deployment override (used by
       // the Nix wrapper), not a discovered PATH candidate. It must not fall
       // through to the install-script bootstrap if the optional probe times
       // out under load; the pinned backend is the only valid runtime there.
-      if (shouldTrustHermesOverride(hermesOverride) || verifyHermesCli(hermesCommand, { shell: shellForProbe })) {
+      if (shouldTrustLemonOverride(lemonOverride) || verifyLemonCli(lemonCommand, { shell: shellForProbe })) {
         // `unwrapped` above already answered "is this a Windows venv shim?" —
         // it was null (not a shim, or its import probe failed). Do NOT re-run
-        // unwrapWindowsVenvHermesCommand here: the second call repeats the
+        // unwrapWindowsVenvLemonCommand here: the second call repeats the
         // same un-memoized import probe, costing up to another full probe
         // timeout on the boot path for an answer we already have.
         return {
-          label: `existing Hermes CLI at ${hermesCommand}`,
-          command: hermesCommand,
+          label: `existing Lemon AI CLI at ${lemonCommand}`,
+          command: lemonCommand,
           args: backendArgs,
           bootstrap: false,
           env: externalDesktopBackendEnv(),
@@ -5253,12 +5253,12 @@ function resolveHermesBackend(backendArgs) {
       }
 
       rememberLog(
-        `Ignoring existing Hermes CLI at ${hermesCommand}: --version probe failed; falling through to bootstrap.`
+        `Ignoring existing Lemon AI CLI at ${lemonCommand}: --version probe failed; falling through to bootstrap.`
       )
     }
   }
 
-  // 5. Last-ditch: pip-installed hermes_cli module via system Python.
+  // 5. Last-ditch: pip-installed lemon_cli module via system Python.
   //    Same rationale as #4 -- the user installed this; we use it but don't
   //    take ownership.
   const python = INTERNAL_DESKTOP_HARNESS.active ? null : findSystemPython()
@@ -5266,25 +5266,25 @@ function resolveHermesBackend(backendArgs) {
   if (python) {
     // Same smoke-test rationale as step 4: a system Python in the
     // SUPPORTED_VERSIONS range can be registered (PEP 514) without
-    // having hermes_cli installed -- common on dev boxes that have
+    // having lemon_cli installed -- common on dev boxes that have
     // a python.org install from prior unrelated work. Returning that
     // backend hands the spawn step a guaranteed ModuleNotFoundError.
     // Verify the import works before trusting the candidate; on
     // failure, fall through to step 6 so the bootstrap runner pulls
-    // a uv-managed 3.11 into %LOCALAPPDATA%\hermes\hermes-agent\venv.
-    if (canImportHermesCli(python)) {
+    // a uv-managed 3.11 into %LOCALAPPDATA%\Lemon AI\lemon-agent\venv.
+    if (canImportLemonCli(python)) {
       return {
         kind: 'python',
-        label: `installed hermes_cli module via ${python}`,
+        label: `installed lemon_cli module via ${python}`,
         command: python,
-        args: ['-m', 'hermes_cli.main', ...backendArgs],
+        args: ['-m', 'lemon_cli.main', ...backendArgs],
         bootstrap: false,
         env: externalDesktopBackendEnv(),
         shell: false
       }
     }
 
-    rememberLog(`Ignoring system Python ${python}: hermes_cli is not importable; falling through to bootstrap.`)
+    rememberLog(`Ignoring system Python ${python}: lemon_cli is not importable; falling through to bootstrap.`)
   }
 
   // 6. Nothing usable yet -- signal the bootstrap runner that we need to
@@ -5294,7 +5294,7 @@ function resolveHermesBackend(backendArgs) {
   //    explaining what's missing.
   //
   //    We deliberately do NOT throw here -- throwing inside
-  //    resolveHermesBackend was the old "no payload" path and forced the
+  //    resolveLemonBackend was the old "no payload" path and forced the
   //    user into a dead end. With the bootstrap protocol, "no install yet"
   //    is a recoverable state the GUI can drive through.
   return {
@@ -5306,7 +5306,7 @@ function resolveHermesBackend(backendArgs) {
     env: {},
     shell: false,
     // Hints for the bootstrap runner / UI layer:
-    activeRoot: ACTIVE_HERMES_ROOT,
+    activeRoot: ACTIVE_LEMON_ROOT,
     installStamp: INSTALL_STAMP, // may be null in dev
     isPackaged: IS_PACKAGED,
     platform: process.platform
@@ -5320,7 +5320,7 @@ async function ensureRuntime(backend) {
     return backend
   }
 
-  // backend.kind === 'bootstrap-needed' means resolveHermesBackend couldn't
+  // backend.kind === 'bootstrap-needed' means resolveLemonBackend couldn't
   // find anything to spawn. Hand off to the bootstrap runner which drives the
   // platform installer, writes the bootstrap-complete marker on success, then
   // we re-resolve to get the now-installed backend.
@@ -5370,8 +5370,8 @@ async function ensureRuntime(backend) {
       installStamp: backend.installStamp,
       activeRoot: backend.activeRoot,
       sourceRepoRoot: SOURCE_REPO_ROOT,
-      hermesHome: HERMES_HOME,
-      logRoot: path.join(HERMES_HOME, 'logs'),
+      lemonHome: LEMON_HOME,
+      logRoot: path.join(LEMON_HOME, 'logs'),
       abortSignal: bootstrapAbortController.signal,
       onEvent: ev => {
         // Tee every bootstrap event to (a) the desktop log for forensics
@@ -5394,10 +5394,10 @@ async function ensureRuntime(backend) {
       desktopHarnessConfigPath: INTERNAL_DESKTOP_HARNESS.resourcePath,
       bootstrapMarkerName: DESKTOP_RUNTIME_IDENTITY.bootstrapMarkerName,
       desktopInternal: INTERNAL_DESKTOP_BUILD,
-      desktopHomeOverride: HERMES_HOME,
+      desktopHomeOverride: LEMON_HOME,
       legacyBootstrapMarkerNames: DESKTOP_RUNTIME_IDENTITY.legacyBootstrapMarkerNames,
-      runtimeDirName: path.basename(ACTIVE_HERMES_ROOT),
-      runtimeRootDirNames: [path.basename(ACTIVE_HERMES_ROOT)]
+      runtimeDirName: path.basename(ACTIVE_LEMON_ROOT),
+      runtimeRootDirNames: [path.basename(ACTIVE_LEMON_ROOT)]
     })
 
     bootstrapAbortController = null
@@ -5420,9 +5420,9 @@ async function ensureRuntime(backend) {
 
       bootstrapError.isBootstrapFailure = true
       bootstrapError.failedStage = bootstrapResult.failedStage || null
-      // Latch the failure so subsequent startHermes() calls return this
+      // Latch the failure so subsequent startLemon() calls return this
       // same error without re-running install.ps1.  Cleared by the
-      // hermes:bootstrap:reset IPC (renderer's "Reload and retry").
+      // lemon:bootstrap:reset IPC (renderer's "Reload and retry").
       bootstrapFailure = bootstrapError
       throw bootstrapError
     }
@@ -5431,7 +5431,7 @@ async function ensureRuntime(backend) {
 
     // Re-resolve now that the install exists. The new resolution lands in
     // step 3 (bootstrap-complete marker) and we recurse to wire venvPython.
-    return ensureRuntime(resolveHermesBackend(backend.args))
+    return ensureRuntime(resolveLemonBackend(backend.args))
   }
 
   // bootstrap=true with a real backend (createActiveBackend path) means we
@@ -5440,22 +5440,22 @@ async function ensureRuntime(backend) {
   // sync flow exited through, minus all the factory/pip/marker machinery
   // (install.ps1 owns those concerns now and the bootstrap-complete marker
   // attests they ran successfully).
-  if (!isHermesSourceRoot(ACTIVE_HERMES_ROOT)) {
+  if (!isLemonSourceRoot(ACTIVE_LEMON_ROOT)) {
     throw new Error(
-      `${DESKTOP_RUNTIME_IDENTITY.appName} install at ${ACTIVE_HERMES_ROOT} is missing or incomplete. ` +
+      `${DESKTOP_RUNTIME_IDENTITY.appName} install at ${ACTIVE_LEMON_ROOT} is missing or incomplete. ` +
         'Reinstall via the desktop installer or scripts/install.ps1.'
     )
   }
 
-  // On Windows, preflight Git Bash. Hermes' terminal tool calls bash.exe
+  // On Windows, preflight Git Bash. Lemon AI' terminal tool calls bash.exe
   // directly (tools/environments/local.py); without it the agent can't run
   // terminal commands. install.ps1's Stage-Git puts PortableGit at
-  // %LOCALAPPDATA%\hermes\git\, which findGitBash() picks up, so for any
+  // %LOCALAPPDATA%\Lemon AI\git\, which findGitBash() picks up, so for any
   // user who completed the bootstrap this is a no-op. For users who got
-  // here via an external `hermes` on PATH, this check still helps.
+  // here via an external `lemon` on PATH, this check still helps.
   if (IS_WINDOWS && !findGitBash()) {
     throw new Error(
-      runtimeUserText('Git for Windows is required for Hermes on Windows (provides Git Bash, ') +
+      runtimeUserText('Git for Windows is required for Lemon AI on Windows (provides Git Bash, ') +
         "which the agent's terminal tool uses). Install it from " +
         'https://git-scm.com/download/win or run `winget install -e --id Git.Git`, ' +
         `then relaunch ${DESKTOP_RUNTIME_IDENTITY.appName}.`
@@ -5468,20 +5468,20 @@ async function ensureRuntime(backend) {
     // No venv at the expected location AND no bootstrap-needed sentinel
     // means we have a half-installed checkout: .git exists, source files
     // exist, but venv is missing or broken. This shouldn't happen in
-    // normal flow because activeRuntimeState() requires isHermesSourceRoot()
-    // plus an importable hermes_cli before it hands back the active runtime.
+    // normal flow because activeRuntimeState() requires isLemonSourceRoot()
+    // plus an importable lemon_cli before it hands back the active runtime.
     // If we hit this, the user (or a deleted venv) broke the invariant; tell
     // them to re-run the install.
     throw new Error(
-      runtimeUserTemplate`Hermes venv missing at ${VENV_ROOT}. Re-run the desktop installer or \`scripts/install.ps1\` to rebuild it.`
+      runtimeUserTemplate`Lemon AI venv missing at ${VENV_ROOT}. Re-run the desktop installer or \`scripts/install.ps1\` to rebuild it.`
     )
   }
 
   backend.command = getVenvPython(VENV_ROOT)
-  backend.label = `${DESKTOP_RUNTIME_IDENTITY.appName} at ${ACTIVE_HERMES_ROOT} (venv: ${VENV_ROOT})`
+  backend.label = `${DESKTOP_RUNTIME_IDENTITY.appName} at ${ACTIVE_LEMON_ROOT} (venv: ${VENV_ROOT})`
   updateBootProgress({
     phase: 'runtime.ready',
-    message: runtimeUserText('Hermes runtime is ready'),
+    message: runtimeUserText('Lemon AI runtime is ready'),
     progress: 82,
     running: true,
     error: null
@@ -5494,7 +5494,7 @@ async function ensureRuntime(backend) {
 // endpoints, e.g. kanban attachments). Hand-rolled because node's http has no
 // FormData and the payload is one file — a dependency would be overkill.
 function multipartBody(upload) {
-  const boundary = `----hermes-${crypto.randomBytes(12).toString('hex')}`
+  const boundary = `----lemon-${crypto.randomBytes(12).toString('hex')}`
   const filename = String(upload.filename || 'file').replace(/["\r\n]/g, '_')
 
   const body = Buffer.concat([
@@ -5530,7 +5530,7 @@ function fetchJson(url, token, options: any = {}) {
         const timeoutMs = resolveTimeoutMs(options.timeoutMs, DEFAULT_FETCH_TIMEOUT_MS)
 
         if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-          reject(new Error(runtimeUserTemplate`Unsupported Hermes backend URL protocol: ${parsed.protocol}`))
+          reject(new Error(runtimeUserTemplate`Unsupported Lemon AI backend URL protocol: ${parsed.protocol}`))
 
           return
         }
@@ -5544,7 +5544,7 @@ function fetchJson(url, token, options: any = {}) {
               ...headersForRemoteRequest(url),
               ...(options.headers || {}),
               'Content-Type': contentType,
-              'X-Hermes-Session-Token': token,
+              'X-Lemon-Session-Token': token,
               // RFC 8252 native flow authenticates the gated gateway with a bearer
               // token instead of the loopback session-token header. When
               // ``options.bearer`` is set we send Authorization: Bearer <token>;
@@ -5584,7 +5584,7 @@ function fetchJson(url, token, options: any = {}) {
                 reject(
                   new Error(
                     `Expected JSON from ${url} but got HTML (status ${res.statusCode}). ` +
-                      'The endpoint is likely missing on the Hermes backend.'
+                      'The endpoint is likely missing on the Lemon AI backend.'
                   )
                 )
 
@@ -5602,7 +5602,7 @@ function fetchJson(url, token, options: any = {}) {
 
         req.on('error', reject)
         req.setTimeout(timeoutMs, () => {
-          req.destroy(new Error(runtimeUserTemplate`Timed out connecting to Hermes backend after ${timeoutMs}ms`))
+          req.destroy(new Error(runtimeUserTemplate`Timed out connecting to Lemon AI backend after ${timeoutMs}ms`))
         })
 
         // From here the request goes on the wire: a later transport error can no
@@ -5638,7 +5638,7 @@ function downloadViaTokenToFile(url, token, ctx, options: any = {}) {
     }
 
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      reject(new Error(runtimeUserTemplate`Unsupported Hermes backend URL protocol: ${parsed.protocol}`))
+      reject(new Error(runtimeUserTemplate`Unsupported Lemon AI backend URL protocol: ${parsed.protocol}`))
 
       return
     }
@@ -5652,7 +5652,7 @@ function downloadViaTokenToFile(url, token, ctx, options: any = {}) {
       {
         agent,
         method: 'GET',
-        headers: options.bearer ? { Authorization: `Bearer ${options.bearer}` } : { 'X-Hermes-Session-Token': token }
+        headers: options.bearer ? { Authorization: `Bearer ${options.bearer}` } : { 'X-Lemon-Session-Token': token }
       },
       res => {
         // Headers arrived — the connection phase is done. Drop the idle timeout
@@ -5673,7 +5673,7 @@ function downloadViaTokenToFile(url, token, ctx, options: any = {}) {
 
     req.on('error', reject)
     req.setTimeout(timeoutMs, () => {
-      req.destroy(new Error(runtimeUserTemplate`Timed out connecting to Hermes backend after ${timeoutMs}ms`))
+      req.destroy(new Error(runtimeUserTemplate`Timed out connecting to Lemon AI backend after ${timeoutMs}ms`))
     })
     req.end()
   })
@@ -5682,7 +5682,7 @@ function downloadViaTokenToFile(url, token, ctx, options: any = {}) {
 function fetchPublicJson(url, options: any = {}) {
   // Credential-free JSON GET/POST for public gateway endpoints
   // (``/api/status``, ``/api/auth/providers``). Unlike ``fetchJson`` it sends
-  // NO ``X-Hermes-Session-Token`` header — used by the auth-mode probe before
+  // NO ``X-Lemon-Session-Token`` header — used by the auth-mode probe before
   // any credentials exist, and any time we must not leak a token to an
   // endpoint that doesn't need one.
   return withRetry(
@@ -5704,7 +5704,7 @@ function fetchPublicJson(url, options: any = {}) {
         const timeoutMs = resolveTimeoutMs(options.timeoutMs, DEFAULT_FETCH_TIMEOUT_MS)
 
         if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-          reject(new Error(runtimeUserTemplate`Unsupported Hermes backend URL protocol: ${parsed.protocol}`))
+          reject(new Error(runtimeUserTemplate`Unsupported Lemon AI backend URL protocol: ${parsed.protocol}`))
 
           return
         }
@@ -5746,7 +5746,7 @@ function fetchPublicJson(url, options: any = {}) {
                 reject(
                   new Error(
                     `Expected JSON from ${url} but got HTML (status ${res.statusCode}). ` +
-                      'The endpoint is likely missing on the Hermes backend.'
+                      'The endpoint is likely missing on the Lemon AI backend.'
                   )
                 )
 
@@ -5764,7 +5764,7 @@ function fetchPublicJson(url, options: any = {}) {
 
         req.on('error', reject)
         req.setTimeout(timeoutMs, () => {
-          req.destroy(new Error(runtimeUserTemplate`Timed out connecting to Hermes backend after ${timeoutMs}ms`))
+          req.destroy(new Error(runtimeUserTemplate`Timed out connecting to Lemon AI backend after ${timeoutMs}ms`))
         })
 
         // Past this point the request is on the wire — see fetchJson.
@@ -5972,7 +5972,7 @@ function getLinkTitleSession() {
     return linkTitleSession
   }
 
-  linkTitleSession = session.fromPartition('hermes:link-titles', { cache: false })
+  linkTitleSession = session.fromPartition('lemon:link-titles', { cache: false })
   linkTitleSession.webRequest.onBeforeRequest((details, callback) => {
     callback({ cancel: RENDER_TITLE_BLOCKED_RESOURCES.has(details.resourceType) })
   })
@@ -6412,7 +6412,7 @@ function expandUserPath(filePath) {
 
 async function previewFileTarget(rawTarget, baseDir) {
   const raw = String(rawTarget || '').trim()
-  const base = baseDir ? path.resolve(expandUserPath(baseDir)) : resolveHermesCwd()
+  const base = baseDir ? path.resolve(expandUserPath(baseDir)) : resolveLemonCwd()
 
   let resolved = resolveRequestedPathForIpc(/^file:/i.test(raw) ? raw : expandUserPath(raw), {
     baseDir: base,
@@ -6512,7 +6512,7 @@ function sendPreviewFileChanged(payload) {
     return
   }
 
-  webContents.send('hermes:preview-file-changed', payload)
+  webContents.send('lemon:preview-file-changed', payload)
 }
 
 async function watchPreviewFile(rawUrl) {
@@ -6667,7 +6667,7 @@ async function gatewayAuthProviders(baseUrl, headers = {}) {
 // an anonymous probe 401s forever against a live session, and it can never
 // see the 404 that identifies a backend predating /api/health (the auth gate
 // answers before the SPA catch-all). `probeIsCredentialed` tells
-// waitForHermesReady how to read a 401 — rejected session vs gated route.
+// waitForLemonReady how to read a 401 — rejected session vs gated route.
 async function buildReadinessHealthProbe(baseUrl, authMode, token) {
   const nativeAt = authMode === 'oauth' ? await ensureNativeAccessToken(baseUrl).catch(() => null) : null
   const probeAuth = resolveReadinessProbeAuth(authMode, nativeAt, token)
@@ -6699,10 +6699,10 @@ async function buildReadinessHealthProbe(baseUrl, authMode, token) {
   return { probeHealth: fetchPublicJson, probeIsCredentialed: false }
 }
 
-async function waitForHermes(baseUrl, token, signal?, authMode?, headers = {}) {
+async function waitForLemon(baseUrl, token, signal?, authMode?, headers = {}) {
   const { probeHealth, probeIsCredentialed } = await buildReadinessHealthProbe(baseUrl, authMode, token)
 
-  return waitForHermesReady(baseUrl, {
+  return waitForLemonReady(baseUrl, {
     token,
     signal,
     fetchPublicJson,
@@ -6760,7 +6760,7 @@ function sendBackendExit(payload) {
     return
   }
 
-  webContents.send('hermes:backend-exit', payload)
+  webContents.send('lemon:backend-exit', payload)
 }
 
 function sendClosePreviewRequested() {
@@ -6774,7 +6774,7 @@ function sendClosePreviewRequested() {
     return
   }
 
-  webContents.send('hermes:close-preview-requested')
+  webContents.send('lemon:close-preview-requested')
 }
 
 /**
@@ -6840,7 +6840,7 @@ function sendPreviewNavCommand(command: 'back' | 'forward' | 'reload') {
     return
   }
 
-  webContents.send('hermes:preview-nav', command)
+  webContents.send('lemon:preview-nav', command)
 }
 
 /**
@@ -6884,12 +6884,12 @@ function sendOpenFolderRequested() {
     return
   }
 
-  webContents.send('hermes:open-folder-requested')
+  webContents.send('lemon:open-folder-requested')
 }
 
 // Tell the renderer the machine just woke. Sleep silently drops the
 // renderer's WebSocket to the local backend; the renderer reconnects on this
-// signal so the chat composer doesn't stay stuck on "Starting Hermes...".
+// signal so the chat composer doesn't stay stuck on "Starting Lemon AI...".
 function sendPowerResume() {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return
@@ -6901,7 +6901,7 @@ function sendPowerResume() {
     return
   }
 
-  webContents.send('hermes:power-resume')
+  webContents.send('lemon:power-resume')
 }
 
 let powerResumeRegistered = false
@@ -6912,8 +6912,8 @@ let powerResumeRegistered = false
 let onBatteryPower: boolean | null = null
 
 // Renderer-side battery gating seeds from this and stays current via the
-// 'hermes:power-battery' push below.
-ipcMain.handle('hermes:power-battery:get', () => onBatteryPower === true)
+// 'lemon:power-battery' push below.
+ipcMain.handle('lemon:power-battery:get', () => onBatteryPower === true)
 
 function broadcastBatteryState(next: boolean) {
   if (onBatteryPower === next) {
@@ -6926,7 +6926,7 @@ function broadcastBatteryState(next: boolean) {
     const { webContents } = win
 
     if (webContents && !webContents.isDestroyed()) {
-      webContents.send('hermes:power-battery', next)
+      webContents.send('lemon:power-battery', next)
     }
   }
 }
@@ -6990,7 +6990,7 @@ async function showPluginCompatNoticeOnce() {
   let notice
 
   try {
-    notice = pendingPluginCompatNotice(HERMES_HOME, app.getPath('userData'))
+    notice = pendingPluginCompatNotice(LEMON_HOME, app.getPath('userData'))
   } catch (err) {
     rememberLog(`[plugins] compat notice check failed: ${err.message}`)
 
@@ -7034,7 +7034,7 @@ function sendOpenUpdatesRequested() {
     return
   }
 
-  webContents.send('hermes:open-updates')
+  webContents.send('lemon:open-updates')
 
   if (!mainWindow.isVisible()) {
     mainWindow.show()
@@ -7063,7 +7063,7 @@ function sendWindowStateChanged(nextIsFullscreen?: boolean, target = mainWindow)
     state.isFullscreen = nextIsFullscreen
   }
 
-  webContents.send('hermes:window-state-changed', state)
+  webContents.send('lemon:window-state-changed', state)
 }
 
 function buildApplicationMenu() {
@@ -7431,7 +7431,7 @@ function installContextMenuBridge(window: BrowserWindow) {
     const suggestions = Array.isArray(params.dictionarySuggestions) ? params.dictionarySuggestions : []
 
     if (params.isEditable && params.misspelledWord) {
-      window.webContents.send('hermes:context-menu-spellcheck', {
+      window.webContents.send('lemon:context-menu-spellcheck', {
         misspelledWord: params.misspelledWord,
         suggestions
       })
@@ -7525,11 +7525,11 @@ function installMediaPermissions() {
 // ---------------------------------------------------------------------------
 // OAuth remote-gateway auth.
 //
-// Hosted Hermes gateways gate the dashboard behind an OAuth provider (e.g.
+// Hosted Lemon AI gateways gate the dashboard behind an OAuth provider (e.g.
 // Nous Research) instead of a static session token. The auth model is
 // fundamentally different from the token path:
 //
-//   * REST is authed by HttpOnly session cookies (``hermes_session_at``),
+//   * REST is authed by HttpOnly session cookies (``lemon_session_at``),
 //     established by a browser redirect round-trip (/login → IDP →
 //     /auth/callback sets cookies). We cannot read the HttpOnly cookie value
 //     in JS — instead we let an Electron BrowserWindow complete the round
@@ -7540,9 +7540,9 @@ function installMediaPermissions() {
 //     ``POST /api/auth/ws-ticket`` (cookie-authed). The legacy ``?token=``
 //     path is unconditionally rejected by gated gateways.
 //   * Nous Portal now issues a 24h ROTATING, reuse-detected refresh token
-//     alongside the ~15-min access token (Portal NAS #293 / hermes #37247).
-//     Both are set as HttpOnly cookies (``hermes_session_at`` ~15 min,
-//     ``hermes_session_rt`` 24h). When the AT cookie lapses but the RT cookie
+//     alongside the ~15-min access token (Portal NAS #293 / lemon #37247).
+//     Both are set as HttpOnly cookies (``lemon_session_at`` ~15 min,
+//     ``lemon_session_rt`` 24h). When the AT cookie lapses but the RT cookie
 //     is still alive, the gateway middleware transparently rotates a fresh AT
 //     on the next authenticated request — so connectivity must NOT be gated on
 //     the AT cookie alone. We probe liveness by actually minting a ws-ticket
@@ -7609,8 +7609,8 @@ function getOauthSessionForUrl(url) {
 // cookies.get() on a fresh cold start can resolve BEFORE the jar has finished
 // hydrating from disk and return an empty array — even though the user is
 // signed in. That false-negative used to make hasLiveOauthSession() report
-// "not signed in", which on the initial boot path (startHermes → the renderer's
-// single-shot boot() with no retry) surfaced as the "Hermes couldn't start"
+// "not signed in", which on the initial boot path (startLemon → the renderer's
+// single-shot boot() with no retry) surfaced as the "Lemon AI couldn't start"
 // OAuth overlay that vanishes the instant the user clicks Retry.
 //
 // We force the store to hydrate once, up front: flushStorageData() then a
@@ -7723,7 +7723,7 @@ async function hasLiveOauthSession(baseUrl) {
 
   // Cold-start false-negative guard. A `persist:` partition's cookie store
   // loads lazily, so the FIRST read on a fresh boot can come back empty even
-  // for a signed-in user — the exact race that produced the transient "Hermes
+  // for a signed-in user — the exact race that produced the transient "Lemon AI
   // couldn't start / not signed in" overlay that Retry always cleared. Before
   // trusting a negative, force the store to hydrate and re-read a couple of
   // times with a short backoff. A genuinely signed-out user still resolves
@@ -7943,7 +7943,7 @@ function fetchJsonViaOauthSession(url, options: any = {}) {
     }
 
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      reject(new Error(runtimeUserTemplate`Unsupported Hermes backend URL protocol: ${parsed.protocol}`))
+      reject(new Error(runtimeUserTemplate`Unsupported Lemon AI backend URL protocol: ${parsed.protocol}`))
 
       return
     }
@@ -7976,7 +7976,7 @@ function fetchJsonViaOauthSession(url, options: any = {}) {
         // already finished
       }
 
-      reject(new Error(runtimeUserTemplate`Timed out connecting to Hermes backend after ${timeoutMs}ms`))
+      reject(new Error(runtimeUserTemplate`Timed out connecting to Lemon AI backend after ${timeoutMs}ms`))
     }, timeoutMs)
 
     request.on('response', res => {
@@ -8048,7 +8048,7 @@ function fetchJsonViaOauthSession(url, options: any = {}) {
 // involved. Tokens are persisted encrypted at rest via Electron ``safeStorage``
 // (OS keychain) keyed by gateway base URL, and refreshed via
 // ``/auth/native/refresh`` before expiry. This is the desktop half of the
-// feature; the server half lives in hermes_cli/dashboard_auth/native_flow.py.
+// feature; the server half lives in lemon_cli/dashboard_auth/native_flow.py.
 // ---------------------------------------------------------------------------
 
 // In-memory cache of decrypted native tokens, keyed by normalized base URL.
@@ -8194,7 +8194,7 @@ function downloadViaOauthSessionToFile(url, ctx, options: any = {}) {
     }
 
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      reject(new Error(runtimeUserTemplate`Unsupported Hermes backend URL protocol: ${parsed.protocol}`))
+      reject(new Error(runtimeUserTemplate`Unsupported Lemon AI backend URL protocol: ${parsed.protocol}`))
 
       return
     }
@@ -8224,7 +8224,7 @@ function downloadViaOauthSessionToFile(url, ctx, options: any = {}) {
         // already finished
       }
 
-      reject(new Error(runtimeUserTemplate`Timed out connecting to Hermes backend after ${timeoutMs}ms`))
+      reject(new Error(runtimeUserTemplate`Timed out connecting to Lemon AI backend after ${timeoutMs}ms`))
     }, timeoutMs)
 
     request.on('response', res => {
@@ -8524,13 +8524,13 @@ async function freshGatewayWsUrl(profile) {
   return connection.wsUrl
 }
 
-// --- Hermes Cloud discovery + silent per-agent sign-in (cloud-auto-discovery
+// --- Lemon AI Cloud discovery + silent per-agent sign-in (cloud-auto-discovery
 // Phase 3) ---------------------------------------------------------------
 //
 // The "cloud" connection mode lets a user sign in to the Nous portal ONCE in
 // the OAuth session partition, then (a) discover their hosted agents and (b)
 // connect to any of them with no second interactive sign-in. Both ride the one
-// portal session cookie living in `persist:hermes-remote-oauth`:
+// portal session cookie living in `persist:lemon-remote-oauth`:
 //   - discovery  → GET {portal}/api/agents over the partition-bound net; the
 //     portal session cookie authenticates it (NAS Phase 2.5 accepts the cookie).
 //   - cascade    → opening an agent's own /login in the same partition hits the
@@ -8539,21 +8539,21 @@ async function freshGatewayWsUrl(profile) {
 //     its own PKCE exchange; SSO removes the human click, not a security check.
 
 // Canonical Nous portal base URL, overridable for staging/dev. Mirrors the CLI
-// convention (hermes_cli/auth.py DEFAULT_NOUS_PORTAL_URL + the same env names)
-// so a single override flips every Hermes surface to the same portal.
+// convention (lemon_cli/auth.py DEFAULT_NOUS_PORTAL_URL + the same env names)
+// so a single override flips every Lemon AI surface to the same portal.
 const DEFAULT_NOUS_PORTAL_URL = 'https://portal.nousresearch.com'
 
 function resolvePortalBaseUrl() {
-  const raw = process.env.HERMES_PORTAL_BASE_URL || process.env.NOUS_PORTAL_BASE_URL || DEFAULT_NOUS_PORTAL_URL
+  const raw = process.env.LEMON_PORTAL_BASE_URL || process.env.NOUS_PORTAL_BASE_URL || DEFAULT_NOUS_PORTAL_URL
 
   return String(raw).trim().replace(/\/+$/, '')
 }
 
 // Whether the OAuth partition currently holds a live Nous portal session — the
 // credential that powers both discovery and the silent cascade. The portal
-// authenticates via PRIVY, not the Hermes gateway session cookies, so this
+// authenticates via PRIVY, not the Lemon AI gateway session cookies, so this
 // checks for the `privy-token` cookie on the portal host (NOT
-// hasLiveOauthSession, which looks for hermes_session_at/rt that the portal
+// hasLiveOauthSession, which looks for lemon_session_at/rt that the portal
 // never sets). See connection-config.ts cookiesHavePrivySession.
 //
 // Mirrors hasLiveOauthSession's cold-start guard (#73495): a `persist:`
@@ -8871,7 +8871,7 @@ function openPortalLoginWindow() {
   })
 }
 
-// Discover the hosted (Hermes Cloud) agents the signed-in user can see. Calls
+// Discover the hosted (Lemon AI Cloud) agents the signed-in user can see. Calls
 // the NAS trimmed-summary endpoint over the partition-bound net, so the portal
 // session cookie is attached automatically (no bearer needed — NAS accepts the
 // cookie). Returns { agents } on success, or { needsOrgSelection: true, orgs }
@@ -9514,7 +9514,7 @@ function sanitizeConnectionProfiles(raw: Record<string, any>) {
       cleaned.headers = headers
     }
 
-    // Preserve the Hermes Cloud org tag on cloud-mode entries so Settings can
+    // Preserve the Lemon AI Cloud org tag on cloud-mode entries so Settings can
     // reopen into the same org for a per-profile cloud connection.
     if (cleaned.mode === 'cloud') {
       const org = String(entry.org || '').trim()
@@ -9656,7 +9656,7 @@ function readDesktopConnectionsRegistry() {
     } catch {
       // Write failed (full disk, read-only userData). Keep the migrated
       // registry in memory so list/save keep working this session instead of
-      // hard-failing every hermes:connections:* call.
+      // hard-failing every lemon:connections:* call.
       connectionRegistryCache = registry
       connectionRegistryCacheMtime = null
     }
@@ -9802,7 +9802,7 @@ function sanitizeConnectionsRegistry(registry = readDesktopConnectionsRegistry()
 /**
  * Save (create or edit) a registry connection from a renderer payload.
  * Edits merge over the stored entry (mergeConnectionInput) so fields the
- * editor doesn't carry — cloud `org`, ssh `remoteHermesPath`/`remoteProfile` —
+ * editor doesn't carry — cloud `org`, ssh `remoteLemonPath`/`remoteProfile` —
  * survive a rename. Token handling mirrors coerceDesktopConnectionConfig: an
  * incoming plaintext token is encrypted (honoring the same allowPlainTextToken
  * opt-in seam as Settings → Gateway); an absent token field inherits the
@@ -9870,7 +9870,7 @@ async function saveRegistryConnection(input: any = {}) {
 }
 
 // Returns the desktop's chosen profile name, or null when unset. "default" is
-// a valid stored value (pins the root HERMES_HOME explicitly); null means "no
+// a valid stored value (pins the root LEMON_HOME explicitly); null means "no
 // preference" and preserves the legacy launch (no --profile flag).
 function readActiveDesktopProfile() {
   try {
@@ -9902,9 +9902,9 @@ function writeActiveDesktopProfile(name) {
 }
 
 // True when the given pid belongs to a running process whose command line
-// contains "hermes", avoiding false positives from stale gateway.pid files
+// contains "lemon", avoiding false positives from stale gateway.pid files
 // whose PID was recycled by the OS to an unrelated process.
-function isHermesProcess(pid) {
+function isLemonProcess(pid) {
   try {
     process.kill(pid, 0) // signal 0 = existence check, no signal sent
   } catch {
@@ -9915,7 +9915,7 @@ function isHermesProcess(pid) {
   try {
     const cmdline = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8')
 
-    return cmdline.includes('hermes')
+    return cmdline.includes('lemon')
   } catch {
     // /proc not available (macOS) — fall back to ps. Use -o args= to inspect
     // the full command line, not just the process name.  -o comm= would return
@@ -9924,7 +9924,7 @@ function isHermesProcess(pid) {
       const { execSync } = require('child_process')
       const out = execSync(`ps -p ${pid} -o args=`, { encoding: 'utf8', timeout: 2000 })
 
-      return out.includes('hermes')
+      return out.includes('lemon')
     } catch {
       return false
     }
@@ -9933,8 +9933,8 @@ function isHermesProcess(pid) {
 
 // Seed active-profile.json from the best available signal when the file does
 // not yet exist.  Runs exactly once (no-op once the file exists).  Priority:
-//   1. Legacy ~/.hermes/active_profile (explicit CLI choice via hermes profile use)
-//   2. Running gateway (gateway.pid with verified liveness + hermes identity)
+//   1. Legacy ~/.lemon-ai/active_profile (explicit CLI choice via lemon profile use)
+//   2. Running gateway (gateway.pid with verified liveness + lemon identity)
 //   3. state.db heuristics (hybrid recency×size score picks the primary workspace)
 // The stored JSON includes _migrated:true so the renderer can optionally surface
 // a one-time notification that the profile was auto-detected.
@@ -9943,14 +9943,14 @@ function isHermesProcess(pid) {
 // just wires Electron/Node fs into a MigrationDeps bag and delegates.
 function migrateActiveProfileIfMissing() {
   migrateActiveProfileIfMissingPure(DESKTOP_PROFILE_CONFIG_PATH, {
-    legacyActivePath: path.join(HERMES_HOME, 'active_profile'),
-    hermesHome: HERMES_HOME,
-    profilesRoot: path.join(HERMES_HOME, 'profiles'),
+    legacyActivePath: path.join(LEMON_HOME, 'active_profile'),
+    lemonHome: LEMON_HOME,
+    profilesRoot: path.join(LEMON_HOME, 'profiles'),
     existsSync: p => fs.existsSync(p),
     readFileSync: (p, enc) => fs.readFileSync(p, enc),
     statSync: p => fs.statSync(p),
     readdirSync: (p, opts) => fs.readdirSync(p, opts as { withFileTypes: true }),
-    isHermesProcess,
+    isLemonProcess,
     now: () => Date.now(),
     writeJson: (target, decision) => {
       // Mirror writeActiveDesktopProfile's atomic-write + parent-dir-create
@@ -9972,7 +9972,7 @@ async function sanitizeDesktopConnectionConfig(config = readDesktopConnectionCon
   const scoped = key ? config.profiles?.[key] || null : null
   const block = key ? scoped || {} : config.remote || {}
 
-  const envOverride = key ? false : Boolean(process.env.HERMES_DESKTOP_REMOTE_URL)
+  const envOverride = key ? false : Boolean(process.env.LEMON_DESKTOP_REMOTE_URL)
   const savedMode = key ? scoped?.mode : config.mode
   const ssh = savedMode === 'ssh' ? normalizeSshConfig(block) : null
 
@@ -9980,7 +9980,7 @@ async function sanitizeDesktopConnectionConfig(config = readDesktopConnectionCon
 
   const remoteToken = decryptDesktopSecret(block.token)
   const authMode = normAuthMode(block.authMode)
-  const remoteUrl = envOverride ? String(process.env.HERMES_DESKTOP_REMOTE_URL || '') : String(block.url || '')
+  const remoteUrl = envOverride ? String(process.env.LEMON_DESKTOP_REMOTE_URL || '') : String(block.url || '')
   const mode = envOverride ? 'remote' : savedMode === 'ssh' ? 'ssh' : modeIsRemoteLike(savedMode) ? savedMode : 'local'
 
   // Whether the OS keyring (safeStorage) can encrypt the saved token. When
@@ -10018,7 +10018,7 @@ async function sanitizeDesktopConnectionConfig(config = readDesktopConnectionCon
     remoteAuthMode: authMode,
     remoteOauthConnected,
     remoteUrl,
-    // The persisted Hermes Cloud org (slug/id) for a cloud connection, or '' for
+    // The persisted Lemon AI Cloud org (slug/id) for a cloud connection, or '' for
     // remote/local. Lets Settings → Gateway reopen into the same org.
     cloudOrg: mode === 'cloud' ? String(block.org || '') : '',
     remoteTokenPreview: tokenPreview(remoteToken),
@@ -10032,10 +10032,10 @@ async function sanitizeDesktopConnectionConfig(config = readDesktopConnectionCon
     sshUser: (ssh || savedSsh)?.user || '',
     sshPort: (ssh || savedSsh)?.port || null,
     sshKeyPath: (ssh || savedSsh)?.keyPath || '',
-    sshRemoteHermesPath: (ssh || savedSsh)?.remoteHermesPath || '',
+    sshRemoteLemonPath: (ssh || savedSsh)?.remoteLemonPath || '',
     sshRemoteProfile: (ssh || savedSsh)?.remoteProfile || '',
     // The env override only forces the global/primary connection; a per-profile
-    // scope is never overridden by HERMES_DESKTOP_REMOTE_URL.
+    // scope is never overridden by LEMON_DESKTOP_REMOTE_URL.
     envOverride
   }
 }
@@ -10043,7 +10043,7 @@ async function sanitizeDesktopConnectionConfig(config = readDesktopConnectionCon
 // Build + validate a `{ url, authMode, token }` remote block. OAuth gateways
 // authenticate via the login-window session cookie (verified at connect time in
 // resolveRemoteBackend), so only token-auth remotes require a saved token.
-// `org` (optional) is the Hermes Cloud org slug/id the instance was discovered
+// `org` (optional) is the Lemon AI Cloud org slug/id the instance was discovered
 // under — persisted so Settings can reopen into the same org; omitted from the
 // block when empty so plain remote connections stay unchanged.
 function buildRemoteBlock(remoteUrl, authMode, token, org?: string, headers?: object) {
@@ -10084,7 +10084,7 @@ function coerceDesktopConnectionConfig(input: any = {}, existing = readDesktopCo
   // The block being edited: a per-profile entry or the global remote block.
   const rawExistingBlock = key ? existing.profiles?.[key] || {} : existing.remote || {}
   // Leaving a CLOUD connection unselects it: a cloud block's url/org/token
-  // describe a discovered Hermes Cloud instance, NOT a user-owned remote gateway,
+  // describe a discovered Lemon AI Cloud instance, NOT a user-owned remote gateway,
   // so switching to local or remote must NOT inherit them (otherwise the stale
   // cloud URL lingers and re-selecting Cloud looks "already connected"). When the
   // saved block was cloud and the new mode is not cloud, start from an empty
@@ -10185,7 +10185,7 @@ function buildSshBlock(input: any, existingBlock: any = {}) {
     user: input.sshUser ?? existingBlock.user,
     port: input.sshPort ?? existingBlock.port,
     keyPath: input.sshKeyPath ?? existingBlock.keyPath,
-    remoteHermesPath: input.sshRemoteHermesPath ?? existingBlock.remoteHermesPath,
+    remoteLemonPath: input.sshRemoteLemonPath ?? existingBlock.remoteLemonPath,
     remoteProfile: input.sshRemoteProfile ?? existingBlock.remoteProfile
   })
 
@@ -10228,7 +10228,7 @@ async function buildRemoteConnection(
     // OAuth gateway: auth comes from EITHER a native bearer token (cookieless
     // RFC 8252 flow) OR the session cookies in the OAuth partition. Liveness is
     // NOT "is the access-token cookie present?" — Portal issues a 24h rotating
-    // refresh token (hermes #37247), and the gateway middleware transparently
+    // refresh token (lemon #37247), and the gateway middleware transparently
     // rotates a fresh ~15-min access token from it on the next authenticated
     // request. So a session with an expired AT cookie but a live RT cookie is
     // still perfectly connectable. We early-out only when NEITHER a native
@@ -10268,7 +10268,7 @@ async function buildRemoteConnection(
       throw gatewayTicketFailure(
         error,
         oauthTicketFailureAuthMessage(hasNativeSession(baseUrl)),
-        'Could not reach the remote Hermes gateway while refreshing its WebSocket ticket. Try reconnecting.'
+        'Could not reach the remote Lemon AI gateway while refreshing its WebSocket ticket. Try reconnecting.'
       )
     }
 
@@ -10293,7 +10293,7 @@ async function buildRemoteConnection(
 
   if (!token) {
     throw new Error(
-      'Remote Hermes gateway is selected, but no session token is saved. ' +
+      'Remote Lemon AI gateway is selected, but no session token is saved. ' +
         'Open Settings → Gateway and save a token, or switch back to Local.'
     )
   }
@@ -10589,8 +10589,8 @@ function activeSshTerminalTarget(webContentsId?: number) {
   const route = resolveDesktopRemoteRoute({
     config,
     env: {
-      token: process.env.HERMES_DESKTOP_REMOTE_TOKEN,
-      url: process.env.HERMES_DESKTOP_REMOTE_URL
+      token: process.env.LEMON_DESKTOP_REMOTE_TOKEN,
+      url: process.env.LEMON_DESKTOP_REMOTE_URL
     },
     profile,
     registry: readDesktopConnectionsRegistry()
@@ -10757,8 +10757,8 @@ async function rollbackSshBootstrapResult(ssh, result, profile, sshConfig, bound
       pid: result.pid,
       spawnNonce: result.spawnNonce,
       profile: resolveRemoteSshDashboardProfile(sshConfig.remoteProfile, profile),
-      hermesPath: result.hermesPath,
-      hermesHome: result.hermesHome,
+      lemonPath: result.lemonPath,
+      lemonHome: result.lemonHome,
       startedAt: result.startedAt,
       creationTimeNs: result.creationTimeNs,
       creationTime: result.creationTime
@@ -10767,7 +10767,7 @@ async function rollbackSshBootstrapResult(ssh, result, profile, sshConfig, bound
     if (result.platform?.os === 'Windows') {
       await terminateOwnedWindowsDashboardForUpdate(
         ssh,
-        { hermesPath: result.hermesPath, hermesHome: result.hermesHome, python: result.pythonPath },
+        { lemonPath: result.lemonPath, lemonHome: result.lemonHome, python: result.pythonPath },
         expected
       )
     } else if (result.platform?.os === 'Linux' || result.platform?.os === 'Darwin') {
@@ -10837,7 +10837,7 @@ async function bootstrapSshConnectionInner(profile, sshConfig, reuseToken, sourc
     ssh = new SshConnection(
       { host: sshConfig.host, user: sshConfig.user, port: sshConfig.port, keyPath: sshConfig.keyPath },
       {
-        controlDir: path.join(HERMES_HOME, 'desktop-ssh'),
+        controlDir: path.join(LEMON_HOME, 'desktop-ssh'),
         rememberLog: sshRememberLog,
         ownershipId: sshOwnershipKey(profile),
         scope,
@@ -10855,18 +10855,18 @@ async function bootstrapSshConnectionInner(profile, sshConfig, reuseToken, sourc
       managedConnectionUpdateGate.assertCanDial(metadata.registryConnectionId, metadata.managedUpdateCorrelation || '')
     }
 
-    const platform = await detectRemotePlatform(ssh, sshConfig.remoteHermesPath || '', DESKTOP_RUNTIME_IDENTITY.appName)
+    const platform = await detectRemotePlatform(ssh, sshConfig.remoteLemonPath || '', DESKTOP_RUNTIME_IDENTITY.appName)
     const lifecycle = platform.os === 'Windows' ? connectWindowsRemote : remoteLifecycle.connect
     result = await lifecycle({
       ssh,
       profile: resolveRemoteSshDashboardProfile(sshConfig.remoteProfile, profile),
-      remoteHermesPath: sshConfig.remoteHermesPath || '',
+      remoteLemonPath: sshConfig.remoteLemonPath || '',
       ownershipId: sshOwnershipKey(profile),
       reuseToken: reuseToken || '',
       forward: (localPort, remotePort) => ssh.forward(localPort, remotePort),
       cancelForward: (localPort, remotePort) => ssh.cancelForward(localPort, remotePort),
       pickLocalPort,
-      waitForHermes: (baseUrl, token) => waitForHermes(baseUrl, token, lease.signal, 'token'),
+      waitForLemon: (baseUrl, token) => waitForLemon(baseUrl, token, lease.signal, 'token'),
       probeReuseProof: sshProbeReuseProof,
       adoptServedToken: adoptServedDashboardToken,
       hostAppName: DESKTOP_RUNTIME_IDENTITY.appName,
@@ -10931,22 +10931,22 @@ async function bootstrapSshConnectionInner(profile, sshConfig, reuseToken, sourc
         pid: result.pid,
         host: sshConfig.host,
         hostLabel,
-        hermesVersion: result.hermesVersion || '',
+        lemonVersion: result.lemonVersion || '',
         remotePlatform: result.platform?.os || '',
         reused: result.reused,
         spawnNonce: result.spawnNonce,
         creationTimeNs: result.creationTimeNs,
         creationTime: result.creationTime,
         startedAt: result.startedAt,
-        hermesPath: result.hermesPath,
-        hermesHome: result.hermesHome,
+        lemonPath: result.lemonPath,
+        lemonHome: result.lemonHome,
         pythonPath: result.pythonPath,
         remoteProfile: resolveRemoteSshDashboardProfile(sshConfig.remoteProfile, profile),
         registryConnectionId:
           metadata.registryConnectionId ||
           (typeof source === 'string' && source.startsWith('registry:') ? source.slice('registry:'.length) : ''),
         // Never infer primary ownership from a non-composite scope key: legacy
-        // per-profile pools also use bare keys. Only startHermes' explicit call
+        // per-profile pools also use bare keys. Only startLemon' explicit call
         // site may label a registry-qualified SSH scope as the primary backend.
         primaryRegistryScope: metadata.primaryRegistryScope === true
       })
@@ -10956,7 +10956,7 @@ async function bootstrapSshConnectionInner(profile, sshConfig, reuseToken, sourc
 
   sshRememberLog(
     `[ssh] connection ${result.reused ? 'REUSED' : 'spawned'} dashboard: ` +
-      `${result.hermesVersion || 'hermes (version unknown)'} at ${result.hermesPath || '?'}`
+      `${result.lemonVersion || 'lemon (version unknown)'} at ${result.lemonPath || '?'}`
   )
 
   const connection = await buildRemoteConnection(
@@ -10971,13 +10971,13 @@ async function bootstrapSshConnectionInner(profile, sshConfig, reuseToken, sourc
 
   return {
     ...connection,
-    remoteHermesVersion: result.hermesVersion || '',
+    remoteLemonVersion: result.lemonVersion || '',
     ssh: {
       effectiveConfigFingerprint: sshConfig.effectiveConfigFingerprint,
       host: sshConfig.host,
       keyPath: sshConfig.keyPath,
       port: sshConfig.port,
-      remoteHermesPath: sshConfig.remoteHermesPath,
+      remoteLemonPath: sshConfig.remoteLemonPath,
       remoteProfile: sshConfig.remoteProfile,
       user: sshConfig.user
     }
@@ -11027,7 +11027,7 @@ function persistSshConnectionToken(profile, source, token, registryConnectionId 
 // Resolve the remote backend for a given profile, or null when that profile
 // should run a LOCAL backend. Precedence:
 //   1. explicit per-profile remote override (connection.json `profiles[name]`)
-//   2. env override (HERMES_DESKTOP_REMOTE_URL/_TOKEN) — applies app-wide
+//   2. env override (LEMON_DESKTOP_REMOTE_URL/_TOKEN) — applies app-wide
 //   3. global remote (connection.json `mode: 'remote'`)
 // A null/empty profile resolves the env/global remote, so legacy callers and
 // the connection test (which pass no profile) are unchanged.
@@ -11057,8 +11057,8 @@ async function resolveRemoteBackend(profile, options: { poolKey?: string; primar
     const currentRoute = resolveDesktopRemoteRoute({
       config: readDesktopConnectionConfig(),
       env: {
-        token: process.env.HERMES_DESKTOP_REMOTE_TOKEN,
-        url: process.env.HERMES_DESKTOP_REMOTE_URL
+        token: process.env.LEMON_DESKTOP_REMOTE_TOKEN,
+        url: process.env.LEMON_DESKTOP_REMOTE_URL
       },
       profile: profileKey,
       registry: readDesktopConnectionsRegistry()
@@ -11091,8 +11091,8 @@ async function resolveRemoteBackend(profile, options: { poolKey?: string; primar
   const route = resolveDesktopRemoteRoute({
     config,
     env: {
-      token: process.env.HERMES_DESKTOP_REMOTE_TOKEN,
-      url: process.env.HERMES_DESKTOP_REMOTE_URL
+      token: process.env.LEMON_DESKTOP_REMOTE_TOKEN,
+      url: process.env.LEMON_DESKTOP_REMOTE_URL
     },
     profile,
     registry: readDesktopConnectionsRegistry()
@@ -11164,7 +11164,7 @@ function globalRemoteActive() {
     return false
   }
 
-  if (process.env.HERMES_DESKTOP_REMOTE_URL) {
+  if (process.env.LEMON_DESKTOP_REMOTE_URL) {
     return true
   }
 
@@ -11200,7 +11200,7 @@ function registryPrimaryIsRemote() {
 // True when the PRIMARY profile's backend resolves to a remote/cloud host —
 // i.e. resolveRemoteBackend(primaryProfileKey()) would return a descriptor
 // rather than null. Mirrors that function's precedence (per-profile override →
-// env → global) so a startHermes() failure can be classified as remote (never
+// env → global) so a startLemon() failure can be classified as remote (never
 // latch — transient, must stay retryable) vs local (latch to break install
 // loops) BEFORE the throwing resolve/mint runs.
 function primaryBackendIsRemote() {
@@ -11239,7 +11239,7 @@ async function requestJsonForProfile(profile: string, path: string, method: stri
 
 async function probeRemoteAuthMode(rawUrl) {
   // Determine how a remote gateway expects callers to authenticate, WITHOUT
-  // sending any credentials. ``/api/status`` is public on every Hermes
+  // sending any credentials. ``/api/status`` is public on every Lemon AI
   // gateway (it backs the portal liveness probe) and reports:
   //   auth_required: true  → OAuth gate is engaged (cookie + ws-ticket auth)
   //   auth_required: false → loopback/--insecure: legacy session-token auth
@@ -11312,7 +11312,7 @@ async function testDesktopConnectionConfig(input: any = {}) {
       user: input.sshUser,
       port: input.sshPort,
       keyPath: input.sshKeyPath,
-      remoteHermesPath: input.sshRemoteHermesPath
+      remoteLemonPath: input.sshRemoteLemonPath
     })
 
     if (!sshConfig) {
@@ -11335,28 +11335,28 @@ async function testDesktopConnectionConfig(input: any = {}) {
           await ssh.open()
           const platform: any = await detectRemotePlatform(
             ssh,
-            sshConfig.remoteHermesPath || '',
+            sshConfig.remoteLemonPath || '',
             DESKTOP_RUNTIME_IDENTITY.appName
           )
-          let hermesPath
-          let hermesVersion
+          let lemonPath
+          let lemonVersion
           let supported
 
           if (platform.os === 'Windows') {
             const runtime = platform
-            hermesPath = runtime.hermesPath
-            const inspection = await helper(ssh, runtime, 'inspect', [runtime.hermesPath])
-            hermesVersion = inspection.version
+            lemonPath = runtime.lemonPath
+            const inspection = await helper(ssh, runtime, 'inspect', [runtime.lemonPath])
+            lemonVersion = inspection.version
             supported = inspection.supported
           } else {
-            hermesPath = await remoteLifecycle.locateHermes(
+            lemonPath = await remoteLifecycle.locateLemon(
               ssh,
-              sshConfig.remoteHermesPath || '',
+              sshConfig.remoteLemonPath || '',
               resolveDesktopUpdateRepository(),
               DESKTOP_RUNTIME_IDENTITY.appName
             )
-            hermesVersion = await remoteLifecycle.probeHermesVersion(ssh, hermesPath)
-            supported = await remoteLifecycle.remoteSupportsSshOwnership(ssh, hermesPath)
+            lemonVersion = await remoteLifecycle.probeLemonVersion(ssh, lemonPath)
+            supported = await remoteLifecycle.remoteSupportsSshOwnership(ssh, lemonPath)
           }
 
           if (!supported) {
@@ -11372,8 +11372,8 @@ async function testDesktopConnectionConfig(input: any = {}) {
             sshError: null,
             error: null,
             remotePlatform: `${platform.os}/${platform.arch}`,
-            remoteHermesPath: hermesPath,
-            remoteHermesVersion: hermesVersion,
+            remoteLemonPath: lemonPath,
+            remoteLemonVersion: lemonVersion,
             host: sshConfig.user ? `${sshConfig.user}@${sshConfig.host}` : sshConfig.host
           }
         } catch (error: any) {
@@ -11426,7 +11426,7 @@ async function testDesktopConnectionConfig(input: any = {}) {
       token = decryptDesktopSecret(block.token)
     }
   } else {
-    const remote = (await resolveRemoteBackend(key)) || (await startHermes())
+    const remote = (await resolveRemoteBackend(key)) || (await startLemon())
     baseUrl = remote.baseUrl
     token = remote.token
     authMode = normAuthMode(remote.authMode)
@@ -11440,7 +11440,7 @@ async function testDesktopConnectionConfig(input: any = {}) {
   // connects — a separate transport with separate server-side guards (Host/
   // Origin, ws-ticket/token auth). Validating only the HTTP side produced a
   // false-positive "reachable" while the real boot still failed with "Could not
-  // connect to Hermes gateway". Mirror the renderer's connect here so the test
+  // connect to Lemon AI gateway". Mirror the renderer's connect here so the test
   // reflects the full path the app actually uses.
   const wsUrl = await resolveTestWsUrl(baseUrl, authMode, token, {
     mintTicket: url => mintGatewayWsTicket(url, testHeaders)
@@ -11510,12 +11510,12 @@ function stopBackendChild(child) {
 // reloading the renderer. The shell stays up; the renderer wipes session lists
 // (so skeletons retrigger) and re-dials. Distinct from hard re-home (profile
 // switch / crash recovery), which still resets boot progress + reloads.
-function resetHermesConnection({ soft = false } = {}) {
+function resetLemonConnection({ soft = false } = {}) {
   backendStartFailure = null
   remoteReauthFailure = null
   remoteLiveness.clear()
-  const hermesProcess = backendConnectionState.invalidate()
-  stopBackendChild(hermesProcess)
+  const lemonProcess = backendConnectionState.invalidate()
+  stopBackendChild(lemonProcess)
 
   if (!soft) {
     resetBootProgressForReconnect()
@@ -11524,19 +11524,19 @@ function resetHermesConnection({ soft = false } = {}) {
 
 // Re-home the primary backend: reset connection state, then wait for the live
 // dashboard process to actually exit (SIGKILL after 5s) so the next
-// startHermes() spawns fresh instead of racing the dying one. Shared by the
+// startLemon() spawns fresh instead of racing the dying one. Shared by the
 // connection-config and profile switch flows.
 async function teardownPrimaryBackendAndWait({ soft = false } = {}) {
-  // Capture the reference before resetHermesConnection() invalidates it.
-  const hermesProcess = backendConnectionState.getProcess()
-  const dying = hermesProcess && !hermesProcess.killed ? hermesProcess : null
+  // Capture the reference before resetLemonConnection() invalidates it.
+  const lemonProcess = backendConnectionState.getProcess()
+  const dying = lemonProcess && !lemonProcess.killed ? lemonProcess : null
 
   if (soft) {
     softRehomeInProgress = true
   }
 
   try {
-    resetHermesConnection({ soft })
+    resetLemonConnection({ soft })
     await waitForBackendExit(dying)
   } finally {
     if (soft) {
@@ -11556,7 +11556,7 @@ function sendConnectionApplied() {
     return
   }
 
-  webContents.send('hermes:connection:applied')
+  webContents.send('lemon:connection:applied')
 }
 
 // Registry lifecycle push: a connection was removed or materially edited, so
@@ -11569,7 +11569,7 @@ function broadcastConnectionsChanged(payload: { connectionId: string; reason: 'r
     const { webContents } = win
 
     if (webContents && !webContents.isDestroyed()) {
-      webContents.send('hermes:connections:changed', payload)
+      webContents.send('lemon:connections:changed', payload)
     }
   }
 }
@@ -11666,7 +11666,7 @@ async function ensureBackend(profile) {
   const route = resolveProfileBackendRoute(key, profileRouteOptions(key))
 
   if (route.backend === 'primary') {
-    const connection = await startHermes()
+    const connection = await startLemon()
     setWslBridgeProfileState(key, connection.mode !== 'remote')
 
     // A shared backend still owes the caller its profile scope, so renderer-side
@@ -11680,7 +11680,7 @@ async function ensureBackend(profile) {
 
   // A backend for this key may still be dying (idle reap, LRU eviction, a
   // just-finished delete). Wait for its bounded exit before reusing or
-  // spawning, so two children never share one profile's HERMES_HOME.
+  // spawning, so two children never share one profile's LEMON_HOME.
   const stopping = poolStopper.inFlight(key)
 
   if (stopping) {
@@ -11716,7 +11716,7 @@ async function ensureBackend(profile) {
     // its child exists (guard rejection, runtime resolution) leaves no trace
     // beyond renderer-side rejections users never see in a bundle.
     rememberLog(
-      `Hermes backend for profile "${key}" failed to start: ${error instanceof Error ? error.message : String(error)}`
+      `Lemon AI backend for profile "${key}" failed to start: ${error instanceof Error ? error.message : String(error)}`
     )
 
     await teardownFailedLocalBackend(key, entry)
@@ -11767,7 +11767,7 @@ async function ensureRegistryBackend(connectionId, profile, managedUpdateCorrela
         user: source.user,
         port: source.port,
         keyPath: source.keyPath,
-        remoteHermesPath: source.remoteHermesPath,
+        remoteLemonPath: source.remoteLemonPath,
         remoteProfile: source.remoteProfile || (profileKey === 'default' ? '' : profileKey)
       })
     }
@@ -11884,7 +11884,7 @@ async function ensureRegistryBackend(connectionId, profile, managedUpdateCorrela
       // Same trace rule as the v1 pool path: a forced-local child whose spawn
       // rejects before the child exists must still land in desktop.log.
       rememberLog(
-        `Hermes backend for profile "${profileKey}" (forced-local) failed to start: ${error instanceof Error ? error.message : String(error)}`
+        `Lemon AI backend for profile "${profileKey}" (forced-local) failed to start: ${error instanceof Error ? error.message : String(error)}`
       )
 
       await teardownFailedLocalBackend(localRoute.poolKey, localEntry)
@@ -12013,10 +12013,10 @@ async function connectRegistryBackend(
       profile: profileKey,
       connectionId: source.id,
       // The remote process runs as this profile; the desktop-side profile key
-      // is only the routing label. hermes:api uses it to translate explicit
+      // is only the routing label. lemon:api uses it to translate explicit
       // self-profile query filters into the backend's namespace.
       remoteProfile: sshConfig.remoteProfile || '',
-      logs: hermesLog.slice(-80),
+      logs: lemonLog.slice(-80),
       ...getWindowState()
     }
   }
@@ -12037,7 +12037,7 @@ async function connectRegistryBackend(
     source.headers
   )
 
-  await waitForHermes(connection.baseUrl, connection.token, undefined, connection.authMode, connection.headers)
+  await waitForLemon(connection.baseUrl, connection.token, undefined, connection.authMode, connection.headers)
   poolEntry.remoteBaseUrl = connection.baseUrl
 
   return {
@@ -12047,7 +12047,7 @@ async function connectRegistryBackend(
     // One host, many profiles: REST paths must carry ?profile= (same contract
     // as the global-remote shared-primary route).
     sharedRemote: true,
-    logs: hermesLog.slice(-80),
+    logs: lemonLog.slice(-80),
     ...getWindowState()
   }
 }
@@ -12113,7 +12113,7 @@ async function restoreManagedPrimarySshBackend(source, profile, correlationId) {
   backendConnectionState.invalidate()
 
   try {
-    return await startHermes()
+    return await startLemon()
   } finally {
     if (managedPrimaryRestoreOwners.get(source.id)?.correlationId === correlationId) {
       managedPrimaryRestoreOwners.delete(source.id)
@@ -12130,7 +12130,7 @@ function managedSshConfig(source, profile = '') {
     user: source.user,
     port: source.port,
     keyPath: source.keyPath,
-    remoteHermesPath: source.remoteHermesPath,
+    remoteLemonPath: source.remoteLemonPath,
     remoteProfile: source.remoteProfile || (profileKey === 'default' ? '' : profileKey)
   })
 }
@@ -12144,8 +12144,8 @@ async function captureManagedSshScopes(source) {
     resolveDesktopRemoteRoute({
       config,
       env: {
-        token: process.env.HERMES_DESKTOP_REMOTE_TOKEN,
-        url: process.env.HERMES_DESKTOP_REMOTE_URL
+        token: process.env.LEMON_DESKTOP_REMOTE_TOKEN,
+        url: process.env.LEMON_DESKTOP_REMOTE_URL
       },
       profile,
       registry
@@ -12256,7 +12256,7 @@ async function captureManagedSshScopes(source) {
 }
 
 function remoteUpdateTargetFromState(state): RemoteUpdateTarget {
-  if (!state?.ssh || !state?.hermesPath || !state?.hermesHome) {
+  if (!state?.ssh || !state?.lemonPath || !state?.lemonHome) {
     throw new Error('The managed SSH scope does not carry a complete remote runtime identity.')
   }
 
@@ -12267,8 +12267,8 @@ function remoteUpdateTargetFromState(state): RemoteUpdateTarget {
   return {
     ssh: state.ssh,
     platform: state.remotePlatform,
-    hermesPath: state.hermesPath,
-    hermesHome: state.hermesHome,
+    lemonPath: state.lemonPath,
+    lemonHome: state.lemonHome,
     ...(state.pythonPath ? { pythonPath: state.pythonPath } : {})
   }
 }
@@ -12292,38 +12292,38 @@ async function openManagedSshUpdateTransport(
   try {
     const platform: any = await detectRemotePlatform(
       ssh,
-      config.remoteHermesPath || '',
+      config.remoteLemonPath || '',
       DESKTOP_RUNTIME_IDENTITY.appName
     )
 
     if (platform.os === 'Windows') {
-      const runtime = platform.hermesPath
+      const runtime = platform.lemonPath
         ? platform
-        : await probeWindowsRemote(ssh, config.remoteHermesPath || '', DESKTOP_RUNTIME_IDENTITY.appName)
+        : await probeWindowsRemote(ssh, config.remoteLemonPath || '', DESKTOP_RUNTIME_IDENTITY.appName)
 
       return {
         close: () => ssh.close(),
         target: {
           ssh,
           platform: 'Windows',
-          hermesPath: runtime.hermesPath,
-          hermesHome: runtime.hermesHome,
+          lemonPath: runtime.lemonPath,
+          lemonHome: runtime.lemonHome,
           pythonPath: runtime.python
         }
       }
     }
 
-    const hermesPath = await remoteLifecycle.locateHermes(
+    const lemonPath = await remoteLifecycle.locateLemon(
       ssh,
-      config.remoteHermesPath || '',
+      config.remoteLemonPath || '',
       resolveDesktopUpdateRepository(),
       DESKTOP_RUNTIME_IDENTITY.appName
     )
-    const hermesHome = await remoteLifecycle.probeRemoteHermesHome(ssh, DESKTOP_RUNTIME_IDENTITY.appName)
+    const lemonHome = await remoteLifecycle.probeRemoteLemonHome(ssh, DESKTOP_RUNTIME_IDENTITY.appName)
 
     return {
       close: () => ssh.close(),
-      target: { ssh, platform: platform.os, hermesPath, hermesHome }
+      target: { ssh, platform: platform.os, lemonPath, lemonHome }
     }
   } catch (error) {
     await ssh.close()
@@ -12352,8 +12352,8 @@ async function drainManagedSshScope(scope) {
       pid: state.pid,
       spawnNonce: state.spawnNonce,
       profile: state.remoteProfile || '',
-      hermesPath: state.hermesPath,
-      hermesHome: state.hermesHome,
+      lemonPath: state.lemonPath,
+      lemonHome: state.lemonHome,
       startedAt: state.startedAt,
       creationTimeNs: state.creationTimeNs,
       creationTime: state.creationTime
@@ -12362,7 +12362,7 @@ async function drainManagedSshScope(scope) {
     if (state.remotePlatform === 'Windows') {
       await terminateOwnedWindowsDashboardForUpdate(
         state.ssh,
-        { hermesPath: state.hermesPath, hermesHome: state.hermesHome, python: state.pythonPath },
+        { lemonPath: state.lemonPath, lemonHome: state.lemonHome, python: state.pythonPath },
         expected
       )
     } else if (state.remotePlatform === 'Linux' || state.remotePlatform === 'Darwin') {
@@ -12382,10 +12382,10 @@ async function drainManagedSshScope(scope) {
         // exact token first; only recreate the forward when cancellation was
         // confirmed, avoiding a duplicate-bind attempt that masks recovery.
         if (!forwardClosed) {
-          await waitForHermes(`http://127.0.0.1:${state.localPort}`, scope.reuseToken, undefined, 'token')
+          await waitForLemon(`http://127.0.0.1:${state.localPort}`, scope.reuseToken, undefined, 'token')
         } else {
           await state.ssh.forward(state.localPort, state.remotePort)
-          await waitForHermes(`http://127.0.0.1:${state.localPort}`, scope.reuseToken, undefined, 'token')
+          await waitForLemon(`http://127.0.0.1:${state.localPort}`, scope.reuseToken, undefined, 'token')
         }
 
         scope.forwardRestored = true
@@ -12693,7 +12693,7 @@ function teardownFailedLocalBackend(poolKey: string, entry: any): Promise<void> 
 }
 
 // Spawn an additional dashboard backend pinned to a named profile. Mirrors the
-// local-spawn portion of startHermes() but without the boot-progress UI,
+// local-spawn portion of startLemon() but without the boot-progress UI,
 // bootstrap, or remote handling (those belong to the primary backend only).
 // `opts.forceLocal` skips remote resolution entirely (the registry 'local'
 // entry means THIS machine regardless of the v1 routing table); `opts.poolKey`
@@ -12715,7 +12715,7 @@ async function spawnPoolBackend(profile, entry, opts: { forceLocal?: boolean; po
   profileDeletionGate.assertCanStart(profile)
 
   if (remote) {
-    await waitForHermes(remote.baseUrl, remote.token, undefined, remote.authMode, remote.headers)
+    await waitForLemon(remote.baseUrl, remote.token, undefined, remote.authMode, remote.headers)
 
     // Recorded on the entry so revalidation can probe this descriptor without
     // awaiting connectionPromise, which may still be pending for a sibling.
@@ -12724,7 +12724,7 @@ async function spawnPoolBackend(profile, entry, opts: { forceLocal?: boolean; po
     return {
       ...remote,
       profile,
-      logs: hermesLog.slice(-80),
+      logs: lemonLog.slice(-80),
       ...getWindowState()
     }
   }
@@ -12776,15 +12776,15 @@ async function spawnPoolBackend(profile, entry, opts: { forceLocal?: boolean; po
 
   profileDeletionGate.assertCanStart(profile)
 
-  // --profile wins over the inherited HERMES_HOME env (see _apply_profile_override
-  // step 3 in hermes_cli/main.py), so the child re-homes to this profile.
+  // --profile wins over the inherited LEMON_HOME env (see _apply_profile_override
+  // step 3 in lemon_cli/main.py), so the child re-homes to this profile.
   // --port 0: the OS assigns an ephemeral port; the child announces it on stdout.
   const backendArgs = ['--profile', profile, 'serve', '--host', '127.0.0.1', '--port', '0']
-  const backend = await ensureRuntime(resolveHermesBackend(backendArgs))
+  const backend = await ensureRuntime(resolveLemonBackend(backendArgs))
   await seedInternalDesktopInitialProvider(backend, profile)
   // Route old runtimes (no `serve`) through the legacy `dashboard --no-open`.
   backend.args = getBackendArgsForRuntime(backend)
-  const hermesCwd = resolveHermesCwd()
+  const lemonCwd = resolveLemonCwd()
   const webDist = resolveWebDist()
   const readyFile = backend.readyFile ? makeDashboardReadyFile() : null
 
@@ -12794,9 +12794,9 @@ async function spawnPoolBackend(profile, entry, opts: { forceLocal?: boolean; po
   // and no exit — the exact undiagnosable burst signature in remote-gateway
   // user bundles (Aug 2026, Dash's report).
   assertLocalProfileCanStart(profile, profileDeletionGate, key =>
-    directoryExists(path.join(HERMES_HOME, 'profiles', key))
+    directoryExists(path.join(LEMON_HOME, 'profiles', key))
   )
-  rememberLog(`Starting Hermes backend for profile "${profile}" via ${backend.label}`)
+  rememberLog(`Starting Lemon AI backend for profile "${profile}" via ${backend.label}`)
 
   const parentStartMarker = await desktopParentStartMarker()
   const backendNonce = crypto.randomBytes(16).toString('hex')
@@ -12807,13 +12807,13 @@ async function spawnPoolBackend(profile, entry, opts: { forceLocal?: boolean; po
     backend.command,
     backend.args,
     hiddenWindowsChildOptions({
-      cwd: hermesCwd,
-      env: buildHermesBackendSpawnEnv({
+      cwd: lemonCwd,
+      env: buildLemonBackendSpawnEnv({
         processEnv: process.env,
         runtimeEnv: desktopRuntimeEnv(),
-        hermesHome: HERMES_HOME,
+        lemonHome: LEMON_HOME,
         backendEnv: backend.env,
-        terminalCwd: hermesCwd,
+        terminalCwd: lemonCwd,
         sessionToken: token,
         parentIdentityEnv,
         webDist,
@@ -12861,16 +12861,16 @@ async function spawnPoolBackend(profile, entry, opts: { forceLocal?: boolean; po
   })
 
   child.once('error', error => {
-    rememberLog(`Hermes backend for profile "${profile}" failed to start: ${error.message}`)
+    rememberLog(`Lemon AI backend for profile "${profile}" failed to start: ${error.message}`)
     void teardownFailedLocalBackend(poolKey, entry).catch(cleanupError => {
       rememberLog(
-        `Hermes backend for profile "${profile}" cleanup failed: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`
+        `Lemon AI backend for profile "${profile}" cleanup failed: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`
       )
     })
     rejectStart?.(error)
   })
   child.once('exit', (code, signal) => {
-    rememberLog(`Hermes backend for profile "${profile}" exited (${signal || code})`)
+    rememberLog(`Lemon AI backend for profile "${profile}" exited (${signal || code})`)
     releaseLocalBackendSlot(entry)
     releaseBackendChild(child)
 
@@ -12881,7 +12881,7 @@ async function spawnPoolBackend(profile, entry, opts: { forceLocal?: boolean; po
     if (!ready) {
       rejectStart?.(
         new Error(
-          `Hermes backend for profile "${profile}" exited before it became ready (${signal || code}).${outputTail.describe()}`
+          `Lemon AI backend for profile "${profile}" exited before it became ready (${signal || code}).${outputTail.describe()}`
         )
       )
     }
@@ -12897,12 +12897,12 @@ async function spawnPoolBackend(profile, entry, opts: { forceLocal?: boolean; po
   entry.port = port
 
   const baseUrl = `http://127.0.0.1:${port}`
-  await Promise.race([waitForHermes(baseUrl, token), startFailed])
+  await Promise.race([waitForLemon(baseUrl, token), startFailed])
   ready = true
 
   const authToken = await adoptServedDashboardToken(baseUrl, token, {
     childAlive: () => child.exitCode === null && !child.killed,
-    label: `Hermes backend for profile "${profile}"`,
+    label: `Lemon AI backend for profile "${profile}"`,
     rememberLog
   })
 
@@ -12915,7 +12915,7 @@ async function spawnPoolBackend(profile, entry, opts: { forceLocal?: boolean; po
 
   if (!wsProbe.ok) {
     throw new Error(
-      `Hermes backend for profile "${profile}" is HTTP-reachable but the WebSocket (/api/ws) rejected the session token: ${wsProbe.reason}`
+      `Lemon AI backend for profile "${profile}" is HTTP-reachable but the WebSocket (/api/ws) rejected the session token: ${wsProbe.reason}`
     )
   }
 
@@ -12927,7 +12927,7 @@ async function spawnPoolBackend(profile, entry, opts: { forceLocal?: boolean; po
     token: authToken,
     profile,
     wsUrl,
-    logs: hermesLog.slice(-80),
+    logs: lemonLog.slice(-80),
     ...getWindowState()
   }
 }
@@ -12982,7 +12982,7 @@ async function exitAfterBackendShutdown(code) {
 // Returns the profile name whose backend was torn down, or null when the
 // request is not a profile-delete.  The caller uses this to skip ensureBackend
 // for the just-torn-down profile — otherwise ensureBackend respawns a pool
-// backend whose ensure_hermes_home() recreates the deleted profile directory.
+// backend whose ensure_lemon_home() recreates the deleted profile directory.
 //
 // The routing *decision* (which branch fires, what profile name gets
 // returned) lives in the pure decideProfileDeleteAction() in
@@ -13021,7 +13021,7 @@ async function prepareProfileRenameRequest(request) {
       mainWindow?.reload()
     },
     restartPrimaryBackend: async () => {
-      await startHermes()
+      await startLemon()
     },
     teardownPoolBackendAndWait,
     teardownPrimaryBackendAndWait,
@@ -13031,7 +13031,7 @@ async function prepareProfileRenameRequest(request) {
   })
 }
 
-async function startHermes() {
+async function startLemon() {
   // Only the single-instance lock holder may reap/spawn/claim the desktop
   // backend. A lock-losing instance must stay inert even if some path reaches
   // here (e.g. the deferred-quit window before `ready`): its reapOrphans()
@@ -13044,7 +13044,7 @@ async function startHermes() {
   await reapOrphanedBackendsOnce()
 
   // Latched-failure short-circuit: once bootstrap has failed in this
-  // process, every subsequent startHermes() call re-throws the same error
+  // process, every subsequent startLemon() call re-throws the same error
   // without re-running install.ps1. This prevents the renderer's
   // ensureGatewayOpen retries (and any other getConnection callers) from
   // restarting a 5-10 minute install loop while the user is still reading
@@ -13067,7 +13067,7 @@ async function startHermes() {
   // E2E: simulate a boot failure without breaking the real backend. The boot
   // progresses a few steps, then fails with the given error message.
   if (BOOT_FAKE_ERROR) {
-    await advanceBootProgress('backend.resolve', runtimeUserText('Resolving Hermes backend'), 8)
+    await advanceBootProgress('backend.resolve', runtimeUserText('Resolving Lemon AI backend'), 8)
     const error = new Error(BOOT_FAKE_ERROR) as any
     error.isBootstrapFailure = true
     bootstrapFailure = error
@@ -13107,34 +13107,34 @@ async function startHermes() {
       // mint). If a newer attempt started meanwhile (e.g. the user switched
       // remotes and Apply invalidated this attempt), bail before probing.
       if (!backendConnectionState.isCurrentAttempt(connectionAttempt)) {
-        throw new Error(runtimeUserText('Hermes backend start was superseded by a newer connection attempt.'))
+        throw new Error(runtimeUserText('Lemon AI backend start was superseded by a newer connection attempt.'))
       }
 
       await advanceBootProgress(
         'backend.remote',
-        runtimeUserTemplate`Connecting to remote Hermes backend at ${remote.baseUrl}`,
+        runtimeUserTemplate`Connecting to remote Lemon AI backend at ${remote.baseUrl}`,
         24
       )
-      await waitForHermes(remote.baseUrl, remote.token, undefined, remote.authMode, remote.headers)
+      await waitForLemon(remote.baseUrl, remote.token, undefined, remote.authMode, remote.headers)
 
       // Second async boundary: the health probe itself can outlive the
       // attempt. A late success here must not publish a stale descriptor.
       if (!backendConnectionState.isCurrentAttempt(connectionAttempt)) {
-        throw new Error(runtimeUserText('Hermes backend start was superseded by a newer connection attempt.'))
+        throw new Error(runtimeUserText('Lemon AI backend start was superseded by a newer connection attempt.'))
       }
 
       updateBootProgress({
         phase: 'backend.ready',
-        message: runtimeUserText('Remote Hermes backend is ready'),
+        message: runtimeUserText('Remote Lemon AI backend is ready'),
         progress: 94,
         running: true,
         error: null
       })
 
-      return createPrimaryRemoteConnection(remote, hermesLog.slice(-80), getWindowState())
+      return createPrimaryRemoteConnection(remote, lemonLog.slice(-80), getWindowState())
     }
 
-    await advanceBootProgress('backend.resolve', runtimeUserText('Resolving Hermes backend'), 8)
+    await advanceBootProgress('backend.resolve', runtimeUserText('Resolving Lemon AI backend'), 8)
     // Resolve for the desktop's primary profile so a per-profile remote
     // override on the active profile is honored (falls back to env / global).
 
@@ -13156,8 +13156,8 @@ async function startHermes() {
     const token = crypto.randomBytes(32).toString('base64url')
     // --port 0: the OS assigns an ephemeral port; the child announces it on stdout.
     // Pin the desktop's chosen profile via the global --profile flag. This is
-    // deterministic (it wins over the sticky ~/.hermes/active_profile file) and
-    // resolves HERMES_HOME the same way `hermes -p <name>` does on the CLI. An
+    // deterministic (it wins over the sticky ~/.lemon-ai/active_profile file) and
+    // resolves LEMON_HOME the same way `lemon -p <name>` does on the CLI. An
     // unset preference keeps the legacy launch so existing installs are
     // unaffected. A requested harness is a fixed single-local-runtime profile,
     // so it uses default and does not inherit a persisted profile argument.
@@ -13174,9 +13174,9 @@ async function startHermes() {
       connectRemote,
       ensureLocalRuntime: ensureRuntime,
       prepareLocalBackend: async () => {
-        await advanceBootProgress('backend.runtime', runtimeUserText('Resolving Hermes runtime'), 28)
+        await advanceBootProgress('backend.runtime', runtimeUserText('Resolving Lemon AI runtime'), 28)
 
-        return resolveHermesBackend(backendArgs)
+        return resolveLemonBackend(backendArgs)
       },
       resolveRemote: () => {
         // Classify immediately before each throwing resolve. This callback runs
@@ -13209,29 +13209,29 @@ async function startHermes() {
     await seedInternalDesktopInitialProvider(backend, launchScope.primaryProfile)
     // Route old runtimes (no `serve`) through the legacy `dashboard --no-open`.
     backend.args = getBackendArgsForRuntime(backend)
-    const hermesCwd = resolveHermesCwd()
+    const lemonCwd = resolveLemonCwd()
     const webDist = resolveWebDist()
     const readyFile = backend.readyFile ? makeDashboardReadyFile() : null
 
-    await advanceBootProgress('backend.spawn', runtimeUserTemplate`Starting Hermes backend via ${backend.label}`, 84)
-    rememberLog(runtimeUserTemplate`Starting Hermes backend via ${backend.label}`)
+    await advanceBootProgress('backend.spawn', runtimeUserTemplate`Starting Lemon AI backend via ${backend.label}`, 84)
+    rememberLog(runtimeUserTemplate`Starting Lemon AI backend via ${backend.label}`)
 
     const profile = launchScope.primaryProfile
     const parentStartMarker = await desktopParentStartMarker()
     const backendNonce = crypto.randomBytes(16).toString('hex')
     const parentIdentityEnv = parentWatchdogEnv(process.pid, parentStartMarker, backendNonce)
 
-    const hermesProcess = spawn(
+    const lemonProcess = spawn(
       backend.command,
       backend.args,
       hiddenWindowsChildOptions({
-        cwd: hermesCwd,
-        env: buildHermesBackendSpawnEnv({
+        cwd: lemonCwd,
+        env: buildLemonBackendSpawnEnv({
           processEnv: process.env,
           runtimeEnv: desktopRuntimeEnv(),
-          hermesHome: HERMES_HOME,
+          lemonHome: LEMON_HOME,
           backendEnv: backend.env,
-          terminalCwd: hermesCwd,
+          terminalCwd: lemonCwd,
           sessionToken: token,
           parentIdentityEnv,
           webDist,
@@ -13247,7 +13247,7 @@ async function startHermes() {
     // before-ready exit message shown by the boot UI. rememberLog attaches
     // later, after the claim, and would miss anything printed before it.
     const primaryOutputTail = createBackendOutputTail()
-    primaryOutputTail.attach(hermesProcess)
+    primaryOutputTail.attach(lemonProcess)
 
     // Start watching for the READY announcement BEFORE any await (#60323):
     // claimBackendChild can take seconds (its Windows Get-Process probe cold
@@ -13257,7 +13257,7 @@ async function startHermes() {
     // window was lost forever — the wait then hit its 90s timeout and a
     // healthy backend was killed (deterministic on Windows, racy on
     // macOS/Linux). The tail-buffer accessor covers any residual gap.
-    const portAnnouncement = waitForDashboardPortAnnouncement(hermesProcess, {
+    const portAnnouncement = waitForDashboardPortAnnouncement(lemonProcess, {
       bufferedOutput: () => primaryOutputTail.text(),
       describeOutputTail: () => primaryOutputTail.describe(),
       readyFile
@@ -13267,23 +13267,23 @@ async function startHermes() {
     // surface as an unhandled rejection before the Promise.race below attaches.
     portAnnouncement.catch(() => {})
     await claimBackendChild(
-      hermesProcess,
+      lemonProcess,
       `${backend.command} ${backend.args.join(' ')}`,
       profile,
       backendNonce,
       primaryOutputTail
     )
-    const processOwner = backendConnectionState.attachProcess(connectionAttempt, hermesProcess)
+    const processOwner = backendConnectionState.attachProcess(connectionAttempt, lemonProcess)
 
     if (!processOwner) {
-      stopBackendChild(hermesProcess)
-      await waitForBackendExit(hermesProcess)
-      releaseBackendChild(hermesProcess)
-      throw new Error(runtimeUserText('Hermes backend start was superseded by a newer connection attempt.'))
+      stopBackendChild(lemonProcess)
+      await waitForBackendExit(lemonProcess)
+      releaseBackendChild(lemonProcess)
+      throw new Error(runtimeUserText('Lemon AI backend start was superseded by a newer connection attempt.'))
     }
 
-    hermesProcess.stdout.on('data', rememberLog)
-    hermesProcess.stderr.on('data', rememberLog)
+    lemonProcess.stdout.on('data', rememberLog)
+    lemonProcess.stderr.on('data', rememberLog)
     let backendReady = false
     let rejectBackendStart = null
 
@@ -13291,23 +13291,23 @@ async function startHermes() {
       rejectBackendStart = reject
     })
 
-    hermesProcess.once('error', error => {
-      releaseBackendChild(hermesProcess)
+    lemonProcess.once('error', error => {
+      releaseBackendChild(lemonProcess)
 
       if (!backendConnectionState.clearForCurrentProcess(processOwner)) {
-        rememberLog(`Ignoring stale Hermes backend error: ${error.message}`)
+        rememberLog(`Ignoring stale Lemon AI backend error: ${error.message}`)
         rejectBackendStart?.(
-          new Error(runtimeUserText('Hermes backend start was superseded by a newer connection attempt.'))
+          new Error(runtimeUserText('Lemon AI backend start was superseded by a newer connection attempt.'))
         )
 
         return
       }
 
-      rememberLog(runtimeUserTemplate`Hermes backend failed to start: ${error.message}`)
+      rememberLog(runtimeUserTemplate`Lemon AI backend failed to start: ${error.message}`)
       updateBootProgress(
         {
           error: error.message,
-          message: runtimeUserTemplate`Hermes backend failed to start: ${error.message}`,
+          message: runtimeUserTemplate`Lemon AI backend failed to start: ${error.message}`,
           phase: 'backend.error',
           running: false
         },
@@ -13316,26 +13316,26 @@ async function startHermes() {
       sendBackendExit({ code: null, signal: null, error: error.message })
       rejectBackendStart?.(error)
     })
-    hermesProcess.once('exit', (code, signal) => {
-      releaseBackendChild(hermesProcess)
+    lemonProcess.once('exit', (code, signal) => {
+      releaseBackendChild(lemonProcess)
 
       if (!backendConnectionState.clearForCurrentProcess(processOwner)) {
-        rememberLog(`Ignoring stale Hermes backend exit (${signal || code})`)
+        rememberLog(`Ignoring stale Lemon AI backend exit (${signal || code})`)
 
         if (!backendReady) {
           rejectBackendStart?.(
-            new Error(runtimeUserText('Hermes backend start was superseded by a newer connection attempt.'))
+            new Error(runtimeUserText('Lemon AI backend start was superseded by a newer connection attempt.'))
           )
         }
 
         return
       }
 
-      rememberLog(runtimeUserTemplate`Hermes backend exited (${signal || code})`)
+      rememberLog(runtimeUserTemplate`Lemon AI backend exited (${signal || code})`)
       sendBackendExit({ code, signal })
 
       if (!backendReady) {
-        const message = runtimeUserTemplate`Hermes backend exited before it became ready (${signal || code}).${primaryOutputTail.describe()}`
+        const message = runtimeUserTemplate`Lemon AI backend exited before it became ready (${signal || code}).${primaryOutputTail.describe()}`
         updateBootProgress(
           {
             error: message,
@@ -13347,13 +13347,13 @@ async function startHermes() {
         )
         rejectBackendStart?.(
           new Error(
-            runtimeUserTemplate`Hermes backend exited before it became ready (${signal || code}). Log: ${DESKTOP_LOG_PATH}\n${recentHermesLog()}`
+            runtimeUserTemplate`Lemon AI backend exited before it became ready (${signal || code}). Log: ${DESKTOP_LOG_PATH}\n${recentLemonLog()}`
           )
         )
       }
     })
 
-    await advanceBootProgress('backend.port', runtimeUserText('Waiting for Hermes backend to launch'), 86)
+    await advanceBootProgress('backend.port', runtimeUserText('Waiting for Lemon AI backend to launch'), 86)
 
     // Discover the ephemeral port the child bound to
     const port = await Promise.race([portAnnouncement, backendStartFailed])
@@ -13363,13 +13363,13 @@ async function startHermes() {
     }
 
     const baseUrl = `http://127.0.0.1:${port}`
-    await advanceBootProgress('backend.wait', runtimeUserText('Waiting for Hermes backend to become ready'), 90)
-    await Promise.race([waitForHermes(baseUrl, token), backendStartFailed])
+    await advanceBootProgress('backend.wait', runtimeUserText('Waiting for Lemon AI backend to become ready'), 90)
+    await Promise.race([waitForLemon(baseUrl, token), backendStartFailed])
     backendReady = true
     backendStartFailure = null
 
     const authToken = await adoptServedDashboardToken(baseUrl, token, {
-      childAlive: () => hermesProcess.exitCode === null && !hermesProcess.killed,
+      childAlive: () => lemonProcess.exitCode === null && !lemonProcess.killed,
       rememberLog
     })
 
@@ -13379,13 +13379,13 @@ async function startHermes() {
 
     if (!wsProbe.ok) {
       throw new Error(
-        runtimeUserTemplate`Local Hermes backend is HTTP-reachable but the WebSocket (/api/ws) rejected the session token: ${wsProbe.reason}`
+        runtimeUserTemplate`Local Lemon AI backend is HTTP-reachable but the WebSocket (/api/ws) rejected the session token: ${wsProbe.reason}`
       )
     }
 
     updateBootProgress({
       phase: 'backend.ready',
-      message: runtimeUserText('Hermes backend is ready. Finalizing desktop startup'),
+      message: runtimeUserText('Lemon AI backend is ready. Finalizing desktop startup'),
       progress: 94,
       running: true,
       error: null
@@ -13398,7 +13398,7 @@ async function startHermes() {
     // accumulated count of the resolved episode.
     bootstrapRepairAttempt = 0
 
-    // The backend's plugin discovery just ran and refreshed HERMES_HOME/.plugin-compat-report.json.
+    // The backend's plugin discovery just ran and refreshed LEMON_HOME/.plugin-compat-report.json.
     // Surface it once (per distinct set of affected plugins) after the window is up; never block boot.
     setTimeout(() => void showPluginCompatNoticeOnce(), 1500)
 
@@ -13409,7 +13409,7 @@ async function startHermes() {
       authMode: 'token',
       token: authToken,
       wsUrl,
-      logs: hermesLog.slice(-80),
+      logs: lemonLog.slice(-80),
       ...getWindowState()
     }
   })().catch(async error => {
@@ -13537,7 +13537,7 @@ function wireCommonWindowHandlers(win, { zoom = true }: { zoom?: boolean } = {})
 
   installContextMenuBridge(win)
   // Always deny, never open as a side effect: GHSA-9f4c-93c8-jc8g. Trusted
-  // links arrive via `hermes:openExternal`, not here. See window-open-policy.ts.
+  // links arrive via `lemon:openExternal`, not here. See window-open-policy.ts.
   win.webContents.setWindowOpenHandler(
     createWindowOpenHandler(origin => rememberLog(`[window-open] denied: ${origin}`))
   )
@@ -13692,7 +13692,7 @@ function notifyBrowserPopoutClosed(tabId) {
 
   for (const other of BrowserWindow.getAllWindows()) {
     if (!other.isDestroyed()) {
-      other.webContents.send('hermes:browser-popout:closed', tabId)
+      other.webContents.send('lemon:browser-popout:closed', tabId)
     }
   }
 }
@@ -13873,11 +13873,11 @@ const wakeIndicatorController = createWakeIndicatorWindowController({
 
 // The pet overlay: a single transparent, frameless, always-on-top window that
 // hosts ONLY the floating mascot. Shift-clicking the in-window pet "pops it out"
-// here so it can leave the app's bounds and stay visible while Hermes is
+// here so it can leave the app's bounds and stay visible while Lemon AI is
 // minimized (Codex-style task-completion glance). It carries no gateway
 // connection of its own — the main renderer is the single source of truth and
-// pushes pet state over IPC (hermes:pet-overlay:state); the overlay just renders
-// it. Control flows back (pop-in, composer submit) via hermes:pet-overlay:control.
+// pushes pet state over IPC (lemon:pet-overlay:state); the overlay just renders
+// it. Control flows back (pop-in, composer submit) via lemon:pet-overlay:control.
 let petOverlayWindow = null
 
 function petOverlayUrl() {
@@ -13905,7 +13905,7 @@ function spawnPetOverlayWindow(bounds) {
     // taskbar/alt-tab entry. On macOS, cmd-tab is app-level and this can make
     // the whole app look like it vanished when the only newly-created visible
     // window is a frameless overlay. Use NSPanel + Mission Control hiding below
-    // instead, leaving the main Hermes app as the Dock/cmd-tab anchor.
+    // instead, leaving the main Lemon AI app as the Dock/cmd-tab anchor.
     skipTaskbar: !IS_MAC,
     hasShadow: false,
     alwaysOnTop: true,
@@ -13915,9 +13915,9 @@ function spawnPetOverlayWindow(bounds) {
     hiddenInMissionControl: IS_MAC,
     // Non-activating: the overlay must never become the app's key/main window,
     // or it (a frameless, taskbar-skipping panel) becomes the app's switcher
-    // anchor and the Hermes icon drops out of cmd/alt-tab — especially when the
+    // anchor and the Lemon AI icon drops out of cmd/alt-tab — especially when the
     // main window is minimized. We flip this on only while the composer needs
-    // the keyboard (see hermes:pet-overlay:set-focusable).
+    // the keyboard (see lemon:pet-overlay:set-focusable).
     focusable: false,
     show: false,
     // Fully transparent — the renderer paints only the sprite + bubble.
@@ -13944,7 +13944,7 @@ function spawnPetOverlayWindow(bounds) {
   try {
     // Electron docs: macOS may transform process type on each
     // setVisibleOnAllWorkspaces() call unless skipTransformProcessType=true,
-    // which briefly hides the Dock/cmd-tab presence. Keep Hermes in the normal
+    // which briefly hides the Dock/cmd-tab presence. Keep Lemon AI in the normal
     // ForegroundApplication class so shift-clicking the pet never drops the app
     // out of app switchers.
     win.setVisibleOnAllWorkspaces(
@@ -13974,7 +13974,7 @@ function spawnPetOverlayWindow(bounds) {
     // pop the pet back in so it doesn't stay hidden. Harmless echo when we're
     // the ones who closed it (popInPet already cleared the active flag).
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('hermes:pet-overlay:control', { type: 'pop-in' })
+      mainWindow.webContents.send('lemon:pet-overlay:control', { type: 'pop-in' })
     }
   })
 
@@ -14016,7 +14016,7 @@ function closePetOverlay() {
 // ── HUD mode ────────────────────────────────────────────────────────────────
 //
 // The chrome-free floating chat: a transparent, frameless, always-on-top
-// window showing only the composer and its scrollback, so Hermes can be driven
+// window showing only the composer and its scrollback, so Lemon AI can be driven
 // while the user works in another app.
 //
 // Unlike the pet overlay / quick entry, this is a FULL app renderer with its
@@ -14210,7 +14210,7 @@ function startHudCursorFeed(win: BrowserWindow) {
     }
 
     last = key
-    win.webContents.send('hermes:hud:cursor', point)
+    win.webContents.send('lemon:hud:cursor', point)
   }, HUD_CURSOR_POLL_MS)
 
   win.on('closed', () => clearInterval(timer))
@@ -14230,7 +14230,7 @@ function startHudGameOverlayFeed(win: BrowserWindow) {
 
   const push = (state: { active: boolean; app: string }) => {
     if (!win.isDestroyed()) {
-      win.webContents.send('hermes:hud:game-overlay', state)
+      win.webContents.send('lemon:hud:game-overlay', state)
     }
   }
 
@@ -14258,7 +14258,7 @@ function startHudGameOverlayFeed(win: BrowserWindow) {
 
     if (!reported) {
       reported = true
-      console.warn(`[hermes] HUD cannot enumerate windows: ${windows.reason}`)
+      console.warn(`[lemon] HUD cannot enumerate windows: ${windows.reason}`)
     }
 
     return null
@@ -14327,7 +14327,7 @@ function broadcastHudState(open) {
 
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
-      win.webContents.send('hermes:hud:changed', payload)
+      win.webContents.send('lemon:hud:changed', payload)
     }
   }
 }
@@ -14346,7 +14346,7 @@ function spawnHudWindow(sessionId, profile) {
     // window grows a few px every drag (worse at >100% DPI scaling). The
     // composer drag calls setPosition, which must move the window, not resize
     // it. Resizing is done by the renderer's edge/corner handles through
-    // `hermes:hud:set-bounds`, which flips resizable on for the call — the
+    // `lemon:hud:set-bounds`, which flips resizable on for the call — the
     // same pattern the pet overlay uses for its wheel-scale.
     resizable: false,
     // macOS AppKit's constrainFrameRect clamps setBounds to the current
@@ -14385,7 +14385,7 @@ function spawnHudWindow(sessionId, profile) {
   win.setHiddenInMissionControl?.(true)
 
   // Linux intentionally starts on ONE virtual desktop. During a renderer
-  // grab, hermes:hud:workspace-transfer temporarily makes the X11 window
+  // grab, lemon:hud:workspace-transfer temporarily makes the X11 window
   // sticky; releasing it assigns the HUD to KDE's then-current desktop.
 
   // Streaming into a window that is ALWAYS blurred (the user is in another
@@ -14485,7 +14485,7 @@ function openHudWindow(sessionId, profile) {
     // conversation in the HUD", and a plain focus leaves the wrong one there.
     if (sessionId && sessionId !== hudSessionId) {
       hudSessionId = sessionId
-      hudWindow.webContents.send('hermes:hud:goto', sessionId)
+      hudWindow.webContents.send('lemon:hud:goto', sessionId)
       // Keep every window's idea of where the HUD is pointed in step, so the
       // toggle keeps reading "switch" vs "dismiss" correctly.
       broadcastHudState(true)
@@ -14644,7 +14644,7 @@ function spawnQuickEntryWindow() {
   // renderer already reported a live gateway.
   win.webContents.on('did-finish-load', () => {
     if (!win.isDestroyed() && quickEntryLastState) {
-      win.webContents.send('hermes:quick-entry:state', quickEntryLastState)
+      win.webContents.send('lemon:quick-entry:state', quickEntryLastState)
     }
   })
 
@@ -14686,7 +14686,7 @@ function showQuickEntryWindow() {
   quickEntryWindow.show()
   quickEntryWindow.focus()
   // Re-summoned: tell the renderer to clear any stale draft and refocus.
-  quickEntryWindow.webContents.send('hermes:quick-entry:shown')
+  quickEntryWindow.webContents.send('lemon:quick-entry:shown')
 }
 
 function hideQuickEntryWindow() {
@@ -14929,7 +14929,7 @@ function createWindow() {
           url: details?.url,
           errorDescription: 'The desktop renderer failed to load repeatedly after the update.',
           logPath: DESKTOP_LOG_PATH,
-          repairHint: 'hermes desktop --force-build',
+          repairHint: 'lemon desktop --force-build',
           reloadUrl: DEV_SERVER || pathToFileURL(resolveRendererIndex()).toString()
         })
       }
@@ -14967,7 +14967,7 @@ function createWindow() {
       errorDescription: `The desktop renderer bundle is incomplete after the last update (${tornAssets.length} missing file(s)).`,
       logPath: DESKTOP_LOG_PATH,
       missingAssets: tornAssets,
-      repairHint: 'hermes desktop --force-build',
+      repairHint: 'lemon desktop --force-build',
       reloadUrl: pathToFileURL(rendererIndex).toString()
     })
   } else {
@@ -14985,7 +14985,7 @@ function createWindow() {
   // shared (backendConnectionState), so the renderer's getConnection() joins
   // this in-flight boot instead of duplicating it; early boot-progress events
   // the renderer misses are recovered by its getBootProgress() pull on mount.
-  startHermes().catch(error => rememberLog(error.stack || error.message))
+  startLemon().catch(error => rememberLog(error.stack || error.message))
 
   mainWindow.webContents.once('did-finish-load', () => {
     // Zoom restore is handled by wireCommonWindowHandlers (shared with session
@@ -14995,7 +14995,7 @@ function createWindow() {
   })
 }
 
-ipcMain.handle('hermes:connection', async (_event, profile) => {
+ipcMain.handle('lemon:connection', async (_event, profile) => {
   // Coalesce concurrent renderer dials for one profile scope (#90812): the
   // renderer-side reconnect lock is per-window, so two windows waking at once
   // both land here. The claim key mirrors ensureBackend()'s own profile
@@ -15011,11 +15011,11 @@ ipcMain.handle('hermes:connection', async (_event, profile) => {
 // local kind delegates to ensureBackend when the v1 route is local, and
 // forces a genuinely-local child when the v1 global mode is remote (the
 // registry 'local' entry always means this machine).
-ipcMain.handle('hermes:connection:for', async (_event, payload) => {
+ipcMain.handle('lemon:connection:for', async (_event, payload) => {
   const { connectionId, profile } = payload && typeof payload === 'object' ? (payload as any) : ({} as any)
   const registry = readDesktopConnectionsRegistry()
   const id = String(connectionId || '').trim() || registry.primary
-  // Same single-owner claim as 'hermes:connection', keyed by the composite
+  // Same single-owner claim as 'lemon:connection', keyed by the composite
   // (connectionId, profile) scope (#90812): concurrent registry dials for one
   // scope share the first spawn instead of bootstrapping duplicate remotes.
   const connection = await backendDialClaims.run(backendScopeKey(id, profile), () => ensureRegistryBackend(id, profile))
@@ -15026,7 +15026,7 @@ ipcMain.handle('hermes:connection:for', async (_event, payload) => {
 const windowConnectionRoutes = new WindowConnectionRouteRegistry()
 const windowConnectionRouteOwners = new Set<number>()
 
-ipcMain.on('hermes:connection:active-route', (event, route) => {
+ipcMain.on('lemon:connection:active-route', (event, route) => {
   const id = event.sender.id
   const previous = windowConnectionRoutes.get(id)
   const next = windowConnectionRoutes.set(id, route)
@@ -15052,11 +15052,11 @@ ipcMain.on('hermes:connection:active-route', (event, route) => {
 // so the 'exit'/'error' handlers that would clear a dead connection promise never
 // fire — once the remote becomes unreachable across a sleep/wake the renderer
 // re-dials the same dead descriptor forever and the composer stays stuck on
-// "Starting Hermes…". Before the renderer's backoff loop reconnects, it asks us
+// "Starting Lemon AI…". Before the renderer's backoff loop reconnects, it asks us
 // to confirm the cached PRIMARY backend is still reachable; if a remote one is
 // not, we drop the cache so the next getConnection() rebuilds it. Local backends
 // self-heal via their child 'exit' handler, so we never touch them here.
-ipcMain.handle('hermes:connection:revalidate', async () => {
+ipcMain.handle('lemon:connection:revalidate', async () => {
   const connectionPromise = backendConnectionState.getPromise()
 
   if (!connectionPromise) {
@@ -15075,7 +15075,7 @@ ipcMain.handle('hermes:connection:revalidate', async () => {
         currentConnectionPromise: () => backendConnectionState.getPromise(),
         log: rememberLog,
         probe: (connection, path, options) => fetchJsonForBackend(connection, path, options),
-        resetConnection: () => resetHermesConnection({ soft: true }),
+        resetConnection: () => resetLemonConnection({ soft: true }),
         tracker: remoteLiveness
       }),
       revalidatePool()
@@ -15155,7 +15155,7 @@ function revalidateSuspectPoolAfterResume() {
   )
 }
 
-ipcMain.handle('hermes:backend:touch', async (_event, profile) => {
+ipcMain.handle('lemon:backend:touch', async (_event, profile) => {
   touchPoolBackend(profile)
 
   return { ok: true }
@@ -15163,8 +15163,8 @@ ipcMain.handle('hermes:backend:touch', async (_event, profile) => {
 // Pool sizing (Settings → Advanced): device-local, live-applied. Main is
 // authoritative (it owns the pool and the persisted copy); the returned
 // limits are what actually took effect post-clamp.
-ipcMain.handle('hermes:pool-limits:get', async () => ({ ...poolLimits }))
-ipcMain.handle('hermes:pool-limits:set', async (_event, raw) => {
+ipcMain.handle('lemon:pool-limits:get', async () => ({ ...poolLimits }))
+ipcMain.handle('lemon:pool-limits:set', async (_event, raw) => {
   const next = setPoolLimits({
     maxBackends: typeof raw?.maxBackends === 'number' ? raw.maxBackends : poolLimits.maxBackends,
     idleMs: typeof raw?.idleMs === 'number' ? raw.idleMs : poolLimits.idleMs
@@ -15172,10 +15172,10 @@ ipcMain.handle('hermes:pool-limits:set', async (_event, raw) => {
 
   return { ok: true, limits: next }
 })
-ipcMain.handle('hermes:gateway:ws-url', async (_event, profile) => {
+ipcMain.handle('lemon:gateway:ws-url', async (_event, profile) => {
   return gatewayWsUrlIpcResult(() => freshGatewayWsUrl(profile))
 })
-ipcMain.handle('hermes:window:openSession', async (_event, sessionId, opts) => {
+ipcMain.handle('lemon:window:openSession', async (_event, sessionId, opts) => {
   if (typeof sessionId !== 'string' || !sessionId.trim()) {
     return { ok: false, error: 'invalid-session-id' }
   }
@@ -15187,12 +15187,12 @@ ipcMain.handle('hermes:window:openSession', async (_event, sessionId, opts) => {
 
   return { ok: true }
 })
-ipcMain.handle('hermes:window:openInstance', async () => {
+ipcMain.handle('lemon:window:openInstance', async () => {
   createInstanceWindow()
 
   return { ok: true }
 })
-ipcMain.handle('hermes:window:openBrowser', async (_event, tabId) => {
+ipcMain.handle('lemon:window:openBrowser', async (_event, tabId) => {
   if (typeof tabId !== 'string' || !tabId.trim()) {
     return { ok: false, error: 'invalid-tab-id' }
   }
@@ -15203,26 +15203,26 @@ ipcMain.handle('hermes:window:openBrowser', async (_event, tabId) => {
 })
 
 // Hand a session to the user's OWN terminal emulator, running the TUI against
-// it (`hermes --tui --resume <id>`). Not the in-app terminal pane: the point is
+// it (`lemon --tui --resume <id>`). Not the in-app terminal pane: the point is
 // to continue the chat in the terminal they already live in.
 //
 // The desktop's runtime is usually a venv Python invoked as
-// `python -m hermes_cli.main`, so we resolve the SAME backend the app itself
+// `python -m lemon_cli.main`, so we resolve the SAME backend the app itself
 // launches and carry its argv + PYTHONPATH into a launcher script rather than
-// hoping a `hermes` exists on the user's interactive PATH. Resolution only —
+// hoping a `lemon` exists on the user's interactive PATH. Resolution only —
 // never ensureRuntime(), which would kick off a first-run install from a menu
 // click; an unresolved runtime is reported instead.
-ipcMain.handle('hermes:window:openInTerminal', async (_event, sessionId, opts) => {
+ipcMain.handle('lemon:window:openInTerminal', async (_event, sessionId, opts) => {
   if (typeof sessionId !== 'string' || !sessionId.trim()) {
     return { ok: false, error: 'invalid-session-id' }
   }
 
   try {
     const profile = typeof opts?.profile === 'string' ? opts.profile.trim() : ''
-    const backend = resolveHermesBackend(tuiResumeArgs(sessionId.trim(), profile || undefined))
+    const backend = resolveLemonBackend(tuiResumeArgs(sessionId.trim(), profile || undefined))
 
     if (!backend.command) {
-      return { ok: false, error: 'Hermes is not installed yet' }
+      return { ok: false, error: 'Lemon AI is not installed yet' }
     }
 
     const { cwd } = sanitizeWorkspaceCwd(opts?.cwd)
@@ -15231,7 +15231,7 @@ ipcMain.handle('hermes:window:openInTerminal', async (_event, sessionId, opts) =
 
     const scriptPath = path.join(
       scriptDir,
-      `hermes-${crypto.randomBytes(6).toString('hex')}${terminalScriptExtension()}`
+      `lemon-${crypto.randomBytes(6).toString('hex')}${terminalScriptExtension()}`
     )
 
     fs.writeFileSync(
@@ -15240,7 +15240,7 @@ ipcMain.handle('hermes:window:openInTerminal', async (_event, sessionId, opts) =
         args: backend.args,
         command: backend.command,
         cwd,
-        env: terminalScriptEnv(backend.env, HERMES_HOME, desktopRuntimeEnv())
+        env: terminalScriptEnv(backend.env, LEMON_HOME, desktopRuntimeEnv())
       }),
       { mode: 0o700 }
     )
@@ -15265,22 +15265,22 @@ ipcMain.handle('hermes:window:openInTerminal', async (_event, sessionId, opts) =
     return { ok: false, error: error.message }
   }
 })
-ipcMain.handle('hermes:wake-indicator:get', () => wakeIndicatorController.getState())
-ipcMain.on('hermes:wake-indicator:set', (_event, state) => {
+ipcMain.handle('lemon:wake-indicator:get', () => wakeIndicatorController.getState())
+ipcMain.on('lemon:wake-indicator:set', (_event, state) => {
   wakeIndicatorController.setState(state)
 })
 
 // --- Text size (zoom) -------------------------------------------------------
 // The settings UI drives the same clamped zoom scale as the Ctrl/Cmd
 // shortcuts and the View menu. Reads and writes target the asking window.
-ipcMain.handle('hermes:zoom:get', event => {
+ipcMain.handle('lemon:zoom:get', event => {
   const window = BrowserWindow.fromWebContents(event.sender)
 
   const level = window && !window.isDestroyed() ? window.webContents.getZoomLevel() : DEFAULT_ZOOM_LEVEL
 
   return { level, percent: zoomLevelToPercent(level) }
 })
-ipcMain.on('hermes:zoom:set-percent', (event, percent) => {
+ipcMain.on('lemon:zoom:set-percent', (event, percent) => {
   const window = BrowserWindow.fromWebContents(event.sender)
 
   if (!window || window.isDestroyed()) {
@@ -15311,7 +15311,7 @@ const hudIpc = registerHudIpc({
   }
 })
 
-ipcMain.handle('hermes:backend:recycle', async (_event, profile) => {
+ipcMain.handle('lemon:backend:recycle', async (_event, profile) => {
   // Models-page recovery after a code-skew 503 (#97046): kill the owned
   // SSH serve (if any) before the local child so reconnect cannot reuse a
   // stale lockfile. Soft primary teardown keeps the renderer shell mounted.
@@ -15326,9 +15326,9 @@ ipcMain.handle('hermes:backend:recycle', async (_event, profile) => {
 
   return { ok: true }
 })
-ipcMain.handle('hermes:bootstrap:reset', async () => {
+ipcMain.handle('lemon:bootstrap:reset', async () => {
   // Renderer's "Reload and retry" path. Clear the latched failure and
-  // reset connection state so the next startHermes() call restarts the
+  // reset connection state so the next startLemon() call restarts the
   // full backend flow (including a fresh runBootstrap pass).
   rememberLog('[bootstrap] reset requested by renderer; clearing latched failure')
   await teardownPrimaryBackendAndWait()
@@ -15340,8 +15340,8 @@ ipcMain.handle('hermes:bootstrap:reset', async () => {
 
   return { ok: true }
 })
-ipcMain.handle('hermes:bootstrap:repair', async () => {
-  // Forceful repair: force the next startHermes() through the full installer
+ipcMain.handle('lemon:bootstrap:repair', async () => {
+  // Forceful repair: force the next startLemon() through the full installer
   // (refreshing a broken/partial venv) and clear any latched failure + live
   // connection. The renderer reloads afterwards to re-drive the boot flow.
   //
@@ -15379,7 +15379,7 @@ ipcMain.handle('hermes:bootstrap:repair', async () => {
   // The guard may decide the install is healthy enough that a restart
   // (without touching the venv) is the right answer. Translate that into
   // the existing flag: if the guard said "soft restart", we skip the
-  // "bypass active runtime" path inside startHermes() and fall through
+  // "bypass active runtime" path inside startLemon() and fall through
   // to the normal restart branch, which just kills the current child
   // and respawns it against the same venv. See #74874 — this is what
   // breaks the infinite reinstall loop the user hit.
@@ -15388,17 +15388,17 @@ ipcMain.handle('hermes:bootstrap:repair', async () => {
   backendStartFailure = null
   remoteReauthFailure = null
   getFirstRunSetupGate().resetForRepair()
-  resetHermesConnection()
+  resetLemonConnection()
 
   return { ok: true }
 })
-ipcMain.handle('hermes:bootstrap:continue-local', async () => {
+ipcMain.handle('lemon:bootstrap:continue-local', async () => {
   rememberLog('[bootstrap] local install selected by renderer; continuing first-launch bootstrap')
   continueFirstRunLocalBootstrap()
 
   return { ok: true }
 })
-ipcMain.handle('hermes:bootstrap:cancel', async () => {
+ipcMain.handle('lemon:bootstrap:cancel', async () => {
   // Renderer's Cancel button during first-launch install. Abort the running
   // install script (SIGTERM via the runner's abortSignal). runBootstrap
   // resolves with { cancelled: true }, which surfaces the recovery overlay.
@@ -15414,12 +15414,12 @@ ipcMain.handle('hermes:bootstrap:cancel', async () => {
 
   return { ok: false, cancelled: false }
 })
-ipcMain.handle('hermes:boot-progress:get', async () => bootProgressState)
-ipcMain.handle('hermes:bootstrap:get', async () => getBootstrapState())
-ipcMain.handle('hermes:connection-config:get', async (_event, profile) =>
+ipcMain.handle('lemon:boot-progress:get', async () => bootProgressState)
+ipcMain.handle('lemon:bootstrap:get', async () => getBootstrapState())
+ipcMain.handle('lemon:connection-config:get', async (_event, profile) =>
   sanitizeDesktopConnectionConfig(readDesktopConnectionConfig(), profile)
 )
-ipcMain.handle('hermes:plugin-profile-routes', async (_event, rawProfileNames) => {
+ipcMain.handle('lemon:plugin-profile-routes', async (_event, rawProfileNames) => {
   const fallbackProfileNames = Array.isArray(rawProfileNames)
     ? rawProfileNames
         .filter(name => typeof name === 'string')
@@ -15487,8 +15487,8 @@ ipcMain.handle('hermes:plugin-profile-routes', async (_event, rawProfileNames) =
 
   return buildRegistryProfileRoutes({ agents, sources: registry.connections })
 })
-ipcMain.handle('hermes:ssh-config:hosts', async () => ({ hosts: collectSshConfigHosts() }))
-ipcMain.handle('hermes:ssh-config:resolve', async (_event, host) => {
+ipcMain.handle('lemon:ssh-config:hosts', async () => ({ hosts: collectSshConfigHosts() }))
+ipcMain.handle('lemon:ssh-config:resolve', async (_event, host) => {
   const value = String(host || '').trim()
 
   if (!value) {
@@ -15531,25 +15531,25 @@ ipcMain.handle('hermes:ssh-config:resolve', async (_event, host) => {
     })
   })
 })
-ipcMain.handle('hermes:connection-config:test', async (_event, payload) => testDesktopConnectionConfig(payload))
+ipcMain.handle('lemon:connection-config:test', async (_event, payload) => testDesktopConnectionConfig(payload))
 
 // ── Opt-in keychain encryption for stored secrets ───────────────────────────
 // get returns the current policy without touching safeStorage; set flips it
 // and re-encodes every stored secret (see applySecretStorageEncryption).
-ipcMain.handle('hermes:secret-storage:get', async () => ({ on: secretStoragePolicy().on }))
-ipcMain.handle('hermes:secret-storage:set', async (_event: any, on: any) => applySecretStorageEncryption(on === true))
+ipcMain.handle('lemon:secret-storage:get', async () => ({ on: secretStoragePolicy().on }))
+ipcMain.handle('lemon:secret-storage:set', async (_event: any, on: any) => applySecretStorageEncryption(on === true))
 
 // ── v2 connection registry IPC (multi-source) ───────────────────────────────
 // Storage-level CRUD for named agent sources. Routing/pooling consumption of
 // the registry lands separately; these handlers only manage the persisted
 // list, so they are safe to ship ahead of the switchover.
-ipcMain.handle('hermes:connections:list', async () => sanitizeConnectionsRegistry())
-ipcMain.handle('hermes:connections:save', async (_event, payload) => {
+ipcMain.handle('lemon:connections:list', async () => sanitizeConnectionsRegistry())
+ipcMain.handle('lemon:connections:save', async (_event, payload) => {
   const saved = await saveRegistryConnection(payload)
 
   return { ok: true, connection: saved, registry: sanitizeConnectionsRegistry() }
 })
-ipcMain.handle('hermes:connections:remove', async (_event, id) => {
+ipcMain.handle('lemon:connections:remove', async (_event, id) => {
   const key = String(id || '')
   managedConnectionUpdateGate.assertCanMutate(key)
   const registry = removeConnection(readDesktopConnectionsRegistry(), key)
@@ -15564,27 +15564,27 @@ ipcMain.handle('hermes:connections:remove', async (_event, id) => {
 
   return { ok: true, registry: sanitizeConnectionsRegistry(registry) }
 })
-ipcMain.handle('hermes:connections:set-primary', async (_event, id) => {
+ipcMain.handle('lemon:connections:set-primary', async (_event, id) => {
   assertCanMutateManagedPrimaryRouting()
   const registry = setPrimaryConnection(readDesktopConnectionsRegistry(), String(id || ''))
   writeDesktopConnectionsRegistry(registry)
 
   return { ok: true, registry: sanitizeConnectionsRegistry(registry) }
 })
-ipcMain.handle('hermes:connections:set-launch-mode', async (_event, mode) => {
+ipcMain.handle('lemon:connections:set-launch-mode', async (_event, mode) => {
   assertCanMutateManagedPrimaryRouting()
   const registry = setConnectionLaunchMode(readDesktopConnectionsRegistry(), String(mode || ''))
   writeDesktopConnectionsRegistry(registry)
 
   return { ok: true, registry: sanitizeConnectionsRegistry(registry) }
 })
-ipcMain.handle('hermes:connections:set-last-used', async (_event, id) => {
+ipcMain.handle('lemon:connections:set-last-used', async (_event, id) => {
   const registry = setLastUsedConnection(readDesktopConnectionsRegistry(), String(id || ''))
   writeDesktopConnectionsRegistry(registry)
 
   return { ok: true, registry: sanitizeConnectionsRegistry(registry) }
 })
-ipcMain.handle('hermes:connections:test', async (_event, id) => {
+ipcMain.handle('lemon:connections:test', async (_event, id) => {
   const registry = readDesktopConnectionsRegistry()
   const entry = registry.connections.find(c => c.id === String(id || ''))
 
@@ -15601,7 +15601,7 @@ ipcMain.handle('hermes:connections:test', async (_event, id) => {
       sshUser: entry.user,
       sshPort: entry.port,
       sshKeyPath: entry.keyPath,
-      sshRemoteHermesPath: entry.remoteHermesPath
+      sshRemoteLemonPath: entry.remoteLemonPath
     })
 
     if (result?.reachable) {
@@ -15626,7 +15626,7 @@ ipcMain.handle('hermes:connections:test', async (_event, id) => {
   let testHeaders = {}
 
   if (entry.kind === 'local') {
-    const local = await startHermes()
+    const local = await startLemon()
     baseUrl = local.baseUrl
     token = local.token
     authMode = normAuthMode(local.authMode)
@@ -15747,7 +15747,7 @@ async function probeSshProfileInventory(connection) {
     user: connection.user,
     port: connection.port,
     keyPath: connection.keyPath,
-    remoteHermesPath: connection.remoteHermesPath
+    remoteLemonPath: connection.remoteLemonPath
   })
 
   if (!sshConfig) {
@@ -15761,7 +15761,7 @@ async function probeSshProfileInventory(connection) {
 
   try {
     await ssh.open()
-    const profiles = await remoteLifecycle.listRemoteHermesProfiles(ssh, DESKTOP_RUNTIME_IDENTITY.appName)
+    const profiles = await remoteLifecycle.listRemoteLemonProfiles(ssh, DESKTOP_RUNTIME_IDENTITY.appName)
 
     if (profiles.length > 0) {
       sshRosterCache.set(connection.id, profiles)
@@ -15897,7 +15897,7 @@ async function enumerateRegistryAgentSources(registry = readDesktopConnectionsRe
               )
             : undefined
 
-          // The root HERMES_HOME is an agent too; enumerations that omit it
+          // The root LEMON_HOME is an agent too; enumerations that omit it
           // (older backends list only named profiles) still get a default row.
           if (!profiles.includes('default')) {
             profiles.unshift('default')
@@ -15930,7 +15930,7 @@ async function enumerateRegistryAgentSources(registry = readDesktopConnectionsRe
   )
 }
 
-ipcMain.handle('hermes:agents:roster', async () => {
+ipcMain.handle('lemon:agents:roster', async () => {
   const registry = readDesktopConnectionsRegistry()
   const enumerations = await enumerateRegistryAgentSources(registry)
 
@@ -15954,7 +15954,7 @@ ipcMain.handle('hermes:agents:roster', async () => {
 })
 
 // Registry-scoped fresh WS URL: the (connectionId, profile) analogue of
-// hermes:gateway:ws-url. Same single-use-ticket discipline for OAuth sources.
+// lemon:gateway:ws-url. Same single-use-ticket discipline for OAuth sources.
 const registryGatewayWsUrlHandler = createRegistryGatewayWsUrlHandler({
   ensureBackend: ensureRegistryBackend,
   mintTicket: mintGatewayWsTicket,
@@ -15962,7 +15962,7 @@ const registryGatewayWsUrlHandler = createRegistryGatewayWsUrlHandler({
   rememberHeaders: rememberRemoteWsHeaders
 })
 
-ipcMain.handle('hermes:gateway:ws-url-for', async (_event, payload) => {
+ipcMain.handle('lemon:gateway:ws-url-for', async (_event, payload) => {
   return gatewayWsUrlIpcResult(() => registryGatewayWsUrlHandler(payload))
 })
 
@@ -16014,14 +16014,14 @@ async function requestManagedSshUpdate(rawId) {
   return operation
 }
 
-ipcMain.handle('hermes:connections:update-managed', async (_event, rawId) => requestManagedSshUpdate(rawId))
+ipcMain.handle('lemon:connections:update-managed', async (_event, rawId) => requestManagedSshUpdate(rawId))
 
-// Fan out `hermes update` to every eligible registered connection at once.
+// Fan out `lemon update` to every eligible registered connection at once.
 // Cloud entries are excluded (platform-managed); each dispatch reports
 // independently so one dead LAN box can't wedge the batch. Local reuses the
 // app's own update pipeline; Desktop-managed SSH uses the transactional
 // drain/update/restore lifecycle; URL remotes POST their backend updater.
-ipcMain.handle('hermes:connections:update-all', async (_event, payload) => {
+ipcMain.handle('lemon:connections:update-all', async (_event, payload) => {
   const registry = readDesktopConnectionsRegistry()
 
   // Optional renderer-side exclusions: the everything-update flow dispatches
@@ -16071,7 +16071,7 @@ ipcMain.handle('hermes:connections:update-all', async (_event, payload) => {
             ensureRegistryBackend(connection.id, null)
           )
 
-          const body: any = await postJsonForBackend(descriptor, '/api/hermes/update', {}, { timeoutMs: 15_000 })
+          const body: any = await postJsonForBackend(descriptor, '/api/lemon/update', {}, { timeoutMs: 15_000 })
 
           if (body?.ok === false) {
             // The backend refused (docker/nix/externally-managed installs) —
@@ -16108,7 +16108,7 @@ async function getJsonForBackend(descriptor, path, opts: any = {}) {
 }
 
 // Any-method REST call against a resolved backend descriptor — the descriptor
-// analogue of the hermes:api handler's own auth split: OAuth backends prefer a
+// analogue of the lemon:api handler's own auth split: OAuth backends prefer a
 // native bearer (cookieless RFC 8252 flow) and fall back to the OAuth cookie
 // partition; token/local descriptors use the static session-token header.
 async function fetchJsonForBackend(
@@ -16154,8 +16154,8 @@ async function fetchJsonForBackend(
   })
 }
 
-ipcMain.handle('hermes:connection-config:probe', async (_event, rawUrl) => probeRemoteAuthMode(rawUrl))
-ipcMain.handle('hermes:connection-config:oauth-login', async (_event, rawUrl) => {
+ipcMain.handle('lemon:connection-config:probe', async (_event, rawUrl) => probeRemoteAuthMode(rawUrl))
+ipcMain.handle('lemon:connection-config:oauth-login', async (_event, rawUrl) => {
   // Capability-gated login (RFC 8252). Probe the gateway's public /api/status
   // for supported auth_flows and /api/auth/providers for provider capabilities:
   //   - all providers support password → always use the embedded login window
@@ -16197,7 +16197,7 @@ ipcMain.handle('hermes:connection-config:oauth-login', async (_event, rawUrl) =>
 
       _storeNativeTokens(baseUrl, tokens)
       // Confirmed sign-in — release the reauth latch so the next
-      // startHermes() re-dials instead of replaying the stale rejection.
+      // startLemon() re-dials instead of replaying the stale rejection.
       remoteReauthFailure = null
 
       return { ok: true, baseUrl, connected: true }
@@ -16222,7 +16222,7 @@ ipcMain.handle('hermes:connection-config:oauth-login', async (_event, rawUrl) =>
 
   return { ok: true, baseUrl, connected }
 })
-ipcMain.handle('hermes:connection-config:oauth-logout', async (_event, rawUrl) => {
+ipcMain.handle('lemon:connection-config:oauth-logout', async (_event, rawUrl) => {
   const baseUrl = normalizeRemoteBaseUrl(rawUrl)
   await clearOauthSession(baseUrl)
 
@@ -16238,42 +16238,42 @@ ipcMain.handle('hermes:connection-config:oauth-logout', async (_event, rawUrl) =
   return { ok: true, connected }
 })
 
-// --- Hermes Cloud (cloud-auto-discovery Phase 3) ---
+// --- Lemon AI Cloud (cloud-auto-discovery Phase 3) ---
 // One portal login in the OAuth partition powers both discovery and the silent
 // per-agent cascade. See the discovery/cascade helpers above.
-ipcMain.handle('hermes:cloud:status', async () => ({
+ipcMain.handle('lemon:cloud:status', async () => ({
   portalBaseUrl: resolvePortalBaseUrl(),
   signedIn: await hasLivePortalSession()
 }))
-ipcMain.handle('hermes:cloud:login', async () => {
+ipcMain.handle('lemon:cloud:login', async () => {
   await openPortalLoginWindow()
 
   return { ok: true, signedIn: await hasLivePortalSession() }
 })
-ipcMain.handle('hermes:cloud:logout', async () => {
+ipcMain.handle('lemon:cloud:logout', async () => {
   await clearOauthSession(resolvePortalBaseUrl())
 
   return { ok: true, signedIn: await hasLivePortalSession() }
 })
-ipcMain.handle('hermes:cloud:discover', async (_event, org) => {
+ipcMain.handle('lemon:cloud:discover', async (_event, org) => {
   // Returns { agents } or { needsOrgSelection: true, orgs }. `org` (optional)
   // scopes discovery to a chosen org for multi-org users.
   return discoverCloudAgents(typeof org === 'string' && org ? org : undefined)
 })
-ipcMain.handle('hermes:cloud:agent-sign-in', async (_event, dashboardUrl) => {
+ipcMain.handle('lemon:cloud:agent-sign-in', async (_event, dashboardUrl) => {
   // Silent per-agent sign-in via the shared portal session. Returns the agent's
   // gateway baseUrl + whether its session cookie landed; the renderer then
   // saves a cloud-mode connection pointed at this dashboardUrl.
   return cloudAgentSilentSignIn(dashboardUrl)
 })
-ipcMain.handle('hermes:connection-config:save', async (_event, payload) => {
+ipcMain.handle('lemon:connection-config:save', async (_event, payload) => {
   assertCanMutateManagedPrimaryRouting()
   const config = coerceDesktopConnectionConfig(payload)
   writeDesktopConnectionConfig(config)
 
   return sanitizeDesktopConnectionConfig(config, payload?.profile)
 })
-ipcMain.handle('hermes:connection-config:apply', async (_event, payload) => {
+ipcMain.handle('lemon:connection-config:apply', async (_event, payload) => {
   assertCanMutateManagedPrimaryRouting()
   const previousConfig = readDesktopConnectionConfig()
   const previousRegistry = readDesktopConnectionsRegistry()
@@ -16323,20 +16323,20 @@ ipcMain.handle('hermes:connection-config:apply', async (_event, payload) => {
   return sanitizeDesktopConnectionConfig(config, payload?.profile)
 })
 
-ipcMain.handle('hermes:profile:get', async () => ({ profile: readActiveDesktopProfile() }))
-// Persistence-only sibling of hermes:profile:set: records the profile the
+ipcMain.handle('lemon:profile:get', async () => ({ profile: readActiveDesktopProfile() }))
+// Persistence-only sibling of lemon:profile:set: records the profile the
 // Desktop should boot into next launch WITHOUT tearing down the backend or
 // reloading the window — the rail's live workspace switch already re-homed
 // the gateway (#79886).
-ipcMain.handle('hermes:profile:remember', async (_event, name) => ({
+ipcMain.handle('lemon:profile:remember', async (_event, name) => ({
   profile: writeActiveDesktopProfile(name)
 }))
-ipcMain.handle('hermes:profile:set', async (_event, name) => {
+ipcMain.handle('lemon:profile:set', async (_event, name) => {
   assertCanMutateManagedPrimaryRouting()
   const next = writeActiveDesktopProfile(name)
 
   // Switching profiles is a backend re-home: relaunch the dashboard under the
-  // new HERMES_HOME. Pool backends keep their own homes, so only the primary
+  // new LEMON_HOME. Pool backends keep their own homes, so only the primary
   // is torn down.
   await teardownPrimaryBackendAndWait()
   mainWindow?.reload()
@@ -16344,11 +16344,11 @@ ipcMain.handle('hermes:profile:set', async (_event, name) => {
   return { profile: next }
 })
 
-ipcMain.on('hermes:previewShortcutActive', (_event, active) => {
+ipcMain.on('lemon:previewShortcutActive', (_event, active) => {
   previewShortcutActive = Boolean(active)
 })
 
-ipcMain.handle('hermes:requestMicrophoneAccess', async () => {
+ipcMain.handle('lemon:requestMicrophoneAccess', async () => {
   if (!IS_MAC || typeof systemPreferences.askForMediaAccess !== 'function') {
     return true
   }
@@ -16360,7 +16360,7 @@ ipcMain.handle('hermes:requestMicrophoneAccess', async () => {
 // Metadata only (app, title, bounds) — never pixels. On macOS, other apps'
 // window titles are gated behind the Screen Recording permission; pass titles
 // through only when it is ALREADY granted, and never prompt for it here.
-ipcMain.handle('hermes:window:readBelow', async event => {
+ipcMain.handle('lemon:window:readBelow', async event => {
   const win = BrowserWindow.fromWebContents(event.sender)
 
   if (!win || win.isDestroyed()) {
@@ -16756,7 +16756,7 @@ async function teardownConnectionScopedProfileBackend(connectionId, profile) {
   ])
 }
 
-async function handleHermesApiRequest(request) {
+async function handleLemonApiRequest(request) {
   // Registry-pinned request (request.connectionId): the renderer is working
   // against a REGISTERED gateway connection, so the data — cron jobs and their
   // run sessions included — lives in THAT host's state.db, not any local
@@ -16787,7 +16787,7 @@ async function handleHermesApiRequest(request) {
   const profile = request?.profile
   // After tearing down a backend for profile deletion, route to the primary
   // backend instead of spawning a fresh pool backend.  A freshly spawned
-  // backend calls ensure_hermes_home() which recreates the profile directory,
+  // backend calls ensure_lemon_home() which recreates the profile directory,
   // defeating the deletion and leaving a zombie process.
   //
   // Safe local-profile REST calls also stay on the primary dashboard and carry
@@ -16873,10 +16873,10 @@ async function handleHermesApiRequest(request) {
   return response
 }
 
-ipcMain.handle('hermes:api', async (_event, request) => {
+ipcMain.handle('lemon:api', async (_event, request) => {
   // Hold the deletion gate for BOTH profile deletes and renames: a concurrent
   // renderer reconnect entering ensureBackend() mid-mutation would otherwise
-  // respawn the old-name backend and recreate its HERMES_HOME (#45474).
+  // respawn the old-name backend and recreate its LEMON_HOME (#45474).
   const deletingProfile = profileNameFromDeleteRequest(request)
   const mutatingProfile = deletingProfile || profileRenameFromRequest(request)?.oldName || null
   const registryConnectionId = apiRequestRegistryConnectionId(request)
@@ -16895,12 +16895,12 @@ ipcMain.handle('hermes:api', async (_event, request) => {
   }
 
   if (!mutatingProfile) {
-    return handleHermesApiRequest(request)
+    return handleLemonApiRequest(request)
   }
 
   const releaseProfileDeletion = profileDeletionGate.acquire(mutatingProfile)
 
-  return handleHermesApiRequest(request).finally(releaseProfileDeletion)
+  return handleLemonApiRequest(request).finally(releaseProfileDeletion)
 })
 
 // One deduper per cross-window cue — the choke point every window shares. Main
@@ -16910,9 +16910,9 @@ const claimedAmbientCue = createEventDeduper()
 
 // A window asks "do I own this ambient cue (turn-end sound / spoken reply)?".
 // The first caller within the window gets true; peers get false and stay quiet.
-ipcMain.handle('hermes:ambient:claim', (_event, key) => !claimedAmbientCue(String(key ?? '')))
+ipcMain.handle('lemon:ambient:claim', (_event, key) => !claimedAmbientCue(String(key ?? '')))
 
-ipcMain.handle('hermes:notify', (_event, payload) => {
+ipcMain.handle('lemon:notify', (_event, payload) => {
   if (!Notification.isSupported()) {
     return false
   }
@@ -16946,13 +16946,13 @@ ipcMain.handle('hermes:notify', (_event, payload) => {
     focusWindow(mainWindow)
 
     if (payload?.sessionId) {
-      mainWindow.webContents.send('hermes:focus-session', payload.sessionId)
+      mainWindow.webContents.send('lemon:focus-session', payload.sessionId)
     }
 
     // Plugin / session-less activation — serializable path (+ optional notifyId
-    // for renderer callbacks). Same vocabulary as hermes://index-network/….
+    // for renderer callbacks). Same vocabulary as lemon://index-network/….
     if (payload?.activate || payload?.notifyId) {
-      mainWindow.webContents.send('hermes:notification-activate', {
+      mainWindow.webContents.send('lemon:notification-activate', {
         activate: payload?.activate,
         notifyId: payload?.notifyId,
         tag: payload?.tag
@@ -16972,13 +16972,13 @@ ipcMain.handle('hermes:notify', (_event, payload) => {
 
     // Approvals keep the existing session-scoped channel.
     if (payload?.sessionId && !payload?.notifyId && !payload?.activate) {
-      mainWindow.webContents.send('hermes:notification-action', { sessionId: payload.sessionId, actionId: action.id })
+      mainWindow.webContents.send('lemon:notification-action', { sessionId: payload.sessionId, actionId: action.id })
 
       return
     }
 
     focusWindow(mainWindow)
-    mainWindow.webContents.send('hermes:notification-activate', {
+    mainWindow.webContents.send('lemon:notification-activate', {
       actionId: action.id,
       activate: action.activate || payload?.activate,
       notifyId: payload?.notifyId,
@@ -17020,14 +17020,14 @@ function persistDataUrlReadMaxMb(maxMb) {
   return next
 }
 
-ipcMain.handle('hermes:data-url-read-max:get', () => ({
+ipcMain.handle('lemon:data-url-read-max:get', () => ({
   maxMb: dataUrlReadMaxMb,
   // Keep the default bytes constant visible for tests / diagnostics.
   defaultMaxMb: DATA_URL_READ_DEFAULT_MAX_MB,
   maxBytes: dataUrlReadMaxBytesFromMb(dataUrlReadMaxMb)
 }))
 
-ipcMain.handle('hermes:data-url-read-max:set', (_event, maxMb) => {
+ipcMain.handle('lemon:data-url-read-max:set', (_event, maxMb) => {
   const next = persistDataUrlReadMaxMb(maxMb)
 
   return {
@@ -17037,7 +17037,7 @@ ipcMain.handle('hermes:data-url-read-max:set', (_event, maxMb) => {
   }
 })
 
-ipcMain.handle('hermes:readFileDataUrl', async (_event, filePath) => {
+ipcMain.handle('lemon:readFileDataUrl', async (_event, filePath) => {
   return readFileDataUrlForIpc(filePath, {
     maxBytes: dataUrlReadMaxBytesFromMb(dataUrlReadMaxMb),
     mimeType: mimeTypeForPath(resolveRequestedPathForIpc(filePath, { purpose: 'File preview' })),
@@ -17049,7 +17049,7 @@ ipcMain.handle('hermes:readFileDataUrl', async (_event, filePath) => {
 // Keep a finite cap so Electron + base64 memory stays bounded while archives
 // can exceed the default 16 MiB preview ceiling (and still fit the gateway
 // WebSocket frame limit after base64 expansion).
-ipcMain.handle('hermes:readFileDataUrlForAttach', async (_event, filePath) => {
+ipcMain.handle('lemon:readFileDataUrlForAttach', async (_event, filePath) => {
   return readFileDataUrlForIpc(filePath, {
     maxBytes: ATTACHMENT_UPLOAD_DEFAULT_MAX_BYTES,
     mimeType: mimeTypeForPath(resolveRequestedPathForIpc(filePath, { purpose: 'Attachment upload' })),
@@ -17057,7 +17057,7 @@ ipcMain.handle('hermes:readFileDataUrlForAttach', async (_event, filePath) => {
   })
 })
 
-ipcMain.handle('hermes:readFileText', async (_event, filePath) => {
+ipcMain.handle('lemon:readFileText', async (_event, filePath) => {
   const { resolvedPath, stat } = await resolveReadableFileForIpc(filePath, {
     maxBytes: TEXT_PREVIEW_SOURCE_MAX_BYTES,
     purpose: 'Text preview'
@@ -17086,13 +17086,13 @@ ipcMain.handle('hermes:readFileText', async (_event, filePath) => {
 })
 
 // Runtime desktop plugins load their FULL source through this door.
-// `hermes:readFileText` is the *preview* read and silently truncates at
+// `lemon:readFileText` is the *preview* read and silently truncates at
 // TEXT_PREVIEW_MAX_BYTES (512 KiB) — for a plugin that means evaluating half a
 // file. Dedicated generous cap, full read, and a hard EFBIG (via maxBytes)
 // instead of truncation when the source exceeds it.
 const PLUGIN_SOURCE_MAX_BYTES = 16 * 1024 * 1024
 
-ipcMain.handle('hermes:readPluginSource', async (_event: unknown, filePath: unknown) => {
+ipcMain.handle('lemon:readPluginSource', async (_event: unknown, filePath: unknown) => {
   const { resolvedPath, stat } = await resolveReadableFileForIpc(filePath, {
     maxBytes: PLUGIN_SOURCE_MAX_BYTES,
     purpose: 'Plugin source'
@@ -17106,7 +17106,7 @@ ipcMain.handle('hermes:readPluginSource', async (_event: unknown, filePath: unkn
   }
 })
 
-ipcMain.handle('hermes:selectPaths', async (_event, options: any = {}) => {
+ipcMain.handle('lemon:selectPaths', async (_event, options: any = {}) => {
   const properties = options?.directories ? ['openDirectory'] : ['openFile']
 
   if (options?.multiple !== false) {
@@ -17143,7 +17143,7 @@ ipcMain.handle('hermes:selectPaths', async (_event, options: any = {}) => {
   return result.filePaths
 })
 
-ipcMain.handle('hermes:writeClipboard', (_event, text) => {
+ipcMain.handle('lemon:writeClipboard', (_event, text) => {
   clipboard.writeText(String(text || ''))
 
   return true
@@ -17151,7 +17151,7 @@ ipcMain.handle('hermes:writeClipboard', (_event, text) => {
 
 // Native save-location picker (profile export etc.) — the write itself happens
 // elsewhere (the backend, for profile archives); this only picks the path.
-ipcMain.handle('hermes:selectSavePath', async (_event, options: any = {}) => {
+ipcMain.handle('lemon:selectSavePath', async (_event, options: any = {}) => {
   const result = await dialog.showSaveDialog(mainWindow, {
     title: options?.title || 'Save',
     defaultPath: options?.defaultPath ? String(options.defaultPath) : undefined,
@@ -17169,15 +17169,15 @@ ipcMain.handle('hermes:selectSavePath', async (_event, options: any = {}) => {
 // navigator.clipboard.readText() throws "Document is not focused" whenever a
 // portaled overlay has focus, and there's no way to route a read through the
 // canvas. The main process has no such gate.
-ipcMain.handle('hermes:readClipboard', () => clipboard.readText())
+ipcMain.handle('lemon:readClipboard', () => clipboard.readText())
 
-ipcMain.handle('hermes:saveGatewayFile', (_event, payload) => saveGatewayFile(payload))
+ipcMain.handle('lemon:saveGatewayFile', (_event, payload) => saveGatewayFile(payload))
 
-ipcMain.handle('hermes:saveImageFromUrl', (_event, url) => saveImageFromUrl(String(url || '')))
+ipcMain.handle('lemon:saveImageFromUrl', (_event, url) => saveImageFromUrl(String(url || '')))
 
 // The custom context menu's edit verbs. They act on the SENDER's focused
 // element, so the renderer restores focus to the editable before invoking.
-ipcMain.handle('hermes:context-menu:edit', (event, command) => {
+ipcMain.handle('lemon:context-menu:edit', (event, command) => {
   const contents = event.sender
 
   if (command === 'copy') {
@@ -17193,7 +17193,7 @@ ipcMain.handle('hermes:context-menu:edit', (event, command) => {
 
 // Copy the image under the sender's LAST context-menu gesture. Chromium only
 // exposes image bytes through copyImageAt, and only main saw the coordinates.
-ipcMain.handle('hermes:context-menu:copy-image', event => {
+ipcMain.handle('lemon:context-menu:copy-image', event => {
   const point = lastContextMenuPoint.get(event.sender.id)
 
   if (point) {
@@ -17201,7 +17201,7 @@ ipcMain.handle('hermes:context-menu:copy-image', event => {
   }
 })
 
-ipcMain.handle('hermes:context-menu:spellcheck', (event, action) => {
+ipcMain.handle('lemon:context-menu:spellcheck', (event, action) => {
   const kind = action?.kind
   const word = String(action?.word || '')
 
@@ -17218,7 +17218,7 @@ ipcMain.handle('hermes:context-menu:spellcheck', (event, action) => {
 
 // Guest dictionary add: the webview TAG exposes replaceMisspelling but no
 // session API, so the renderer names the guest by webContents id.
-ipcMain.handle('hermes:context-menu:guest-add-word', (_event, payload) => {
+ipcMain.handle('lemon:context-menu:guest-add-word', (_event, payload) => {
   const word = String(payload?.word || '')
   const guest = electronWebContents.fromId(Number(payload?.webContentsId))
 
@@ -17227,13 +17227,13 @@ ipcMain.handle('hermes:context-menu:guest-add-word', (_event, payload) => {
   }
 })
 
-ipcMain.handle('hermes:capturePreview', async (_event, payload) => {
+ipcMain.handle('lemon:capturePreview', async (_event, payload) => {
   const guest = electronWebContents.fromId(Number(payload?.webContentsId))
 
   return capturePreviewContents(guest, payload?.rect, payload?.viewport)
 })
 
-ipcMain.handle('hermes:saveImageBuffer', async (_event, payload) => {
+ipcMain.handle('lemon:saveImageBuffer', async (_event, payload) => {
   const data = payload?.data
 
   if (!data) {
@@ -17245,7 +17245,7 @@ ipcMain.handle('hermes:saveImageBuffer', async (_event, payload) => {
   return writeComposerImage(buffer, payload?.ext || '.png', payload?.name)
 })
 
-ipcMain.handle('hermes:saveClipboardImage', async () => {
+ipcMain.handle('lemon:saveClipboardImage', async () => {
   const image = clipboard.readImage()
 
   if (image && !image.isEmpty()) {
@@ -17266,15 +17266,15 @@ ipcMain.handle('hermes:saveClipboardImage', async () => {
   return ''
 })
 
-ipcMain.handle('hermes:normalizePreviewTarget', (_event, target, baseDir) =>
+ipcMain.handle('lemon:normalizePreviewTarget', (_event, target, baseDir) =>
   normalizePreviewTarget(String(target || ''), baseDir ? String(baseDir) : '')
 )
 
-ipcMain.handle('hermes:watchPreviewFile', (_event, url) => watchPreviewFile(String(url || '')))
+ipcMain.handle('lemon:watchPreviewFile', (_event, url) => watchPreviewFile(String(url || '')))
 
-ipcMain.handle('hermes:watchDirectory', (_event, dir) => watchDirectory(String(dir || '')))
+ipcMain.handle('lemon:watchDirectory', (_event, dir) => watchDirectory(String(dir || '')))
 
-ipcMain.handle('hermes:stopPreviewFileWatch', (_event, id) => stopPreviewFileWatch(String(id || '')))
+ipcMain.handle('lemon:stopPreviewFileWatch', (_event, id) => stopPreviewFileWatch(String(id || '')))
 
 // Each renderer reports the turns it has in flight; the quit guard reads the
 // merged picture. Keyed by webContents id so a closed window stops counting.
@@ -17289,7 +17289,7 @@ function updateStreamThrottleFromActiveWork() {
   streamThrottle.update(mergeActiveWork(activeWorkByWebContents.values()).count > 0)
 }
 
-ipcMain.on('hermes:active-work', (event, payload) => {
+ipcMain.on('lemon:active-work', (event, payload) => {
   const id = event.sender.id
 
   if (!activeWorkByWebContents.has(id)) {
@@ -17303,7 +17303,7 @@ ipcMain.on('hermes:active-work', (event, payload) => {
   updateStreamThrottleFromActiveWork()
 })
 
-ipcMain.on('hermes:titlebar-theme', (_event, payload) => {
+ipcMain.on('lemon:titlebar-theme', (_event, payload) => {
   if (!payload || !isHexColor(payload.background) || !isHexColor(payload.foreground)) {
     return
   }
@@ -17322,7 +17322,7 @@ ipcMain.on('hermes:titlebar-theme', (_event, payload) => {
 })
 
 // Pin the native appearance to the app theme (see NATIVE_THEME_CONFIG_PATH).
-ipcMain.on('hermes:native-theme', (_event, mode) => {
+ipcMain.on('lemon:native-theme', (_event, mode) => {
   if (!THEME_SOURCES.has(mode)) {
     return
   }
@@ -17375,22 +17375,22 @@ app.on('will-quit', () => {
 // Answered synchronously so preload can publish the verdict before the
 // renderer's first script — see the note there on why it cannot decide this
 // itself. Registered at module scope, which runs long before any window.
-ipcMain.on('hermes:translucency:support', event => {
+ipcMain.on('lemon:translucency:support', event => {
   event.returnValue = { glass: GLASS_SUPPORTED, translucency: TRANSLUCENCY_SUPPORTED }
 })
 
 // Launch-flag facts the renderer needs before first paint (same sendSync
 // pattern as translucency). `--local` gates every local-models GUI surface;
-// it arrives from `hermes desktop --local` or directly on Hermes.exe (a
+// it arrives from `lemon desktop --local` or directly on Lemon AI.exe (a
 // shortcut edit), and survives self-relaunches because collectRelaunchArgs
 // only strips internal flags.
-ipcMain.on('hermes:launch-flags', event => {
+ipcMain.on('lemon:launch-flags', event => {
   event.returnValue = {
     localModels: process.argv.includes('--local') || process.platform === 'win32' || process.platform === 'darwin'
   }
 })
 
-ipcMain.on('hermes:translucency', (_event, payload) => {
+ipcMain.on('lemon:translucency', (_event, payload) => {
   const next = normalizeTranslucency(payload, GLASS_SUPPORTED)
   const previous = translucencyState
 
@@ -17445,7 +17445,7 @@ function readPersistedKeepAwake() {
   }
 }
 
-ipcMain.on('hermes:keep-awake', (_event, on) => {
+ipcMain.on('lemon:keep-awake', (_event, on) => {
   const enabled = Boolean(on)
   keepAwake.set(enabled)
 
@@ -17462,7 +17462,7 @@ ipcMain.on('hermes:keep-awake', (_event, on) => {
 // accelerator — so both handlers return the state that ACTUALLY resulted,
 // including `registered: false` + `error: 'taken'` when another app owns the
 // chord. See electron/quick-entry.ts + store/quick-entry.
-ipcMain.handle('hermes:quick-entry:settings:get', async () => {
+ipcMain.handle('lemon:quick-entry:settings:get', async () => {
   const settings = readQuickEntrySettings()
   const state = quickEntryShortcut.current()
 
@@ -17476,7 +17476,7 @@ ipcMain.handle('hermes:quick-entry:settings:get', async () => {
   }
 })
 
-ipcMain.handle('hermes:quick-entry:settings:set', async (_event, patch) => {
+ipcMain.handle('lemon:quick-entry:settings:set', async (_event, patch) => {
   const current = readQuickEntrySettings()
 
   const next = sanitizeQuickEntrySettings({
@@ -17493,7 +17493,7 @@ ipcMain.handle('hermes:quick-entry:settings:set', async (_event, patch) => {
 // owns the one prompt-submit path, and forwarding keeps it that way. The
 // payload is `{ target, text }` — target routing (current chat / a picked
 // session / new) is the renderer's job too.
-ipcMain.on('hermes:quick-entry:submit', (_event, payload) => {
+ipcMain.on('lemon:quick-entry:submit', (_event, payload) => {
   hideQuickEntryWindow()
 
   const text = typeof payload?.text === 'string' ? payload.text.trim() : ''
@@ -17510,7 +17510,7 @@ ipcMain.on('hermes:quick-entry:submit', (_event, payload) => {
 
   // Deliberately does NOT raise/focus the main window — the user asked to fire
   // a prompt from wherever they were, not to be yanked into the app.
-  mainWindow.webContents.send('hermes:quick-entry:submit', {
+  mainWindow.webContents.send('lemon:quick-entry:submit', {
     target: typeof payload?.target === 'string' && payload.target ? payload.target : 'current',
     text
   })
@@ -17519,15 +17519,15 @@ ipcMain.on('hermes:quick-entry:submit', (_event, payload) => {
 // Primary renderer → main → quick window: gateway connection state + the
 // recent-session list for the target picker. Cached so a quick window spawned
 // AFTER the last push still boots from truth instead of "disconnected".
-ipcMain.on('hermes:quick-entry:state', (_event, payload) => {
+ipcMain.on('lemon:quick-entry:state', (_event, payload) => {
   quickEntryLastState = payload ?? null
 
   if (quickEntryWindow && !quickEntryWindow.isDestroyed()) {
-    quickEntryWindow.webContents.send('hermes:quick-entry:state', payload)
+    quickEntryWindow.webContents.send('lemon:quick-entry:state', payload)
   }
 })
 
-ipcMain.on('hermes:quick-entry:dismiss', () => hideQuickEntryWindow())
+ipcMain.on('lemon:quick-entry:dismiss', () => hideQuickEntryWindow())
 
 // Disable F12 DevTools: maintained in the main process so a cold launch
 // restores it before any window is shown (applied on ready). The renderer
@@ -17542,7 +17542,7 @@ function readPersistedDisableF12() {
   }
 }
 
-ipcMain.on('hermes:devtools:disable-f12', (_event, on) => {
+ipcMain.on('lemon:devtools:disable-f12', (_event, on) => {
   f12Blocked = Boolean(on)
 
   try {
@@ -17553,7 +17553,7 @@ ipcMain.on('hermes:devtools:disable-f12', (_event, on) => {
   }
 })
 
-ipcMain.handle('hermes:openExternal', (_event, url) => {
+ipcMain.handle('lemon:openExternal', (_event, url) => {
   if (!openExternalUrl(url)) {
     throw new Error('Invalid external URL')
   }
@@ -17561,7 +17561,7 @@ ipcMain.handle('hermes:openExternal', (_event, url) => {
 
 // ── Find-in-page (Ctrl/Cmd+F) ─────────────────────────────────────────────
 // The desktop supports multiple BrowserWindows (one primary plus any
-// per-session secondary windows spawned via `hermes:window:openSession`).
+// per-session secondary windows spawned via `lemon:window:openSession`).
 // Find must run against the requesting window, not a global — otherwise
 // Cmd+F pressed in a secondary session window would search the primary
 // and the match counter would report matches the user can't see. Resolve
@@ -17588,7 +17588,7 @@ function ensureFoundInPageForwarder(sender: Electron.WebContents): void {
   })
 }
 
-ipcMain.handle('hermes:find-in-page', async (event, query, options) => {
+ipcMain.handle('lemon:find-in-page', async (event, query, options) => {
   const win = BrowserWindow.fromWebContents(event.sender)
 
   if (!win || win.isDestroyed()) {
@@ -17603,7 +17603,7 @@ ipcMain.handle('hermes:find-in-page', async (event, query, options) => {
   return { count: 0 }
 })
 
-ipcMain.handle('hermes:stop-find-in-page', event => {
+ipcMain.handle('lemon:stop-find-in-page', event => {
   const win = BrowserWindow.fromWebContents(event.sender)
 
   if (!win || win.isDestroyed()) {
@@ -17615,9 +17615,9 @@ ipcMain.handle('hermes:stop-find-in-page', event => {
 
 // The renderer can't know whether a loopback URL is reachable — only main
 // knows which transport backs this gateway. Ask before loading one.
-ipcMain.handle('hermes:preview:reach', async (event, url) => reachablePreviewUrl(event.sender.id, String(url || '')))
+ipcMain.handle('lemon:preview:reach', async (event, url) => reachablePreviewUrl(event.sender.id, String(url || '')))
 
-ipcMain.handle('hermes:openPreviewInBrowser', async (_event, url) => {
+ipcMain.handle('lemon:openPreviewInBrowser', async (_event, url) => {
   if (!(await openPreviewInBrowser(url))) {
     throw new Error('Invalid preview URL')
   }
@@ -17625,17 +17625,17 @@ ipcMain.handle('hermes:openPreviewInBrowser', async (_event, url) => {
 
 // User-configurable default project directory. The renderer reads this on
 // settings mount and seeds the value into the picker; writing back persists
-// it via writeDefaultProjectDir so resolveHermesCwd picks it up on the next
+// it via writeDefaultProjectDir so resolveLemonCwd picks it up on the next
 // session spawn (no app restart needed).
-ipcMain.handle('hermes:setting:defaultProjectDir:get', async () => ({
+ipcMain.handle('lemon:setting:defaultProjectDir:get', async () => ({
   dir: readDefaultProjectDir(),
   defaultLabel: app.getPath('home'),
-  resolvedCwd: resolveHermesCwd()
+  resolvedCwd: resolveLemonCwd()
 }))
 
-ipcMain.handle('hermes:workspace:sanitize', async (_event, cwd) => sanitizeWorkspaceCwd(cwd))
+ipcMain.handle('lemon:workspace:sanitize', async (_event, cwd) => sanitizeWorkspaceCwd(cwd))
 
-ipcMain.handle('hermes:setting:defaultProjectDir:set', async (_event, dir) => {
+ipcMain.handle('lemon:setting:defaultProjectDir:set', async (_event, dir) => {
   const next = typeof dir === 'string' && dir.trim() ? dir.trim() : null
 
   if (next) {
@@ -17651,7 +17651,7 @@ ipcMain.handle('hermes:setting:defaultProjectDir:set', async (_event, dir) => {
   return { dir: next }
 })
 
-ipcMain.handle('hermes:setting:defaultProjectDir:pick', async () => {
+ipcMain.handle('lemon:setting:defaultProjectDir:pick', async () => {
   const result = await dialog.showOpenDialog({
     title: 'Choose default project directory',
     properties: ['openDirectory', 'createDirectory'],
@@ -17665,11 +17665,11 @@ ipcMain.handle('hermes:setting:defaultProjectDir:pick', async () => {
   return { canceled: false, dir: result.filePaths[0] }
 })
 
-ipcMain.handle('hermes:fetchLinkTitle', (_event, url) => fetchLinkTitle(url))
+ipcMain.handle('lemon:fetchLinkTitle', (_event, url) => fetchLinkTitle(url))
 
-ipcMain.handle('hermes:resolveFavicon', (_event, url) => resolveFaviconCached(url))
+ipcMain.handle('lemon:resolveFavicon', (_event, url) => resolveFaviconCached(url))
 
-ipcMain.handle('hermes:logs:reveal', async () => {
+ipcMain.handle('lemon:logs:reveal', async () => {
   try {
     await fs.promises.mkdir(path.dirname(DESKTOP_LOG_PATH), { recursive: true })
 
@@ -17685,14 +17685,14 @@ ipcMain.handle('hermes:logs:reveal', async () => {
   }
 })
 
-ipcMain.handle('hermes:logs:recent', async () => ({ path: DESKTOP_LOG_PATH, lines: hermesLog.slice(-200) }))
+ipcMain.handle('lemon:logs:recent', async () => ({ path: DESKTOP_LOG_PATH, lines: lemonLog.slice(-200) }))
 
 // Renderer error-boundary catches (#79428 defect B): the component stack only
 // exists in renderer memory, so the boundary posts it here and we persist it
 // via the desktop.log pipeline. `on`, not `handle` — the sender may be mid-
 // crash and must not await. Flush immediately: a crashing window can be gone
 // before the debounced flush timer fires.
-ipcMain.on('hermes:logs:renderer-error', (_event, report) => {
+ipcMain.on('lemon:logs:renderer-error', (_event, report) => {
   const { label, boundary, message, componentStack } = report && typeof report === 'object' ? report : {}
   rememberLog(formatRendererBoundaryReport(label, boundary, message, componentStack))
   flushDesktopLogBufferSync()
@@ -17700,7 +17700,7 @@ ipcMain.on('hermes:logs:renderer-error', (_event, report) => {
 
 // Local filesystem + plugin-root IPC (readDir/reveal/rename/trash/…) — see fs-ipc.ts.
 registerFsIpc({
-  hermesHome: HERMES_HOME,
+  lemonHome: LEMON_HOME,
   readActiveDesktopProfile,
   expandUserPath,
   resolveRequestedPathForIpc,
@@ -17715,7 +17715,7 @@ registerGitIpc({ resolveGitBinary, resolveGhBinary })
 // mcp-oauth-callback-ipc.ts.
 registerMcpOauthCallbackIpc({ appName: DESKTOP_RUNTIME_IDENTITY.appName })
 
-// Embedded terminal PTY host (hermes:terminal:*) — see terminal-ipc.ts.
+// Embedded terminal PTY host (lemon:terminal:*) — see terminal-ipc.ts.
 const terminalIpc = registerTerminalIpc({
   isWindows: IS_WINDOWS,
   hostAppName: DESKTOP_RUNTIME_IDENTITY.appName,
@@ -17728,7 +17728,7 @@ const terminalIpc = registerTerminalIpc({
 
 const disposeTerminalSession = terminalIpc.disposeTerminalSession
 
-ipcMain.handle('hermes:updates:check', async () =>
+ipcMain.handle('lemon:updates:check', async () =>
   checkUpdates().catch(error => ({
     supported: true,
     branch: readDesktopUpdateConfig().branch,
@@ -17738,7 +17738,7 @@ ipcMain.handle('hermes:updates:check', async () =>
   }))
 )
 
-ipcMain.handle('hermes:updates:apply', async (_event, payload) =>
+ipcMain.handle('lemon:updates:apply', async (_event, payload) =>
   applyUpdates(payload || {}).catch(error => ({
     ok: false,
     error: 'apply-failed',
@@ -17746,24 +17746,24 @@ ipcMain.handle('hermes:updates:apply', async (_event, payload) =>
   }))
 )
 
-ipcMain.handle('hermes:updates:branch:get', async () => readDesktopUpdateConfig())
+ipcMain.handle('lemon:updates:branch:get', async () => readDesktopUpdateConfig())
 
-ipcMain.handle('hermes:updates:branch:set', async (_event, name) => {
+ipcMain.handle('lemon:updates:branch:set', async (_event, name) => {
   const branch = typeof name === 'string' && name.trim() ? name.trim() : DEFAULT_UPDATE_BRANCH
   writeDesktopUpdateConfig({ branch })
 
   return { branch }
 })
 
-// Resolve the canonical Hermes version (the one `release.py` bumps in
-// hermes_cli/__init__.py + pyproject.toml) so the desktop About panel shows the
-// real Hermes version instead of the Electron app's own package.json version,
+// Resolve the canonical Lemon AI version (the one `release.py` bumps in
+// lemon_cli/__init__.py + pyproject.toml) so the desktop About panel shows the
+// real Lemon AI version instead of the Electron app's own package.json version,
 // which historically drifted (stuck at 0.0.2). Falls back to app.getVersion()
 // when the source tree can't be read (e.g. a packaged build without the repo).
-function resolveHermesVersion() {
+function resolveLemonVersion() {
   try {
     const root = resolveUpdateRoot()
-    const initPath = path.join(root, 'hermes_cli', '__init__.py')
+    const initPath = path.join(root, 'lemon_cli', '__init__.py')
 
     if (fileExists(initPath)) {
       const raw = fs.readFileSync(initPath, 'utf8')
@@ -17780,7 +17780,7 @@ function resolveHermesVersion() {
   return app.getVersion()
 }
 
-// Renderer-bundle skew: `hermes update` moves the SOURCE TREE, but the UI
+// Renderer-bundle skew: `lemon update` moves the SOURCE TREE, but the UI
 // (including bundled plugins like Bot Mode) is compiled into this binary at
 // build time. A terminal-side update — or an in-app update whose bundle-swap
 // leg failed — leaves the new runtime running under an old renderer, so About
@@ -17793,8 +17793,8 @@ async function detectRendererSkew() {
   return detectBundleSkew(INSTALL_STAMP, runGit, resolveUpdateRoot())
 }
 
-// Re-resolve the live Hermes version and push it into the native About panel
-// just before showing it, so an in-place `hermes update` is reflected without
+// Re-resolve the live Lemon AI version and push it into the native About panel
+// just before showing it, so an in-place `lemon update` is reflected without
 // an app restart. macOS only — `showAboutPanel()` is a no-op elsewhere, and the
 // other platforms don't use this menu item.
 function showAboutPanelFresh() {
@@ -17802,23 +17802,23 @@ function showAboutPanelFresh() {
     app.setAboutPanelOptions({
       applicationName: APP_NAME,
       applicationVersion: skew.outOfSync
-        ? `${resolveHermesVersion()} — app build out of date, update the desktop app`
-        : resolveHermesVersion(),
+        ? `${resolveLemonVersion()} — app build out of date, update the desktop app`
+        : resolveLemonVersion(),
       copyright: APP_COPYRIGHT
     })
     app.showAboutPanel()
   })
 }
 
-ipcMain.handle('hermes:version', async () => {
+ipcMain.handle('lemon:version', async () => {
   const skew = await detectRendererSkew()
 
   return {
-    appVersion: resolveHermesVersion(),
+    appVersion: resolveLemonVersion(),
     electronVersion: process.versions.electron,
     nodeVersion: process.versions.node,
     platform: process.platform,
-    hermesRoot: resolveUpdateRoot(),
+    lemonRoot: resolveUpdateRoot(),
     bundleOutOfSync: skew.outOfSync,
     bundleCommitsBehind: skew.desktopCommitsBehind,
     // True when the bundle on disk is not the one this process loaded — a
@@ -17830,11 +17830,11 @@ ipcMain.handle('hermes:version', async () => {
   }
 })
 
-// The About page's "Restart Hermes" button (shown when bundleSwapPending):
+// The About page's "Restart Lemon AI" button (shown when bundleSwapPending):
 // load the already-swapped bundle without asking the user to quit manually.
 // app.relaunch() re-executes by path, so the fresh process picks up whatever
 // bundle now lives there.
-ipcMain.handle('hermes:app:relaunch', async () => {
+ipcMain.handle('lemon:app:relaunch', async () => {
   rememberLog('[updates] renderer requested an app relaunch (swapped bundle pending)')
   app.relaunch({ args: buildNoSandboxRelaunchArgs(process.argv.slice(1)) })
   void exitAfterBackendShutdown(0)
@@ -17846,9 +17846,9 @@ ipcMain.handle('hermes:app:relaunch', async () => {
 //
 // The renderer's About → Danger Zone surfaces three options that mirror the
 // CLI exactly: GUI only, Lite (keep user data), Full. We ask the agent to do
-// the actual removal via `hermes uninstall …` so the cross-platform PATH /
+// the actual removal via `lemon uninstall …` so the cross-platform PATH /
 // registry / service / node-symlink cleanup all lives in one place
-// (hermes_cli/uninstall.py + hermes_cli/gui_uninstall.py).
+// (lemon_cli/uninstall.py + lemon_cli/gui_uninstall.py).
 //
 // getUninstallSummary() shells out to `--gui-summary` (a fast, no-side-effect
 // JSON probe) so the UI can gate options on what's actually installed — and
@@ -17861,13 +17861,13 @@ function uninstallVenvPython() {
 
 async function getUninstallSummary() {
   const py = uninstallVenvPython()
-  const agentRoot = ACTIVE_HERMES_ROOT
+  const agentRoot = ACTIVE_LEMON_ROOT
 
   // Fast JS-side fallback used when the agent venv is gone (lite client) or the
   // probe fails — the renderer still needs *something* to render options from.
   const fallback = () => ({
-    hermes_home: HERMES_HOME,
-    agent_installed: isHermesSourceRoot(agentRoot) && fileExists(py),
+    lemon_home: LEMON_HOME,
+    agent_installed: isLemonSourceRoot(agentRoot) && fileExists(py),
     gui_installed: true,
     source_built_artifacts: [],
     packaged_app_paths: [],
@@ -17897,10 +17897,10 @@ async function getUninstallSummary() {
     try {
       const child = spawn(
         py,
-        ['-m', 'hermes_cli.main', 'uninstall', '--gui-summary'],
+        ['-m', 'lemon_cli.main', 'uninstall', '--gui-summary'],
         hiddenWindowsChildOptions({
           cwd: agentRoot,
-          env: { ...process.env, ...desktopRuntimeEnv(), HERMES_HOME, NO_COLOR: '1' },
+          env: { ...process.env, ...desktopRuntimeEnv(), LEMON_HOME, NO_COLOR: '1' },
           stdio: ['ignore', 'pipe', 'ignore']
         })
       )
@@ -17948,14 +17948,14 @@ async function runDesktopUninstall(mode) {
     return {
       ok: false,
       error: 'agent-missing',
-      message: runtimeUserTemplate`Can't run the uninstaller: no Hermes agent venv at ${VENV_ROOT}.`
+      message: runtimeUserTemplate`Can't run the uninstaller: no Lemon AI agent venv at ${VENV_ROOT}.`
     }
   }
 
   // Interpreter choice (Finding 3): lite/full rmtree the venv that holds the
   // running python.exe. On Windows a running .exe is mandatory-locked, so the
   // rmtree must NOT be driven by the venv's own interpreter — use a system
-  // Python with PYTHONPATH=<agentRoot> so `import hermes_cli` resolves from
+  // Python with PYTHONPATH=<agentRoot> so `import lemon_cli` resolves from
   // source while the venv is torn down. gui-only doesn't touch the venv, so the
   // venv python is fine there. If no system Python exists (the Windows edge
   // case), fall back to the venv python — gui-only is unaffected; lite/full may
@@ -17968,7 +17968,7 @@ async function runDesktopUninstall(mode) {
 
     if (sysPy) {
       py = sysPy
-      pythonPath = ACTIVE_HERMES_ROOT
+      pythonPath = ACTIVE_LEMON_ROOT
     } else if (IS_WINDOWS) {
       rememberLog(
         '[uninstall] no system Python found for lite/full on Windows; falling back ' +
@@ -17988,7 +17988,7 @@ async function runDesktopUninstall(mode) {
   // lock would make the script's rmdir half-fail (#37532 for the update path).
   // Reuses the incident-hardened update teardown; no-op on macOS/Linux.
   try {
-    await releaseBackendLock(ACTIVE_HERMES_ROOT, 'uninstall')
+    await releaseBackendLock(ACTIVE_LEMON_ROOT, 'uninstall')
   } catch (error) {
     rememberLog(`[uninstall] backend teardown errored (continuing): ${error.message}`)
   }
@@ -17997,10 +17997,10 @@ async function runDesktopUninstall(mode) {
     desktopPid: process.pid,
     pythonExe: py,
     pythonPath,
-    agentRoot: ACTIVE_HERMES_ROOT,
+    agentRoot: ACTIVE_LEMON_ROOT,
     uninstallArgs,
     appPath: removeBundle,
-    hermesHome: HERMES_HOME,
+    lemonHome: LEMON_HOME,
     runtimeEnv: desktopRuntimeEnv()
   }
 
@@ -18010,12 +18010,12 @@ async function runDesktopUninstall(mode) {
 
   try {
     if (IS_WINDOWS) {
-      scriptPath = path.join(app.getPath('temp'), `hermes-uninstall-${Date.now()}.cmd`)
+      scriptPath = path.join(app.getPath('temp'), `lemon-uninstall-${Date.now()}.cmd`)
       fs.writeFileSync(scriptPath, buildWindowsCleanupScript(scriptArgs))
       runner = process.env.ComSpec || 'cmd.exe'
       runnerArgs = ['/c', scriptPath]
     } else {
-      scriptPath = path.join(app.getPath('temp'), `hermes-uninstall-${Date.now()}.sh`)
+      scriptPath = path.join(app.getPath('temp'), `lemon-uninstall-${Date.now()}.sh`)
       fs.writeFileSync(scriptPath, buildPosixCleanupScript(scriptArgs), { mode: 0o755 })
       runner = '/bin/bash'
       runnerArgs = [scriptPath]
@@ -18049,8 +18049,8 @@ async function runDesktopUninstall(mode) {
   return { ok: true, mode, willRemoveAppBundle: Boolean(removeBundle), scriptPath }
 }
 
-ipcMain.handle('hermes:uninstall:summary', async () => getUninstallSummary())
-ipcMain.handle('hermes:uninstall:run', async (_event, payload) => {
+ipcMain.handle('lemon:uninstall:summary', async () => getUninstallSummary())
+ipcMain.handle('lemon:uninstall:run', async (_event, payload) => {
   const mode = payload && typeof payload === 'object' ? payload.mode : payload
 
   return runDesktopUninstall(String(mode || ''))
@@ -18058,26 +18058,26 @@ ipcMain.handle('hermes:uninstall:run', async (_event, payload) => {
 
 // Download a VS Code Marketplace extension and return the raw color-theme JSON
 // it contributes. No theme code is executed — we only read JSON from the .vsix.
-ipcMain.handle('hermes:vscode-theme:fetch', async (_event, id) => fetchMarketplaceThemes(String(id || '')))
+ipcMain.handle('lemon:vscode-theme:fetch', async (_event, id) => fetchMarketplaceThemes(String(id || '')))
 
 // Search the Marketplace for color-theme extensions (empty query = top installs).
-ipcMain.handle('hermes:vscode-theme:search', async (_event, query) => searchMarketplaceThemes(String(query || ''), 20))
+ipcMain.handle('lemon:vscode-theme:search', async (_event, query) => searchMarketplaceThemes(String(query || ''), 20))
 
 // ---------------------------------------------------------------------------
-// hermes:// deep links (e.g. hermes://blueprint/morning-brief?time=08:00,
-// hermes://mcp/install?name=NAME&config=B64 — the vendor "Add to Hermes"
-// button, or hermes://plugin/install?repo=owner/repo). Dev
-// (`HERMES_DESKTOP_DEV_SERVER`) registers hermes-dev:// instead — bare
-// Electron or a stale OS handler often owns hermes:// on dev machines.
+// lemon:// deep links (e.g. lemon://blueprint/morning-brief?time=08:00,
+// lemon://mcp/install?name=NAME&config=B64 — the vendor "Add to Lemon AI"
+// button, or lemon://plugin/install?repo=owner/repo). Dev
+// (`LEMON_DESKTOP_DEV_SERVER`) registers lemon-dev:// instead — bare
+// Electron or a stale OS handler often owns lemon:// on dev machines.
 // Parsing is generic ({kind, name, params}); the renderer routes per kind
 // and anything install-shaped requires explicit user confirmation there.
 // A docs/dashboard "Send to App" button opens this URL; we route it into the
 // running app. Three delivery paths: macOS 'open-url',
 // Win/Linux running-app 'second-instance' (argv), Win/Linux cold-start argv.
 // ---------------------------------------------------------------------------
-const HERMES_PROTOCOL = DEV_SERVER ? 'hermes-dev' : 'hermes'
+const LEMON_PROTOCOL = DEV_SERVER ? 'lemon-dev' : 'lemon'
 /** Schemes accepted when parsing inbound URLs (dev accepts both). */
-const DEEPLINK_SCHEMES = DEV_SERVER ? ['hermes-dev', 'hermes'] : ['hermes']
+const DEEPLINK_SCHEMES = DEV_SERVER ? ['lemon-dev', 'lemon'] : ['lemon']
 let _pendingDeepLink = null
 let _rendererReadyForDeepLink = false
 
@@ -18112,7 +18112,7 @@ function handleDeepLink(url) {
     return
   }
 
-  // hermes://blueprint/<key>?slot=val  -> host="blueprint", path="/<key>"
+  // lemon://blueprint/<key>?slot=val  -> host="blueprint", path="/<key>"
   const kind = parsed.hostname || ''
   const name = decodeURIComponent((parsed.pathname || '').replace(/^\//, ''))
   const params = {}
@@ -18133,7 +18133,7 @@ function handleDeepLink(url) {
     }
 
     mainWindow.focus()
-    mainWindow.webContents.send('hermes:deep-link', payload)
+    mainWindow.webContents.send('lemon:deep-link', payload)
     rememberLog(`[deeplink] delivered ${kind}/${name}`)
   } catch (err) {
     rememberLog(`[deeplink] delivery failed: ${err.message}`)
@@ -18142,14 +18142,14 @@ function handleDeepLink(url) {
 
 // Renderer calls this (via IPC) once it has mounted its deep-link listener, so
 // a link that arrived during boot/install is flushed exactly once.
-ipcMain.handle('hermes:deep-link-ready', () => {
+ipcMain.handle('lemon:deep-link-ready', () => {
   _rendererReadyForDeepLink = true
 
   if (_pendingDeepLink) {
     const queued = _pendingDeepLink
     _pendingDeepLink = null
     handleDeepLink(
-      `${HERMES_PROTOCOL}://${queued.kind}/${encodeURIComponent(queued.name)}` +
+      `${LEMON_PROTOCOL}://${queued.kind}/${encodeURIComponent(queued.name)}` +
         (Object.keys(queued.params).length ? '?' + new URLSearchParams(queued.params).toString() : '')
     )
   }
@@ -18164,19 +18164,19 @@ function registerDeepLinkProtocol() {
       // relaunch us with the URL. argv[1] is usually "." when launched via
       // `electron .` from apps/desktop — resolve against cwd.
       const entry = path.resolve(process.argv[1])
-      app.setAsDefaultProtocolClient(HERMES_PROTOCOL, process.execPath, [entry])
+      app.setAsDefaultProtocolClient(LEMON_PROTOCOL, process.execPath, [entry])
     } else {
-      app.setAsDefaultProtocolClient(HERMES_PROTOCOL)
+      app.setAsDefaultProtocolClient(LEMON_PROTOCOL)
     }
 
-    rememberLog(`[deeplink] registered ${HERMES_PROTOCOL}:// handler`)
+    rememberLog(`[deeplink] registered ${LEMON_PROTOCOL}:// handler`)
   } catch (err) {
     rememberLog(`[deeplink] protocol registration failed: ${err.message}`)
   }
 }
 
 // Single-instance lock: deep links on a running app (Win/Linux) arrive as a
-// second-instance argv. Without the lock a second `hermes://` launch spawns a
+// second-instance argv. Without the lock a second `lemon://` launch spawns a
 // whole new app instead of routing into the running one.
 const _gotSingleInstanceLock = app.requestSingleInstanceLock()
 const isPrimaryInstance = _gotSingleInstanceLock
@@ -18185,7 +18185,7 @@ if (!isPrimaryInstance) {
   // Hard-exit, not app.quit(): the before-quit teardown coordinator defers a
   // plain quit (event.preventDefault + async backend shutdown), and in that
   // window `ready` still fires — the lock-losing instance then runs the full
-  // startup (shortcut registration, createWindow → startHermes), whose
+  // startup (shortcut registration, createWindow → startLemon), whose
   // reapOrphans() SIGTERMs the running instance's live backend (#87295).
   // app.exit() terminates immediately, before `ready`, so a second launch
   // routes into the running window and never touches backend machinery.
@@ -18265,7 +18265,7 @@ app.whenReady().then(() => {
   keepAwake.set(readPersistedKeepAwake())
   f12Blocked = readPersistedDisableF12()
   // Seed this before the first window exists: a picker can open before
-  // startHermes() finishes resolving the configured backend.
+  // startLemon() finishes resolving the configured backend.
   const primaryProfile = primaryProfileKey()
 
   setActiveGatewayProfile(primaryProfile)
@@ -18292,7 +18292,7 @@ app.whenReady().then(() => {
   void resumeManagedSshRecoveries()
   createWindow()
 
-  // Win/Linux cold start: the launching hermes:// URL is in our own argv.
+  // Win/Linux cold start: the launching lemon:// URL is in our own argv.
   const _coldStartLink = _extractDeepLink(process.argv)
 
   if (_coldStartLink) {
@@ -18500,7 +18500,7 @@ app.on('before-quit', event => {
   hudWindow = null
 
   // Same for the Quick Entry composer — and release its global accelerator so a
-  // quitting Hermes never keeps another app's chord hostage.
+  // quitting Lemon AI never keeps another app's chord hostage.
   closeQuickEntryWindow()
 
   // Quitting mid-install should stop the installer, not orphan it.

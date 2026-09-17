@@ -337,7 +337,7 @@ class TestAllResolvableCommandsBypassGuard:
 
     def test_should_bypass_returns_true_for_every_registered_command(self):
         """Spot-check: the commands previously-broken on Discord all bypass."""
-        from hermes_cli.commands import should_bypass_active_session
+        from lemon_cli.commands import should_bypass_active_session
 
         for cmd in (
             "model", "reasoning", "personality", "voice", "insights", "title",
@@ -350,7 +350,7 @@ class TestAllResolvableCommandsBypassGuard:
 
     def test_should_bypass_returns_false_for_unknown(self):
         """Unknown words don't bypass — they get queued as user text."""
-        from hermes_cli.commands import should_bypass_active_session
+        from lemon_cli.commands import should_bypass_active_session
 
         assert should_bypass_active_session("foobar") is False
         assert should_bypass_active_session(None) is False
@@ -421,13 +421,13 @@ class TestPendingCommandSafetyNet:
     def test_stop_command_detected(self):
         """resolve_command must recognize /stop so the safety net can
         discard it."""
-        from hermes_cli.commands import resolve_command
+        from lemon_cli.commands import resolve_command
 
         assert resolve_command("stop") is not None
         assert resolve_command("stop").name == "stop"
 
     def test_new_command_detected(self):
-        from hermes_cli.commands import resolve_command
+        from lemon_cli.commands import resolve_command
 
         assert resolve_command("new") is not None
         assert resolve_command("new").name == "new"
@@ -443,15 +443,15 @@ class TestBypassWithBotnameSuffix:
 
     @pytest.mark.asyncio
     async def test_stop_with_botname(self):
-        """/stop@MyHermesBot must bypass the guard."""
+        """/stop@MyLemonBot must bypass the guard."""
         adapter = _make_adapter()
         sk = _session_key()
         adapter._active_sessions[sk] = asyncio.Event()
 
-        await adapter.handle_message(_make_event("/stop@MyHermesBot"))
+        await adapter.handle_message(_make_event("/stop@MyLemonBot"))
 
         assert sk not in adapter._pending_messages, (
-            "/stop@MyHermesBot was queued instead of bypassing"
+            "/stop@MyLemonBot was queued instead of bypassing"
         )
         assert any("handled:stop" in r for r in adapter.sent_responses)
 

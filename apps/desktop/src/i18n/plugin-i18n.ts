@@ -15,7 +15,7 @@ import { useStore } from '@nanostores/react'
 import { atom } from 'nanostores'
 import { useCallback } from 'react'
 
-import { appBrandForEnv, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { appBrandForEnv, replaceLemonBrandTerms } from '@/lib/app-brand'
 
 import { useI18n } from './context'
 import { getRuntimeI18nLocale, translateFrom } from './runtime'
@@ -90,7 +90,7 @@ export function registerPluginLocales(pluginId: string, bundles: PluginLocaleBun
 }
 
 export function translatePlugin(pluginId: string, locale: Locale, key: string, args: unknown[]): string {
-  return replaceHermesBrandTerms(
+  return replaceLemonBrandTerms(
     translateFrom(l => registry.get(pluginId)?.get(l), locale, key, args),
     appBrandForEnv(),
     args

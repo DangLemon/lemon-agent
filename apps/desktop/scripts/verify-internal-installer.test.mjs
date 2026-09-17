@@ -34,7 +34,7 @@ const WINDOWS_VERSION_INFO = {
 const WINDOWS_NATIVE_VERSION_INFO_TIMEOUT_MS = 30_000
 
 function withTempDir(fn) {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-installer-verify-'))
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-installer-verify-'))
   const cleanup = () => fs.rmSync(tempRoot, { recursive: true, force: true })
   try {
     const result = fn(tempRoot)
@@ -58,7 +58,7 @@ function validManifest() {
   return {
     schemaVersion: 1,
     profile: 'internal',
-    sourceRepository: 'DangLemon/hermes-agent',
+    sourceRepository: 'DangLemon/lemon-agent',
     ui: {
       agents: false,
       cron: true,
@@ -139,13 +139,13 @@ function validGeneratedConfig() {
         name: 'Lemon Digital'
       },
       description: 'Native desktop shell for Lemon AI.',
-      homepage: 'https://github.com/DangLemon/hermes-agent',
+      homepage: 'https://github.com/DangLemon/lemon-agent',
       bugs: {
-        url: 'https://github.com/DangLemon/hermes-agent/issues'
+        url: 'https://github.com/DangLemon/lemon-agent/issues'
       },
       repository: {
         type: 'git',
-        url: 'git+https://github.com/DangLemon/hermes-agent.git'
+        url: 'git+https://github.com/DangLemon/lemon-agent.git'
       }
     },
     copyright: 'Copyright © 2026 Lemon Digital',
@@ -467,7 +467,7 @@ test('validateStamp requires exact CI source SHA and ref', () => {
 test('validateHarnessManifest requires the approved fork and canonical harness resource contract', () => {
   validateHarnessManifest(validManifest())
   assert.throws(
-    () => validateHarnessManifest({ ...validManifest(), sourceRepository: 'NousResearch/hermes-agent' }),
+    () => validateHarnessManifest({ ...validManifest(), sourceRepository: 'DangLemon/lemon-agent' }),
     /sourceRepository/
   )
   const literalSecret = validManifest()
@@ -498,8 +498,8 @@ test('verification accepts valid canonical model, UI, and MCP changes when packa
 
 test('binary readers detect Mach-O and PE CPU values', () => {
   withTempDir(root => {
-    const macho = path.join(root, 'Hermes')
-    const pe = path.join(root, 'Hermes.exe')
+    const macho = path.join(root, 'Lemon AI')
+    const pe = path.join(root, 'Lemon AI.exe')
     makeMachO(macho)
     makePE(pe)
     assert.deepEqual(readMachOArchitectures(macho), [0x0100000c])
@@ -528,7 +528,7 @@ test('macOS verification rejects universal or x64 Mach-O payloads', () => {
 test('macOS verification fails when Lemon plist metadata is missing', () => {
   withTempDir(root => {
     const options = makeMacFixture(root)
-    makePlist(path.join(options.appPath, 'Contents', 'Info.plist'), { CFBundleDisplayName: 'Hermes' })
+    makePlist(path.join(options.appPath, 'Contents', 'Info.plist'), { CFBundleDisplayName: 'Lemon AI' })
     assert.throws(
       () =>
         verifyInternalInstaller({
@@ -660,7 +660,7 @@ test(
   'Windows VersionInfo reader does not accept synthetic UTF-16 strings as native resources',
   () => {
     withTempDir(root => {
-      const exePath = path.join(root, 'Hermes.exe')
+      const exePath = path.join(root, 'Lemon AI.exe')
       makePE(exePath, { versionInfo: true })
       const expectedError =
         process.platform === 'win32'
@@ -679,7 +679,7 @@ windowsOnlyTest(
   async () => {
     const { rcedit } = await import('rcedit')
     await withTempDir(async root => {
-      const exePath = path.join(root, 'Hermes.exe')
+      const exePath = path.join(root, 'Lemon AI.exe')
       fs.copyFileSync(electronExePath(), exePath)
       await rcedit(exePath, {
         'version-string': WINDOWS_VERSION_INFO
@@ -744,7 +744,7 @@ test('verification ignores unused foreign native prebuilds and writes installer 
     assert.equal(receipt.ref, VALID_REF)
     assert.equal(receipt.platform, 'win32')
     assert.equal(receipt.arch, 'x64')
-    assert.equal(receipt.sourceRepository, 'DangLemon/hermes-agent')
+    assert.equal(receipt.sourceRepository, 'DangLemon/lemon-agent')
     assert.equal(receipt.checksumFile, `${installerName}.sha256`)
     assert.equal(result.nativePayload.nodePtyBinaries.length, 1)
   })
@@ -794,7 +794,7 @@ test('verification compares packaged manifest to generated canonical bytes, not 
       spawn: gitSpawn(),
       codeSignSpawn: codeSignSpawn()
     })
-    assert.equal(result.manifest.sourceRepository, 'DangLemon/hermes-agent')
+    assert.equal(result.manifest.sourceRepository, 'DangLemon/lemon-agent')
   })
 })
 
@@ -918,7 +918,7 @@ test('validateNativePayload rejects missing target node-pty binary', () => {
 test('validateGeneratedConfig requires Lemon product and executable identity', () => {
   validateGeneratedConfig(validGeneratedConfig())
   assert.throws(
-    () => validateGeneratedConfig({ ...validGeneratedConfig(), executableName: 'Hermes' }),
+    () => validateGeneratedConfig({ ...validGeneratedConfig(), executableName: 'Lemon AI' }),
     /executableName/
   )
   assert.throws(
@@ -928,18 +928,18 @@ test('validateGeneratedConfig requires Lemon product and executable identity', (
         mac: {
           ...validGeneratedConfig().mac,
           extendInfo: {
-            CFBundleExecutable: 'Hermes'
+            CFBundleExecutable: 'Lemon AI'
           }
         }
       }),
     /CFBundleExecutable/
   )
-  assert.throws(() => validateGeneratedConfig({ ...validGeneratedConfig(), appId: 'com.nousresearch.hermes' }), /appId/)
+  assert.throws(() => validateGeneratedConfig({ ...validGeneratedConfig(), appId: 'com.nousresearch.lemon-ai' }), /appId/)
   assert.throws(
     () =>
       validateGeneratedConfig({
         ...validGeneratedConfig(),
-        publish: [{ provider: 'github', owner: 'DangLemon', repo: 'hermes-agent' }]
+        publish: [{ provider: 'github', owner: 'DangLemon', repo: 'lemon-agent' }]
       }),
     /publish/
   )
@@ -947,7 +947,7 @@ test('validateGeneratedConfig requires Lemon product and executable identity', (
     () =>
       validateGeneratedConfig({
         ...validGeneratedConfig(),
-        extraMetadata: { name: 'hermes', productName: 'Hermes' }
+        extraMetadata: { name: 'lemon', productName: 'Lemon AI' }
       }),
     /extraMetadata/
   )

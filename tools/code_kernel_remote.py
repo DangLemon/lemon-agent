@@ -40,7 +40,7 @@ _CELL_POLL_INTERVAL = 0.5
 # persistent namespace, writes response files. Pure files + stdlib only (transport-agnostic);
 # cells and tool-RPC share the kernel dir under distinct prefixes.
 REMOTE_KERNEL_RUNNER_SOURCE = '''\
-"""Auto-generated Hermes REMOTE session-kernel runner (file cell protocol)."""
+"""Auto-generated Lemon AI REMOTE session-kernel runner (file cell protocol)."""
 import contextlib
 import io
 import json
@@ -49,7 +49,7 @@ import sys
 import time
 import traceback
 
-KDIR = os.environ["HERMES_KERNEL_DIR"]
+KDIR = os.environ["LEMON_KERNEL_DIR"]
 CELLS = os.path.join(KDIR, "cells")
 _CAPTURE_LIMIT = {capture_limit}
 IDLE_EXIT_SECONDS = {idle_exit}
@@ -116,7 +116,7 @@ class RemoteKernel:
     cell_seq: int = 0
     # Cells currently running on this kernel. Reap/evict skip attached
     # kernels: killing one mid-cell tears the runner out from under a live
-    # poll loop (same guard as tools.code_kernel, hermes-agent#101861).
+    # poll loop (same guard as tools.code_kernel, lemon-agent#101861).
     attached: int = 0
 
     def sh(self, cmd: str, timeout: int = 15) -> str:
@@ -195,9 +195,9 @@ def _spawn_remote_kernel(env, env_type: str, owner: str, task_env_id: str,
                          sandbox_tools: frozenset, *, idle_exit: int) -> Optional[RemoteKernel]:
     """Start a detached kernel runner on the remote. None on failure (dir removed)."""
     from tools.code_execution_tool import (
-        MAX_STDOUT_BYTES, _ship_file_to_remote, _env_temp_dir, generate_hermes_tools_module,
+        MAX_STDOUT_BYTES, _ship_file_to_remote, _env_temp_dir, generate_lemon_tools_module,
     )
-    kernel_dir = f"{_env_temp_dir(env)}/hermes_rkernel_{uuid.uuid4().hex[:12]}"
+    kernel_dir = f"{_env_temp_dir(env)}/lemon_rkernel_{uuid.uuid4().hex[:12]}"
     q_dir = shlex.quote(kernel_dir)
     kernel = None
     try:
@@ -205,10 +205,10 @@ def _spawn_remote_kernel(env, env_type: str, owner: str, task_env_id: str,
         rpc_token = secrets.token_urlsafe(32)
         _ship_file_to_remote(env, f"{kernel_dir}/kernel_runner.py", REMOTE_KERNEL_RUNNER_SOURCE.format(
             cell_source=RUNNER_CELL_SOURCE, capture_limit=MAX_STDOUT_BYTES, idle_exit=idle_exit))
-        _ship_file_to_remote(env, f"{kernel_dir}/hermes_tools.py",
-                             generate_hermes_tools_module(list(sandbox_tools), transport="file"))
-        env_prefix = (f"HERMES_KERNEL_DIR={q_dir} HERMES_RPC_DIR={shlex.quote(kernel_dir + '/rpc')} "
-                      f"HERMES_RPC_TOKEN={shlex.quote(rpc_token)} PYTHONDONTWRITEBYTECODE=1 PYTHONPATH={q_dir}")
+        _ship_file_to_remote(env, f"{kernel_dir}/lemon_tools.py",
+                             generate_lemon_tools_module(list(sandbox_tools), transport="file"))
+        env_prefix = (f"LEMON_KERNEL_DIR={q_dir} LEMON_RPC_DIR={shlex.quote(kernel_dir + '/rpc')} "
+                      f"LEMON_RPC_TOKEN={shlex.quote(rpc_token)} PYTHONDONTWRITEBYTECODE=1 PYTHONPATH={q_dir}")
         started = _sh(env, f"cd {q_dir} && nohup env {env_prefix} python3 kernel_runner.py "
                            f"> {q_dir}/runner.log 2>&1 & echo PID:$!", timeout=20)
         pid = next((line.strip()[4:].strip() for line in started.splitlines()

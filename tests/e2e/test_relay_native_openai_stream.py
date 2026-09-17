@@ -1,8 +1,8 @@
 """Native OpenAI SDK streaming through Relay's managed execution path.
 
-Relay runs its finalizer as soon as the provider stream ends — concurrently with Hermes'
+Relay runs its finalizer as soon as the provider stream ends — concurrently with Lemon AI'
 consumer thread, which may not have processed the last chunk yet. Each test forces that
-ordering deterministically by exhausting Relay before Hermes sees a chosen terminal chunk
+ordering deterministically by exhausting Relay before Lemon AI sees a chosen terminal chunk
 and asserts Relay's LLM end event still records the full response.
 """
 
@@ -22,7 +22,7 @@ def _sse(*chunk_bodies: bytes) -> bytes:
 def _stream_through_relay(tmp_path, monkeypatch, response_body: bytes, *, finalize_before):
     """Stream ``response_body`` through Relay; Relay's finalizer is forced to complete
     before the consumer thread processes the first terminal chunk matching
-    ``finalize_before(chunk)``. Returns ``(hermes_result, relay_llm_end_event)``."""
+    ``finalize_before(chunk)``. Returns ``(lemon_result, relay_llm_end_event)``."""
     httpx = pytest.importorskip("httpx")
     nemo_relay = pytest.importorskip("nemo_relay")
     openai = pytest.importorskip("openai")
@@ -30,8 +30,8 @@ def _stream_through_relay(tmp_path, monkeypatch, response_body: bytes, *, finali
     from agent import relay_llm, relay_runtime
     from run_agent import AIAgent
 
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes-home"))
-    monkeypatch.setenv("HERMES_STREAM_RETRIES", "0")
+    monkeypatch.setenv("LEMON_HOME", str(tmp_path / "lemon-home"))
+    monkeypatch.setenv("LEMON_STREAM_RETRIES", "0")
 
     def respond(request):
         return httpx.Response(200, headers={"content-type": "text/event-stream"},
@@ -138,8 +138,8 @@ def test_openai_stream_final_tool_call_delta_reaches_relay_parent_event(tmp_path
         tmp_path, monkeypatch, body,
         finalize_before=lambda chunk: bool(chunk.choices) and chunk.choices[0].finish_reason == "tool_calls")
 
-    hermes_call = result.choices[0].message.tool_calls[0]
-    assert (hermes_call.function.name, hermes_call.function.arguments) == ("read_file", '{"path": "/tmp/x"}')
+    lemon_call = result.choices[0].message.tool_calls[0]
+    assert (lemon_call.function.name, lemon_call.function.arguments) == ("read_file", '{"path": "/tmp/x"}')
     assert result.choices[0].finish_reason == "tool_calls"
     assert llm_end.annotated_response.message is None
     (relay_call,) = llm_end.annotated_response.tool_calls

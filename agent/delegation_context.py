@@ -1,6 +1,6 @@
 """Context-local state for delegate_task child execution.
 
-A Hermes process may itself be a Kanban dispatcher worker with HERMES_KANBAN_* in
+A Lemon AI process may itself be a Kanban dispatcher worker with LEMON_KANBAN_* in
 os.environ. In-process delegate_task children and cron jobs fired via
 ``cronjob(action="run")`` are NOT dispatcher-owned, so identity gates must fail
 closed for them without mutating the process-global environment.
@@ -12,16 +12,16 @@ from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from typing import Iterator, Mapping, MutableMapping
 
-_DELEGATED_CHILD_CONTEXT: ContextVar[bool] = ContextVar("hermes_delegated_child_context", default=False)
+_DELEGATED_CHILD_CONTEXT: ContextVar[bool] = ContextVar("lemon_delegated_child_context", default=False)
 # Any in-process execution that is NOT the dispatcher-owned worker (cron jobs). Kept separate
 # so delegate_task-specific behaviour (subprocess env scrubbing, its error strings) is unchanged.
-_NON_DISPATCHER_OWNED_CONTEXT: ContextVar[bool] = ContextVar("hermes_non_dispatcher_owned_context", default=False)
+_NON_DISPATCHER_OWNED_CONTEXT: ContextVar[bool] = ContextVar("lemon_non_dispatcher_owned_context", default=False)
 
-DELEGATED_CHILD_ENV_MARKER = "HERMES_DELEGATED_CHILD_CONTEXT"
+DELEGATED_CHILD_ENV_MARKER = "LEMON_DELEGATED_CHILD_CONTEXT"
 
 KANBAN_ENV_KEYS: tuple[str, ...] = (
-    "HERMES_KANBAN_TASK", "HERMES_KANBAN_RUN_ID", "HERMES_KANBAN_WORKSPACE", "HERMES_KANBAN_WORKSPACES_ROOT",
-    "HERMES_KANBAN_CLAIM_LOCK", "HERMES_KANBAN_BOARD", "HERMES_KANBAN_DB",
+    "LEMON_KANBAN_TASK", "LEMON_KANBAN_RUN_ID", "LEMON_KANBAN_WORKSPACE", "LEMON_KANBAN_WORKSPACES_ROOT",
+    "LEMON_KANBAN_CLAIM_LOCK", "LEMON_KANBAN_BOARD", "LEMON_KANBAN_DB",
 )
 
 
@@ -69,7 +69,7 @@ def non_dispatcher_owned_context() -> Iterator[None]:
 
 
 def is_dispatcher_owned_worker_context() -> bool:
-    """The single predicate every ``HERMES_KANBAN_*`` identity gate should use."""
+    """The single predicate every ``LEMON_KANBAN_*`` identity gate should use."""
     return not (_DELEGATED_CHILD_CONTEXT.get() or _NON_DISPATCHER_OWNED_CONTEXT.get())
 
 

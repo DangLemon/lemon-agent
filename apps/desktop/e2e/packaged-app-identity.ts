@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-export type PackagedAppProductName = 'Hermes' | 'Lemon AI'
+export type PackagedAppProductName = 'Lemon AI'
 
 interface PackagedAppIdentity {
   binaryPath: string
@@ -20,7 +20,6 @@ export function resolvePackagedAppIdentity({
   exists = candidate => {
     try {
       fs.accessSync(candidate, fs.constants.X_OK)
-
       return true
     } catch {
       return false
@@ -29,45 +28,28 @@ export function resolvePackagedAppIdentity({
   platform = process.platform,
   releaseRoot
 }: ResolvePackagedAppIdentityOptions): PackagedAppIdentity {
-  const identities: Array<{ linuxExecutable: string; productName: PackagedAppProductName }> = [
-    { linuxExecutable: 'Lemon AI', productName: 'Lemon AI' },
-    { linuxExecutable: 'hermes', productName: 'Hermes' }
-  ]
-
   const candidates: PackagedAppIdentity[] = []
 
   if (platform === 'darwin') {
     const normalizedArch = arch === 'arm64' ? 'arm64' : 'x64'
-
-    for (const identity of identities) {
-      for (const directory of [`mac-${normalizedArch}`, 'mac']) {
-        candidates.push({
-          binaryPath: path.join(
-            releaseRoot,
-            directory,
-            `${identity.productName}.app`,
-            'Contents',
-            'MacOS',
-            identity.productName
-          ),
-          productName: identity.productName
-        })
-      }
+    for (const directory of [`mac-${normalizedArch}`, 'mac']) {
+      candidates.push({
+        binaryPath: path.join(releaseRoot, directory, 'Lemon AI.app', 'Contents', 'MacOS', 'Lemon AI'),
+        productName: 'Lemon AI'
+      })
     }
   } else if (platform === 'win32') {
-    for (const identity of identities) {
-      for (const directory of ['win-unpacked', 'win-arm64-unpacked']) {
-        candidates.push({
-          binaryPath: path.join(releaseRoot, directory, `${identity.productName}.exe`),
-          productName: identity.productName
-        })
-      }
+    for (const directory of ['win-unpacked', 'win-arm64-unpacked']) {
+      candidates.push({
+        binaryPath: path.join(releaseRoot, directory, 'Lemon AI.exe'),
+        productName: 'Lemon AI'
+      })
     }
   } else {
-    for (const identity of identities) {
+    for (const executable of ['Lemon AI', 'lemon-ai']) {
       candidates.push({
-        binaryPath: path.join(releaseRoot, 'linux-unpacked', identity.linuxExecutable),
-        productName: identity.productName
+        binaryPath: path.join(releaseRoot, 'linux-unpacked', executable),
+        productName: 'Lemon AI'
       })
     }
   }

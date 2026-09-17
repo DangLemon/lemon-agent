@@ -16,7 +16,7 @@
  * itself here as the delegate so tile UI stays dependency-light.
  */
 
-import { LOCAL_CONNECTION_ID, registryBackendScopeKey } from '@hermes/shared'
+import { LOCAL_CONNECTION_ID, registryBackendScopeKey } from '@lemon-ai/shared'
 import { atom, computed } from 'nanostores'
 
 import type { ClientSessionState } from '@/app/types'
@@ -34,7 +34,7 @@ import { $workspaceMode, resolveRememberedActivePane, workspaceScopeKey } from '
 import type { WorkspaceMode } from '@/contrib/types'
 import { stableArray } from '@/lib/stable-array'
 import { readJson, writeJson } from '@/lib/storage'
-import type { SessionInfo } from '@/types/hermes'
+import type { SessionInfo } from '@/types/lemon'
 
 import { $activeGatewayProfile, normalizeProfileKey } from './profile'
 import { clearAllProviderWaits, clearSessionProviderWait } from './provider-wait'
@@ -759,8 +759,8 @@ export interface SessionTileWorkspaceScope {
 // (and drops runtime bindings so each tile re-resumes against the now-current
 // gateway — which also settles the "tile resumes against the wrong backend" and
 // "stale runtime after respawn" bugs by construction).
-const TILES_KEY = 'hermes.desktop.sessionTiles.v2'
-const LEGACY_TILES_KEY = 'hermes.desktop.sessionTiles.v1'
+const TILES_KEY = 'lemon.desktop.sessionTiles.v2'
+const LEGACY_TILES_KEY = 'lemon.desktop.sessionTiles.v1'
 const TILE_PANE_PREFIX = 'session-tile:'
 const BOTS_TILE_BUCKET = '__bots_workspace__'
 
@@ -1100,7 +1100,7 @@ export function storedSessionIdForRuntimeId(sessionId: string): null | string {
   return mirrored || null
 }
 
-const BOT_CHAT_SCOPE_KEY = 'hermes.desktop.botChatSessions.v1'
+const BOT_CHAT_SCOPE_KEY = 'lemon.desktop.botChatSessions.v1'
 
 /** Stored ids last opened as a bot's chat. A tile carries `workspaceMode`, but
  *  a bot chat normally lands in MAIN — `in-place` mints no tile when there is
@@ -1584,7 +1584,7 @@ export function focusOpenSession(
  *  resurrects closed chats on every bot switch.
  *
  *  `isStaleTile`: the caller's reconciliation probe against backend truth
- *  (hermes-agent#90102). The tile bucket is a Local Storage cache, and a
+ *  (lemon-agent#90102). The tile bucket is a Local Storage cache, and a
  *  persisted bot tile can outlive the session it names — a superseded
  *  "Bot Chat" from the retired pointer design, a re-minted canonical row, a
  *  finished session that stopped being the bot's chat. Fronting such a tile
@@ -1760,8 +1760,8 @@ export function discardSessionTile(storedSessionId: string) {
  * backend target profile when a source-scoped route is given).
  *
  * A leftover tile RESURRECTS the deleted profile on the next launch: Bot tab
- * restore re-dials the profile's backend, whose ensure_hermes_home() re-creates
- * the profile directory the delete just removed (hermes-agent#94235). Same
+ * restore re-dials the profile's backend, whose ensure_lemon_home() re-creates
+ * the profile directory the delete just removed (lemon-agent#94235). Same
  * discard (no ⌘⇧T) semantics as discardSessionTile — undoing the delete of the
  * owning profile would resolve to a 404 again.
  */
@@ -1813,7 +1813,7 @@ export function dropTilesForProfile(
     // Desktop-local delete: also require the tile's owner connection to be the
     // LOCAL connection. A same-named bot on another connection is a different
     // agent — the deleted local profile never owned it, and dropping its tile
-    // would orphan a live conversation (hermes-agent#94235). Tiles persisted
+    // would orphan a live conversation (lemon-agent#94235). Tiles persisted
     // before ownerRoute.connectionId existed carry no id; that empty string IS
     // the local connection (the only source a pre-connectionId tile could have
     // been opened on), so treat it as 'local' — otherwise those legacy tiles
@@ -1908,7 +1908,7 @@ export const $focusedStoredSessionId = computed(
 
     // The interaction tracker can point at sidebar CHROME while a chat still
     // holds the main zone's active tab — clicking a Bots-pane roster row moves
-    // it to the sidebar group, whose active pane ('hermes-bots:pane') is not a
+    // it to the sidebar group, whose active pane ('lemon-bots:pane') is not a
     // session tile. In sessions mode the primary selection answers, exactly as
     // always. In Bot Mode that fallback alone publishes a NULL "focused"
     // edge: bot chats open as TILES and never set $selectedStoredSessionId,
@@ -2006,9 +2006,9 @@ $selectedStoredSessionId.listen(selected => {
   revealTreePane('workspace')
 })
 
-// Dev hook for automation (mirrors __HERMES_LAYOUT_TREE__).
+// Dev hook for automation (mirrors __LEMON_LAYOUT_TREE__).
 if ((import.meta.env.DEV || import.meta.env.VITE_PERF_PROBE === '1') && typeof window !== 'undefined') {
-  ;(window as unknown as Record<string, unknown>).__HERMES_SESSION_TILES__ = {
+  ;(window as unknown as Record<string, unknown>).__LEMON_SESSION_TILES__ = {
     close: closeSessionTile,
     drop: dropSessionState,
     open: openSessionTile,

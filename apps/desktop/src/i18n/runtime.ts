@@ -1,4 +1,4 @@
-import { appBrandForEnv, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { appBrandForEnv, replaceLemonBrandTerms } from '@/lib/app-brand'
 
 import { TRANSLATIONS } from './catalog'
 import { DEFAULT_LOCALE } from './languages'
@@ -64,5 +64,5 @@ export function getRuntimeI18nLocale(): Locale {
 }
 
 export function translateNow(key: string, ...args: unknown[]): string {
-  return replaceHermesBrandTerms(translateFrom(locale => TRANSLATIONS[locale], runtimeLocale, key, args), appBrandForEnv(), args)
+  return replaceLemonBrandTerms(translateFrom(locale => TRANSLATIONS[locale], runtimeLocale, key, args), appBrandForEnv(), args)
 }

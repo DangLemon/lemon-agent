@@ -52,7 +52,7 @@ const api = vi.fn(async ({ path }: { path: string }) => {
 
 function stubBridge() {
   vi.stubGlobal('window', {
-    hermesDesktop: {
+    lemonDesktop: {
       api,
       gitRoot,
       readDir,
@@ -98,7 +98,7 @@ describe('desktop filesystem facade', () => {
   })
 
   it('brands missing bridge errors for internal builds', async () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
     vi.stubGlobal('window', {})
     $connection.set({ mode: 'local' } as never)
 

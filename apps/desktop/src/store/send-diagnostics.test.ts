@@ -19,14 +19,14 @@ function stubGateway(
 }
 
 function stubDesktopLogs(lines: null | string[]) {
-  const original = window.hermesDesktop
+  const original = window.lemonDesktop
 
-  Object.defineProperty(window, 'hermesDesktop', {
+  Object.defineProperty(window, 'lemonDesktop', {
     configurable: true,
     value: lines ? { getRecentLogs: async () => ({ lines, path: '/tmp/desktop.log' }) } : undefined
   })
 
-  return () => Object.defineProperty(window, 'hermesDesktop', { configurable: true, value: original })
+  return () => Object.defineProperty(window, 'lemonDesktop', { configurable: true, value: original })
 }
 
 describe('send-diagnostics store', () => {

@@ -142,14 +142,14 @@ pub type CancelRx = mpsc::Receiver<()>;
 /// It exists because pipe EOF is not the child's to give. The write end of a
 /// redirected pipe is handed to the child as an inheritable handle, so every
 /// descendant spawned without its own redirection holds a duplicate, and the
-/// read side does not see EOF until the last of them closes it. `hermes update`
+/// read side does not see EOF until the last of them closes it. `lemon update`
 /// deliberately runs its build steps with stdout inherited, so the tree under a
 /// child is arbitrarily deep and not something the caller can enumerate. When
 /// one of those descendants is a resident gateway, the pipe stays open for the
 /// life of the gateway — and every obligation downstream of the read is
 /// stranded with it.
 ///
-/// Same bound `Invoke-HermesStep` grew in `scripts/desktop-update/windows.ps1`
+/// Same bound `Invoke-LemonStep` grew in `scripts/desktop-update/windows.ps1`
 /// (#90455), and the same shape as Go's `exec.Cmd.WaitDelay`.
 pub(crate) const DRAIN_GRACE: Duration = Duration::from_secs(20);
 
@@ -280,22 +280,22 @@ where
 }
 
 fn script_home_env_for(internal: bool, home: &str) -> Vec<(&'static str, OsString)> {
-    let mut envs = vec![("HERMES_HOME", OsString::from(home))];
+    let mut envs = vec![("LEMON_HOME", OsString::from(home))];
     if internal {
-        envs.push(("HERMES_DESKTOP_HOME_OVERRIDE", OsString::from(home)));
+        envs.push(("LEMON_DESKTOP_HOME_OVERRIDE", OsString::from(home)));
     }
     envs
 }
 
 /// Spawns install.ps1 / install.sh with the given args and streams output.
 ///
-/// `hermes_home_override` propagates through both the public Python/CLI
+/// `lemon_home_override` propagates through both the public Python/CLI
 /// contract and the internal desktop override consumed by installer scripts.
 pub async fn run_script(
     script_path: &Path,
     args: &[String],
     sink: StreamSink,
-    hermes_home_override: Option<&str>,
+    lemon_home_override: Option<&str>,
     cancel_rx: &mut Option<CancelRx>,
 ) -> Result<ScriptResult> {
     let mut cmd = build_command(script_path, args);
@@ -304,7 +304,7 @@ pub async fn run_script(
     // during self-update. Pin child scripts to a stable directory so bash/zsh
     // never starts from a deleted cwd and emits getcwd/job-working-directory
     // errors at the end of an otherwise successful install.
-    if let Some(cwd) = stable_script_cwd(script_path, hermes_home_override) {
+    if let Some(cwd) = stable_script_cwd(script_path, lemon_home_override) {
         cmd.current_dir(cwd);
     }
 
@@ -312,7 +312,7 @@ pub async fn run_script(
         cmd.env(key, value);
     }
 
-    if let Some(home) = hermes_home_override {
+    if let Some(home) = lemon_home_override {
         for (key, value) in script_home_env_for(crate::paths::internal_desktop_build(), home) {
             cmd.env(key, value);
         }
@@ -387,9 +387,9 @@ pub async fn run_script(
 
 fn stable_script_cwd<'a>(
     script_path: &'a Path,
-    hermes_home_override: Option<&'a str>,
+    lemon_home_override: Option<&'a str>,
 ) -> Option<&'a Path> {
-    if let Some(home) = hermes_home_override {
+    if let Some(home) = lemon_home_override {
         let path = Path::new(home);
         if path.is_dir() {
             return Some(path);
@@ -550,16 +550,16 @@ mod tests {
                 .and_then(|(_, value)| value.to_str())
         };
 
-        assert_eq!(lookup("HERMES_HOME"), Some("/company/lemon"));
+        assert_eq!(lookup("LEMON_HOME"), Some("/company/lemon"));
         assert_eq!(
-            lookup("HERMES_DESKTOP_HOME_OVERRIDE"),
+            lookup("LEMON_DESKTOP_HOME_OVERRIDE"),
             Some("/company/lemon")
         );
 
-        let ordinary_envs = script_home_env_for(false, "/users/hermes");
+        let ordinary_envs = script_home_env_for(false, "/users/lemon");
         assert_eq!(ordinary_envs.len(), 1);
-        assert_eq!(ordinary_envs[0].0, "HERMES_HOME");
-        assert_eq!(ordinary_envs[0].1, OsString::from("/users/hermes"));
+        assert_eq!(ordinary_envs[0].0, "LEMON_HOME");
+        assert_eq!(ordinary_envs[0].1, OsString::from("/users/lemon"));
     }
 
     #[test]
@@ -594,7 +594,7 @@ info line
     }
 
     #[test]
-    fn stable_script_cwd_prefers_existing_hermes_home() {
+    fn stable_script_cwd_prefers_existing_lemon_home() {
         let script = Path::new("/tmp/install.sh");
         let cwd = stable_script_cwd(script, Some("/"));
         assert_eq!(cwd, Some(Path::new("/")));
@@ -790,7 +790,7 @@ info line
     /// A chatty child must stream at pipe speed, not at one buffer per tick.
     /// The PowerShell port of this pump regressed exactly here: idling after
     /// every chunk it *did* read metered the drain and backpressured the running
-    /// child. `hermes update` is this shape -- the Electron build alone is
+    /// child. `lemon update` is this shape -- the Electron build alone is
     /// megabytes.
     #[cfg(unix)]
     #[tokio::test]

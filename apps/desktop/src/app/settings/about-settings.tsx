@@ -5,7 +5,7 @@ import { BrandMark } from '@/components/brand-mark'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
 import { type Translations, useI18n } from '@/i18n'
-import { type AppBrand, appBrandForEnv, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { type AppBrand, appBrandForEnv, replaceLemonBrandTerms } from '@/lib/app-brand'
 import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, RefreshCw } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import {
@@ -32,7 +32,7 @@ type BrandableAboutCopy = Pick<
 >
 
 function replaceAboutBrandTerms(value: string, brand: AppBrand): string {
-  return replaceHermesBrandTerms(value, brand)
+  return replaceLemonBrandTerms(value, brand)
 }
 
 export function aboutSettingsCopyForBrand(copy: BrandableAboutCopy, brand: AppBrand): BrandableAboutCopy {
@@ -151,7 +151,7 @@ export function AboutSettings() {
                     <p className="mt-1 text-xs text-muted-foreground">{copy.bundleSwapPendingDesc}</p>
                     <Button
                       className="mt-2"
-                      onClick={() => void window.hermesDesktop?.relaunchApp?.()}
+                      onClick={() => void window.lemonDesktop?.relaunchApp?.()}
                       size="sm"
                       variant="textStrong"
                     >
@@ -168,7 +168,7 @@ export function AboutSettings() {
                         href={links.installer}
                         onClick={event => {
                           event.preventDefault()
-                          void window.hermesDesktop?.openExternal?.(links.installer)
+                          void window.lemonDesktop?.openExternal?.(links.installer)
                         }}
                         rel="noreferrer"
                         target="_blank"
@@ -238,7 +238,7 @@ export function AboutSettings() {
                 href={links.releaseNotes}
                 onClick={event => {
                   event.preventDefault()
-                  void window.hermesDesktop?.openExternal?.(links.releaseNotes)
+                  void window.lemonDesktop?.openExternal?.(links.releaseNotes)
                 }}
                 rel="noreferrer"
                 target="_blank"

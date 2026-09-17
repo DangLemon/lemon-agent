@@ -37,11 +37,11 @@ const real = (p: string): string | null => {
 const HARNESS_UI_KEYS = ['agents', 'cron', 'messaging', 'terminal', 'webhooks'] as const
 
 const HARNESS_DEFINE_BY_UI_KEY = {
-  agents: '__HERMES_HARNESS_SHOW_AGENTS__',
-  cron: '__HERMES_HARNESS_SHOW_CRON__',
-  messaging: '__HERMES_HARNESS_SHOW_MESSAGING__',
-  terminal: '__HERMES_HARNESS_SHOW_TERMINAL__',
-  webhooks: '__HERMES_HARNESS_SHOW_WEBHOOKS__'
+  agents: '__LEMON_HARNESS_SHOW_AGENTS__',
+  cron: '__LEMON_HARNESS_SHOW_CRON__',
+  messaging: '__LEMON_HARNESS_SHOW_MESSAGING__',
+  terminal: '__LEMON_HARNESS_SHOW_TERMINAL__',
+  webhooks: '__LEMON_HARNESS_SHOW_WEBHOOKS__'
 } as const
 
 export const RENDERER_HARNESS_MARKER_FILENAME = 'lemon-ai-renderer-harness.json'
@@ -56,12 +56,12 @@ const DEFAULT_HARNESS_UI = {
 
 function defaultHarnessViteDefines() {
   return {
-    __HERMES_DESKTOP_HARNESS__: JSON.stringify(''),
-    __HERMES_HARNESS_SHOW_AGENTS__: JSON.stringify(String(DEFAULT_HARNESS_UI.agents)),
-    __HERMES_HARNESS_SHOW_CRON__: JSON.stringify(String(DEFAULT_HARNESS_UI.cron)),
-    __HERMES_HARNESS_SHOW_MESSAGING__: JSON.stringify(String(DEFAULT_HARNESS_UI.messaging)),
-    __HERMES_HARNESS_SHOW_TERMINAL__: JSON.stringify(String(DEFAULT_HARNESS_UI.terminal)),
-    __HERMES_HARNESS_SHOW_WEBHOOKS__: JSON.stringify(String(DEFAULT_HARNESS_UI.webhooks))
+    __LEMON_DESKTOP_HARNESS__: JSON.stringify(''),
+    __LEMON_HARNESS_SHOW_AGENTS__: JSON.stringify(String(DEFAULT_HARNESS_UI.agents)),
+    __LEMON_HARNESS_SHOW_CRON__: JSON.stringify(String(DEFAULT_HARNESS_UI.cron)),
+    __LEMON_HARNESS_SHOW_MESSAGING__: JSON.stringify(String(DEFAULT_HARNESS_UI.messaging)),
+    __LEMON_HARNESS_SHOW_TERMINAL__: JSON.stringify(String(DEFAULT_HARNESS_UI.terminal)),
+    __LEMON_HARNESS_SHOW_WEBHOOKS__: JSON.stringify(String(DEFAULT_HARNESS_UI.webhooks))
   }
 }
 
@@ -80,8 +80,8 @@ export function harnessViteDefines(env: Record<string, string | undefined>) {
       return define
     }
 
-    define.__HERMES_DESKTOP_HARNESS__ = JSON.stringify('internal')
-    define['import.meta.env.VITE_HERMES_DESKTOP_HARNESS'] = JSON.stringify('internal')
+    define.__LEMON_DESKTOP_HARNESS__ = JSON.stringify('internal')
+    define['import.meta.env.VITE_LEMON_DESKTOP_HARNESS'] = JSON.stringify('internal')
 
     for (const key of HARNESS_UI_KEYS) {
       if (typeof resource.ui[key] !== 'boolean') {
@@ -91,7 +91,7 @@ export function harnessViteDefines(env: Record<string, string | undefined>) {
       const value = JSON.stringify(String(resource.ui[key]))
 
       define[HARNESS_DEFINE_BY_UI_KEY[key]] = value
-      define[`import.meta.env.VITE_HERMES_HARNESS_SHOW_${key.toUpperCase()}`] = value
+      define[`import.meta.env.VITE_LEMON_HARNESS_SHOW_${key.toUpperCase()}`] = value
     }
 
     return define
@@ -111,7 +111,7 @@ function decodeDefineString(define: Record<string, string>, key: string): string
 }
 
 export function rendererHarnessMarkerFromDefines(define: Record<string, string>) {
-  if (decodeDefineString(define, '__HERMES_DESKTOP_HARNESS__') !== 'internal') {
+  if (decodeDefineString(define, '__LEMON_DESKTOP_HARNESS__') !== 'internal') {
     return null
   }
 
@@ -126,7 +126,7 @@ export function rendererHarnessMarkerFromDefines(define: Record<string, string>)
 
 export function rendererHarnessMarkerPlugin(define: Record<string, string>) {
   return {
-    name: 'hermes:renderer-harness-marker',
+    name: 'lemon:renderer-harness-marker',
     generateBundle(this: { emitFile: (asset: { fileName: string; source: string; type: 'asset' }) => void }) {
       const marker = rendererHarnessMarkerFromDefines(define)
 
@@ -189,7 +189,7 @@ const emojibaseDir =
 const EMOJIBASE_PATH = /^[a-z-]+\/(data|messages|shortcodes\/emojibase)\.json$/
 
 const emojibaseAssets = () => ({
-  name: 'hermes:emojibase-assets',
+  name: 'lemon:emojibase-assets',
   configureServer(server: {
     middlewares: { use: (route: string, handler: (req: any, res: any, next: () => void) => void) => void }
   }) {
@@ -246,7 +246,7 @@ export default defineConfig(({ command }) => {
       // without this, Vite's `postcss-load-config` walks UP the filesystem
       // looking for a stray `postcss.config.*` / `tailwind.config.*`. The desktop
       // build runs from inside the user's home tree (e.g.
-      // `C:\Users\<name>\AppData\Local\hermes\hermes-agent\apps\desktop`), so an
+      // `C:\Users\<name>\AppData\Local\lemon\lemon-agent\apps\desktop`), so an
       // unrelated Tailwind v3 config higher up the tree gets picked up and
       // reprocesses our v4 stylesheet, failing the build with
       // "`@layer base` is used but no matching `@tailwind base` directive is
@@ -336,9 +336,9 @@ export default defineConfig(({ command }) => {
       alias: {
         '@/debug/dev-only': debugEntry(command, process.env as Record<string, string>),
         '@': path.resolve(__dirname, './src'),
-        '@hermes/plugin-sdk': path.resolve(__dirname, './src/sdk/index.ts'),
-        '@hermes/shared/billing': path.resolve(__dirname, '../shared/src/billing-types.ts'),
-        '@hermes/shared': path.resolve(__dirname, '../shared/src'),
+        '@lemon-ai/plugin-sdk': path.resolve(__dirname, './src/sdk/index.ts'),
+        '@lemon-ai/shared/billing': path.resolve(__dirname, '../shared/src/billing-types.ts'),
+        '@lemon-ai/shared': path.resolve(__dirname, '../shared/src'),
         // The tour tool's preview surface injects driver.js's prebuilt IIFE into
         // the pane's guest page as raw source; the package's exports map doesn't
         // expose that dist file (nor ./package.json), so resolve the main entry

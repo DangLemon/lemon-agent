@@ -136,7 +136,7 @@ class GatewayGoalCommandsMixin:
         if gate_lower.startswith("add "):
             # SECURITY: a gate is persisted and later executed with shell=True at every goal turn
             # boundary (run_gate), with no approval prompt. Letting an allowed but non-admin sender
-            # choose that string is authenticated RCE under the Hermes process account — and with
+            # choose that string is authenticated RCE under the Lemon AI process account — and with
             # no admin list configured (the default) every allowed sender is unrestricted. Gate ONLY
             # this shell-creating operation behind a real, explicitly-configured admin (the same
             # fail-closed check that guards cross-origin /resume); list/remove/clear stay open so
@@ -174,7 +174,7 @@ class GatewayGoalCommandsMixin:
             if not objective:
                 return "Usage: /goal draft <objective in plain language>"
             try:
-                from hermes_cli.goals import draft_contract
+                from lemon_cli.goals import draft_contract
 
                 # _run_in_executor_with_context, not a bare hop: drafting calls the auxiliary LLM,
                 # whose provider/credential resolution reads the profile secret scope — a
@@ -187,7 +187,7 @@ class GatewayGoalCommandsMixin:
         else:
             # Inline `field: value` lines parse into a completion contract; the remaining prose is
             # the goal headline. Plain free-form goals (no such lines) behave exactly as before.
-            from hermes_cli.goals import parse_contract
+            from lemon_cli.goals import parse_contract
             headline, parsed = parse_contract(args)
             args = headline or args
             contract = parsed if not parsed.is_empty() else None
@@ -212,7 +212,7 @@ class GatewayGoalCommandsMixin:
         """Handle /heartbeat (mirror of the CLI handler): the session's one recurring re-entry
         prompt. The gateway-wide poller injects due heartbeats through the adapter FIFO as
         ordinary user turns, so alternation and caching hold."""
-        from hermes_cli.heartbeat import parse_interval, format_interval, MIN_INTERVAL_SECONDS
+        from lemon_cli.heartbeat import parse_interval, format_interval, MIN_INTERVAL_SECONDS
         args = (event.get_command_args() or "").strip()
         lower = args.lower()
         mgr, _session_entry = await self._get_heartbeat_manager_for_event(event)
@@ -266,7 +266,7 @@ class GatewayGoalCommandsMixin:
         return (
             f"♥ Heartbeat set (every {format_interval(state.interval_seconds)}): {state.prompt}\n"
             "Fires as a normal turn whenever this session is idle and the interval has "
-            "elapsed. Lives while the gateway runs — use `hermes cron` for durable schedules."
+            "elapsed. Lives while the gateway runs — use `lemon cron` for durable schedules."
         )
 
     def _idle_cached_agent_or_error(self, event: MessageEvent, verb: str):
@@ -375,7 +375,7 @@ class GatewayGoalCommandsMixin:
     async def _handle_loop_command(self, event: MessageEvent) -> str:
         """Handle /loop — recurring in-session wakeups, via ``dispatch_loop_command`` (CLI mirror)."""
         try:
-            from hermes_cli.loops import LoopManager, dispatch_loop_command, goal_blocks_loop_tick
+            from lemon_cli.loops import LoopManager, dispatch_loop_command, goal_blocks_loop_tick
         except Exception as exc:
             logger.debug("loops module unavailable: %s", exc)
             return "Loops unavailable."

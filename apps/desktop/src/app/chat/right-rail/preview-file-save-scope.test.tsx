@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 
 vi.mock('@/app/chat/composer/focus', () => ({ requestComposerFocus() {}, requestComposerInsertRefs() {} }))
 vi.mock('@/app/chat/composer/inline-refs', () => ({ droppedFileInlineRef: () => '' }))
-vi.mock('@/app/chat/hooks/use-composer-actions', () => ({ HERMES_PATHS_MIME: 'fixture' }))
+vi.mock('@/app/chat/hooks/use-composer-actions', () => ({ LEMON_PATHS_MIME: 'fixture' }))
 vi.mock('@/components/assistant-ui/embeds', () => ({ RichCodeBlock: () => null }))
 vi.mock('@/components/chat/code-editor', () => ({
   CodeEditor: ({ initialValue, onChange }: { initialValue: string; onChange: (value: string) => void }) =>
@@ -32,7 +32,7 @@ import { LocalFilePreview } from './preview-file'
 
 afterEach(() => {
   cleanup()
-  Reflect.deleteProperty(window, 'hermesDesktop')
+  Reflect.deleteProperty(window, 'lemonDesktop')
   $connection.set(null)
   setApiRequestConnection(null)
 })
@@ -81,7 +81,7 @@ it.each([
     return Promise.resolve({ binary: false, text: 'baseline', truncated: false })
   }
 
-  Object.defineProperty(window, 'hermesDesktop', {
+  Object.defineProperty(window, 'lemonDesktop', {
     configurable: true,
     value: {
       api: vi.fn(async request => {
@@ -177,7 +177,7 @@ it('keeps a newer edit dirty when it arrives while the captured save is pending'
 
   let releaseWrite: (value: unknown) => void = () => {}
 
-  Object.defineProperty(window, 'hermesDesktop', {
+  Object.defineProperty(window, 'lemonDesktop', {
     configurable: true,
     value: {
       api: vi.fn(async request => {

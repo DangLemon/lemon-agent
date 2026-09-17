@@ -8,7 +8,7 @@
  * Extracted from updates-overlay.tsx so the wording logic is unit-testable.
  */
 
-import { type AppBrand, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { type AppBrand, replaceLemonBrandTerms } from '@/lib/app-brand'
 
 export type UpdateTarget = 'client' | 'backend'
 
@@ -59,7 +59,7 @@ export function brandUpdateCopy<T>(copy: T, brand: AppBrand): T {
   for (const [key, value] of Object.entries(copy)) {
     branded[key] =
       typeof value === 'string'
-        ? replaceHermesBrandTerms(value, brand)
+        ? replaceLemonBrandTerms(value, brand)
         : value && typeof value === 'object'
           ? brandUpdateCopy(value, brand)
           : value

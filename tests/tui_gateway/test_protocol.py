@@ -25,14 +25,14 @@ def server():
     # The sys.modules mocks only need to cover the *initial* import — once
     # tui_gateway.server is cached, they are inert. Keeping them active for
     # the whole test poisons any module first imported inside a test body:
-    # e.g. hermes_cli.active_sessions would bind the mocked get_hermes_home
+    # e.g. lemon_cli.active_sessions would bind the mocked get_lemon_home
     # (a fixed shared path) forever, leaking active-session registry entries
     # across every later test in the process. Scope the patch to the import.
     with patch.dict("sys.modules", {
-        "hermes_constants": MagicMock(get_hermes_home=MagicMock(return_value="/tmp/hermes_test")),
-        "hermes_cli.env_loader": MagicMock(),
-        "hermes_cli.banner": MagicMock(),
-        "hermes_state": MagicMock(),
+        "lemon_constants": MagicMock(get_lemon_home=MagicMock(return_value="/tmp/lemon_test")),
+        "lemon_cli.env_loader": MagicMock(),
+        "lemon_cli.banner": MagicMock(),
+        "lemon_state": MagicMock(),
     }):
         import importlib
         mod = importlib.import_module("tui_gateway.server")
@@ -256,21 +256,21 @@ def test_live_session_payload_replays_pending_clarify(server):
 
 
 def test_disable_flush_env_var_actually_wires_to_module_constant(monkeypatch):
-    """End-to-end: setting `HERMES_TUI_GATEWAY_NO_FLUSH=1` and importing
+    """End-to-end: setting `LEMON_TUI_GATEWAY_NO_FLUSH=1` and importing
     `tui_gateway.transport` fresh actually flips `_DISABLE_FLUSH` true.
 
     Reloads only the transport module — server.py is untouched so its
     atexit hooks/worker pool stay intact."""
     import importlib
 
-    monkeypatch.setenv("HERMES_TUI_GATEWAY_NO_FLUSH", "1")
+    monkeypatch.setenv("LEMON_TUI_GATEWAY_NO_FLUSH", "1")
     transport_mod = importlib.reload(importlib.import_module("tui_gateway.transport"))
 
     try:
         assert transport_mod._DISABLE_FLUSH is True
     finally:
         # Restore the env-disabled state so other tests see the default.
-        monkeypatch.delenv("HERMES_TUI_GATEWAY_NO_FLUSH", raising=False)
+        monkeypatch.delenv("LEMON_TUI_GATEWAY_NO_FLUSH", raising=False)
         importlib.reload(transport_mod)
 
 
@@ -831,7 +831,7 @@ def test_session_resume_deferred_and_omitted_paths_guard_the_tip_only(server, mo
         def assert_resume_safe(self, sid, max_messages=None, *, tip_only=False):
             calls.append(tip_only)
             if not tip_only:
-                from hermes_state import SessionResumeTooLargeError
+                from lemon_state import SessionResumeTooLargeError
 
                 raise SessionResumeTooLargeError(20_001, 20_000)
             return 666
@@ -873,7 +873,7 @@ def test_deferred_hydration_falls_back_to_tip_when_lineage_exceeds_limit(server,
     """The hydration worker never loads a lineage the guard would refuse."""
     import threading
 
-    from hermes_state import SessionResumeTooLargeError
+    from lemon_state import SessionResumeTooLargeError
 
     tip = [{"role": "user", "content": "tip"}]
     reads = []
@@ -1067,10 +1067,10 @@ def test_enforce_session_cap_evicts_oldest_detached_only(server, monkeypatch):
 def test_sync_session_key_after_compress_reanchors_active_session_lease(
     server, monkeypatch, tmp_path
 ):
-    home = tmp_path / ".hermes"
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    home = tmp_path / ".lemon-ai"
+    monkeypatch.setenv("LEMON_HOME", str(home))
 
-    from hermes_cli.active_sessions import (
+    from lemon_cli.active_sessions import (
         active_session_registry_snapshot,
         try_acquire_active_session,
     )
@@ -1119,7 +1119,7 @@ def test_make_agent_accepts_list_system_prompt(server, monkeypatch):
     monkeypatch.setitem(sys.modules, "run_agent", types.SimpleNamespace(AIAgent=_Agent))
     monkeypatch.setitem(
         sys.modules,
-        "hermes_cli.runtime_provider",
+        "lemon_cli.runtime_provider",
         types.SimpleNamespace(
             resolve_runtime_provider=lambda **_kwargs: {
                 "provider": "test",
@@ -1142,7 +1142,7 @@ def test_make_agent_accepts_list_system_prompt(server, monkeypatch):
 
 
 def test_config_roundtrip(server, tmp_path):
-    server._hermes_home = tmp_path
+    server._lemon_home = tmp_path
     server._save_cfg({"model": "test/model"})
     assert server._load_cfg()["model"] == "test/model"
 
@@ -1171,13 +1171,13 @@ def test_slash_exec_rejects_skill_commands(server):
     server._sessions[sid] = {"session_key": sid, "agent": None}
 
     # Mock scan_skill_commands to return a known skill
-    fake_skills = {"/hermes-agent-dev": {"name": "hermes-agent-dev", "description": "Dev workflow"}}
+    fake_skills = {"/lemon-agent-dev": {"name": "lemon-agent-dev", "description": "Dev workflow"}}
 
     with patch("agent.skill_commands.get_skill_commands", return_value=fake_skills):
         resp = server.handle_request({
             "id": "r1",
             "method": "slash.exec",
-            "params": {"command": "hermes-agent-dev", "session_id": sid},
+            "params": {"command": "lemon-agent-dev", "session_id": sid},
         })
 
     # Should return an error so the TUI's .catch() fires command.dispatch
@@ -1188,7 +1188,7 @@ def test_slash_exec_rejects_skill_commands(server):
 
 def test_slash_exec_scopes_skill_lookup_to_session_profile(server, tmp_path):
     """slash.exec must resolve get_skill_commands() against the session's own
-    profile_home rather than the gateway process's ambient HERMES_HOME
+    profile_home rather than the gateway process's ambient LEMON_HOME
     (#88023). A Desktop session that switches profiles mid-session shares
     the same gateway process, so a skill declared only under the new
     profile's skills.external_dirs must still be recognized here — else the
@@ -1231,7 +1231,7 @@ def test_slash_exec_scopes_skill_lookup_to_session_profile(server, tmp_path):
             "params": {"command": "b-only", "session_id": sid},
         })
 
-    # The gateway's own HERMES_HOME (the test-isolation tempdir, no
+    # The gateway's own LEMON_HOME (the test-isolation tempdir, no
     # skills.external_dirs) has no "b-only" skill — the only way this
     # resolves is by scoping the lookup to the session's profile_home.
     assert "error" in resp
@@ -1328,17 +1328,17 @@ def test_voice_and_wake_handlers_are_pool_routed(voice_or_wake_method, server):
 
 
 def test_skin_live_switch_end_to_end(server, tmp_path, monkeypatch):
-    """Real config + skin files: activating a skin (as `hermes config set` does)
+    """Real config + skin files: activating a skin (as `lemon config set` does)
     makes the per-tool reconcile broadcast skin.changed with the resolved palette.
     Exercises _load_cfg → _skin_sig → resolve_skin → _emit with no mocks in between."""
-    import hermes_cli.skin_engine as skin_engine
+    import lemon_cli.skin_engine as skin_engine
 
     (tmp_path / "skins").mkdir()
     (tmp_path / "skins" / "midnight.yaml").write_text(
         "name: midnight\ndescription: t\ncolors:\n  banner_title: '#00ffcc'\n  background: '#001010'\n"
     )
-    monkeypatch.setattr(skin_engine, "get_hermes_home", lambda: tmp_path)
-    monkeypatch.setattr(server, "_hermes_home", tmp_path)
+    monkeypatch.setattr(skin_engine, "get_lemon_home", lambda: tmp_path)
+    monkeypatch.setattr(server, "_lemon_home", tmp_path)
     monkeypatch.setattr(server, "_last_skin_sig", None, raising=False)
     server._cfg_cache = server._cfg_mtime = server._cfg_path = None
 
@@ -1350,7 +1350,7 @@ def test_skin_live_switch_end_to_end(server, tmp_path, monkeypatch):
     server._broadcast_skin_if_changed()
     emitted.clear()
 
-    # Activate midnight, as `hermes config set display.skin midnight` would.
+    # Activate midnight, as `lemon config set display.skin midnight` would.
     time.sleep(0.01)  # ensure the config mtime moves
     (tmp_path / "config.yaml").write_text("display:\n  skin: midnight\n", encoding="utf-8")
     server._broadcast_skin_if_changed()

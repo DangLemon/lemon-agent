@@ -3,10 +3,8 @@ import fs from 'node:fs'
 
 const readJson = file => JSON.parse(fs.readFileSync(new URL(file, import.meta.url), 'utf8'))
 const readText = file => fs.readFileSync(new URL(file, import.meta.url), 'utf8')
-const hermes = readJson('../src-tauri/tauri.conf.json')
-const lemon = readJson('../src-tauri/tauri.lemon.conf.json')
-assert.equal(hermes.productName, 'Hermes')
-assert.equal(hermes.identifier, 'com.nousresearch.hermes.setup')
+
+const lemon = readJson('../src-tauri/tauri.conf.json')
 assert.equal(lemon.productName, 'Lemon AI Setup')
 assert.equal(lemon.identifier, 'com.lemondigital.lemonai.setup')
 assert.equal(lemon.mainBinaryName, 'Lemon AI Setup')
@@ -21,20 +19,16 @@ assert.deepEqual(lemon.bundle.icon, [
   'icons/lemon-icon.icns',
   'icons/lemon-icon.ico'
 ])
-const hermesManifest = readText('../src-tauri/hermes-setup.manifest')
+
 const lemonManifest = readText('../src-tauri/lemon-ai-setup.manifest')
-assert.match(hermesManifest, /NousResearch\.Hermes\.Setup/)
 assert.match(lemonManifest, /LemonDigital\.LemonAI\.Setup/)
 assert.match(lemonManifest, /<description>Lemon AI Setup<\/description>/)
 const buildScript = readText('../src-tauri/build.rs')
-const tauriIdentity = readText('./tauri-with-identity.mjs')
-const lemonPlist = readText('../src-tauri/Info.lemon.plist')
-assert.match(buildScript, /HERMES_INSTALLER_BRAND/)
+assert.match(buildScript, /LEMON_INSTALLER_BRAND/)
 assert.match(buildScript, /lemon-ai-setup\.manifest/)
-assert.match(tauriIdentity, /infoPlist: 'Info\.lemon\.plist'/)
-assert.match(tauriIdentity, /signingIdentity: '-'/)
+const lemonPlist = readText('../src-tauri/Info.lemon.plist')
 assert.match(lemonPlist, /Lemon AI launches the desktop app/)
-assert.doesNotMatch(lemonPlist, /Hermes/)
+
 const store = readText('../src/store.ts')
 const update = readText('../src-tauri/src/update.rs')
 const posixUpdate = readText('../../../scripts/desktop-update/posix.sh')
@@ -47,4 +41,4 @@ assert.doesNotMatch(update, /Another Hermes update/)
 assert.doesNotMatch(update, /Close all Hermes windows/)
 assert.doesNotMatch(update, /Launch Hermes manually/)
 assert.doesNotMatch(posixUpdate, /Reinstall Hermes/)
-console.log('bootstrap installer branding profiles: ok')
+console.log('bootstrap installer Lemon identity: ok')

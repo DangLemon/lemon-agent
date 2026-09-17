@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { SessionInfo } from '@/hermes'
+import type { SessionInfo } from '@/lemon'
 import { switchBranchInRepo } from '@/store/projects'
 
 import {

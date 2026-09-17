@@ -132,18 +132,18 @@ def test_external_worker_adopts_execution_and_runs_payload_once(
         }),
         encoding="utf-8",
     )
-    from hermes_constants import get_hermes_home
+    from lemon_constants import get_lemon_home
 
     observed_homes = []
     adopted = Mock(
         side_effect=lambda execution_id: (
-            observed_homes.append(get_hermes_home().resolve())
+            observed_homes.append(get_lemon_home().resolve())
             or {"id": execution_id, "status": "running"}
         )
     )
     run = Mock(
         side_effect=lambda *_args, **_kwargs: (
-            observed_homes.append(get_hermes_home().resolve()) or True
+            observed_homes.append(get_lemon_home().resolve()) or True
         )
     )
     monkeypatch.setattr("cron.executions.adopt_claimed_execution", adopted)
@@ -190,7 +190,7 @@ def test_launch_external_worker_uses_restart_safe_scope_and_acknowledges(
     import cron.scheduler as scheduler
 
     job = {"id": "job-1", "execution_id": "exec-1", "prompt": "work"}
-    monkeypatch.setattr(scheduler, "_get_hermes_home", lambda: tmp_path)
+    monkeypatch.setattr(scheduler, "_get_lemon_home", lambda: tmp_path)
     wrapped_commands = []
 
     def wrap(command, *, unit_suffix):
@@ -362,7 +362,7 @@ def test_worker_delivery_queue_is_keyed_by_the_delivering_jobs_own_execution(
     monkeypatch, tmp_path
 ):
     """A nested in-process dispatch inside a worker (e.g. a script running
-    ``hermes cron run <other>``) must not queue under the OUTER execution id."""
+    ``lemon cron run <other>``) must not queue under the OUTER execution id."""
     import cron.scheduler as scheduler
     import cron.scheduler_delivery as scheduler_delivery
 
@@ -390,7 +390,7 @@ def test_worker_delivery_queue_is_keyed_by_the_delivering_jobs_own_execution(
     # First call the standalone (non-queue) path makes after the guard; the
     # failure is reported as the delivery error string.
     monkeypatch.setattr("gateway.config.load_gateway_config", _standalone)
-    monkeypatch.setenv("_HERMES_CRON_EXTERNAL_WORKER", "exec-outer")
+    monkeypatch.setenv("_LEMON_CRON_EXTERNAL_WORKER", "exec-outer")
 
     # Own attempt: routed through the durable queue.
     assert scheduler._deliver_result(
@@ -501,7 +501,7 @@ def test_managed_gateway_restart_preserves_active_worker_and_single_side_effect(
         "print('completed')\n",
         encoding="utf-8",
     )
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("LEMON_HOME", str(home))
     with use_cron_store(home):
         job = create_job(
             prompt=None,
@@ -547,7 +547,7 @@ def test_managed_gateway_restart_preserves_active_worker_and_single_side_effect(
 
     harness = (
         "import json, os, pathlib, time\n"
-        f"os.environ['HERMES_HOME'] = {str(home)!r}\n"
+        f"os.environ['LEMON_HOME'] = {str(home)!r}\n"
         "os.environ['INVOCATION_ID'] = 'restart-fixture'\n"
         "from cron import scheduler\n"
         "from tools import process_registry\n"

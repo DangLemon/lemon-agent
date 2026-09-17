@@ -1,6 +1,6 @@
 """Coding-context awareness: the single place that decides "are we coding?".
 
-In a code workspace on an interactive surface Hermes adopts a **coding posture**: a
+In a code workspace on an interactive surface Lemon AI adopts a **coding posture**: a
 frozen :class:`RuntimeMode` built from a :class:`ContextProfile` (pure data). The
 system prompt reads ``system_prompt_parts()``; the toolset collapses ONLY under opt-in
 ``focus`` (never strips a user-enabled toolset). ``agent.coding_context``: ``auto``
@@ -19,9 +19,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from hermes_cli._subprocess_compat import bounded_git_probe
+from lemon_cli._subprocess_compat import bounded_git_probe
 
-logger = logging.getLogger("hermes.coding_context")
+logger = logging.getLogger("lemon.coding_context")
 
 CODING_TOOLSET = "coding"
 
@@ -71,7 +71,7 @@ _EDIT_FORMAT_GUIDANCE: dict[str, tuple[tuple[str, ...], str]] = {
     "replace": (
         ("claude", "sonnet", "opus", "haiku",
          "gemini", "gemma", "deepseek", "qwen", "kimi", "glm", "grok",
-         "hermes", "llama", "mistral", "devstral", "minimax"),
+         "lemon", "llama", "mistral", "devstral", "minimax"),
         "- Edit format: author new files with `write_file`; for edits to "
         "existing code prefer `patch` in `mode='replace'` — match a unique "
         "snippet and swap it. Reach for `mode='patch'` (V4A) only when an edit "
@@ -79,7 +79,7 @@ _EDIT_FORMAT_GUIDANCE: dict[str, tuple[tuple[str, ...], str]] = {
     ),
 }
 
-# Operating brief. Tool names referenced here are in the coding toolset and _HERMES_CORE_TOOLS.
+# Operating brief. Tool names referenced here are in the coding toolset and _LEMON_CORE_TOOLS.
 CODING_AGENT_GUIDANCE = (
     "You are a coding agent pairing with the user inside their codebase. "
     "Operate like a careful senior engineer.\n"
@@ -181,7 +181,7 @@ def _agent_config_value(config: Optional[dict[str, Any]], key: str, default: Any
     """``config["agent"][key]``, loading config when none was passed."""
     if config is None:
         try:
-            from hermes_cli.config import load_config, load_config_readonly
+            from lemon_cli.config import load_config, load_config_readonly
             config = load_config_readonly() if readonly else load_config()
         except Exception:
             config = {}
@@ -279,8 +279,8 @@ def _detect_profile(mode: str, platform: str, cwd: Path) -> ContextProfile:
 def _enabled_mcp_servers(config: Optional[dict[str, Any]]) -> list[str]:
     """Names of MCP servers the user has enabled — kept in the coding posture."""
     try:
-        from hermes_cli.config import read_raw_config
-        from hermes_cli.tools_config import _parse_enabled_flag
+        from lemon_cli.config import read_raw_config
+        from lemon_cli.tools_config import _parse_enabled_flag
         servers = read_raw_config().get("mcp_servers") or {}
         return [
             str(name) for name, cfg in servers.items()
@@ -317,7 +317,7 @@ class RuntimeMode:
 
     def toolset_selection(self, config: Optional[dict[str, Any]] = None) -> Optional[list[str]]:
         """Toolset list (only under ``focus``), or ``None`` to keep the platform default. Callers
-        apply it only when the user hasn't pinned a selection (``--toolsets``, ``HERMES_TUI_TOOLSETS``)."""
+        apply it only when the user hasn't pinned a selection (``--toolsets``, ``LEMON_TUI_TOOLSETS``)."""
         if self.config_mode != "focus" or self.profile.toolset is None:
             return None
         return [self.profile.toolset, *_enabled_mcp_servers(config)]
@@ -384,7 +384,7 @@ def resolve_runtime_mode(
 # ── Functional API (thin wrappers over RuntimeMode) ──────────────────────────
 
 def is_coding_context(*, platform: Optional[str] = None, cwd: Optional[str | Path] = None, config: Optional[dict[str, Any]] = None) -> bool:
-    """Whether Hermes should operate in its coding posture right now."""
+    """Whether Lemon AI should operate in its coding posture right now."""
     return resolve_runtime_mode(platform=platform, cwd=cwd, config=config).is_coding
 
 

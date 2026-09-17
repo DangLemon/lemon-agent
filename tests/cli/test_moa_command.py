@@ -1,12 +1,12 @@
 import queue
 from unittest.mock import patch
 
-from cli import HermesCLI
-from hermes_cli.moa_config import decode_moa_turn
+from cli import LemonCLI
+from lemon_cli.moa_config import decode_moa_turn
 
 
 def _make_cli():
-    cli = HermesCLI.__new__(HermesCLI)
+    cli = LemonCLI.__new__(LemonCLI)
     cli.config = {
         "moa": {
             "default_preset": "default",

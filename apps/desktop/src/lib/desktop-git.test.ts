@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { setApiRequestConnection } from '@/hermes'
+import { setApiRequestConnection } from '@/lemon'
 import { $connection } from '@/store/session'
 
 import { desktopGit } from './desktop-git'
@@ -32,7 +32,7 @@ const api = vi.fn(async ({ path }: { path: string }) => {
 })
 
 function forceInternalHarnessForTest(): () => void {
-  const key = '__HERMES_DESKTOP_HARNESS__'
+  const key = '__LEMON_DESKTOP_HARNESS__'
   const previous = Object.getOwnPropertyDescriptor(globalThis, key)
 
   Object.defineProperty(globalThis, key, {
@@ -53,7 +53,7 @@ function forceInternalHarnessForTest(): () => void {
 
 describe('desktop git facade', () => {
   beforeEach(() => {
-    vi.stubGlobal('window', { hermesDesktop: { api, git: localGit } })
+    vi.stubGlobal('window', { lemonDesktop: { api, git: localGit } })
     $connection.set(null)
   })
 

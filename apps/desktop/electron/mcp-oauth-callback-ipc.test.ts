@@ -30,7 +30,7 @@ test('callback page can use the internal desktop product name', () => {
   const html = mcpOauthDoneHtml('Lemon AI')
 
   assert.match(html, /return to Lemon AI/)
-  assert.doesNotMatch(html, /return to Hermes/)
+  assert.doesNotMatch(html, /return to Lemon AI/)
 })
 
 async function freePort(host = '127.0.0.1'): Promise<number> {
@@ -54,11 +54,11 @@ const invoke = (channel: string, ...args: unknown[]) => {
 }
 
 test('listen binds a loopback listener and wait resolves with the redirect params', async () => {
-  const { id, redirectUri } = (await invoke('hermes:mcp-oauth:listen')) as { id: string; redirectUri: string }
+  const { id, redirectUri } = (await invoke('lemon:mcp-oauth:listen')) as { id: string; redirectUri: string }
 
   assert.match(redirectUri, /^http:\/\/127\.0\.0\.1:\d+\/callback$/)
 
-  const waitPromise = invoke('hermes:mcp-oauth:wait', id, 5000) as Promise<{
+  const waitPromise = invoke('lemon:mcp-oauth:wait', id, 5000) as Promise<{
     code: null | string
     error: null | string
     state: null | string
@@ -67,7 +67,7 @@ test('listen binds a loopback listener and wait resolves with the redirect param
   const res = await fetch(`${redirectUri}?code=abc123&state=st-1`)
 
   assert.equal(res.status, 200)
-  assert.match(await res.text(), /return to Hermes/)
+  assert.match(await res.text(), /return to Lemon AI/)
 
   const result = await waitPromise
 
@@ -80,14 +80,14 @@ test('listen binds a loopback listener and wait resolves with the redirect param
 })
 
 test('non-callback noise (favicon) does not settle the listener', async () => {
-  const { id, redirectUri } = (await invoke('hermes:mcp-oauth:listen')) as { id: string; redirectUri: string }
+  const { id, redirectUri } = (await invoke('lemon:mcp-oauth:listen')) as { id: string; redirectUri: string }
   const origin = redirectUri.replace(/\/callback$/, '')
 
   const res = await fetch(`${origin}/favicon.ico`)
 
   assert.equal(res.status, 200)
 
-  const waitPromise = invoke('hermes:mcp-oauth:wait', id, 5000) as Promise<{ code: null | string }>
+  const waitPromise = invoke('lemon:mcp-oauth:wait', id, 5000) as Promise<{ code: null | string }>
 
   await fetch(`${redirectUri}?code=late-code&state=s`)
 
@@ -97,9 +97,9 @@ test('non-callback noise (favicon) does not settle the listener', async () => {
 })
 
 test('provider error param is forwarded', async () => {
-  const { id, redirectUri } = (await invoke('hermes:mcp-oauth:listen')) as { id: string; redirectUri: string }
+  const { id, redirectUri } = (await invoke('lemon:mcp-oauth:listen')) as { id: string; redirectUri: string }
 
-  const waitPromise = invoke('hermes:mcp-oauth:wait', id, 5000) as Promise<{
+  const waitPromise = invoke('lemon:mcp-oauth:wait', id, 5000) as Promise<{
     code: null | string
     error: null | string
   }>
@@ -113,21 +113,21 @@ test('provider error param is forwarded', async () => {
 })
 
 test('cancel tears the listener down and wait reports listener not found afterwards', async () => {
-  const { id, redirectUri } = (await invoke('hermes:mcp-oauth:listen')) as { id: string; redirectUri: string }
+  const { id, redirectUri } = (await invoke('lemon:mcp-oauth:listen')) as { id: string; redirectUri: string }
 
-  assert.equal(await invoke('hermes:mcp-oauth:cancel', id), true)
+  assert.equal(await invoke('lemon:mcp-oauth:cancel', id), true)
 
   await assert.rejects(fetch(`${redirectUri}?code=x&state=s`))
 
-  const result = (await invoke('hermes:mcp-oauth:wait', id, 100)) as { error: null | string }
+  const result = (await invoke('lemon:mcp-oauth:wait', id, 100)) as { error: null | string }
 
   assert.equal(result.error, 'listener not found')
 })
 
 test('wait times out when no callback arrives', async () => {
-  const { id } = (await invoke('hermes:mcp-oauth:listen')) as { id: string }
+  const { id } = (await invoke('lemon:mcp-oauth:listen')) as { id: string }
 
-  const result = (await invoke('hermes:mcp-oauth:wait', id, 1000)) as { code: null | string; error: null | string }
+  const result = (await invoke('lemon:mcp-oauth:wait', id, 1000)) as { code: null | string; error: null | string }
 
   assert.equal(result.code, null)
   assert.match(String(result.error), /timeout/)
@@ -137,7 +137,7 @@ test('listen can bind an exact loopback redirect URI and ignores wrong path/stat
   const port = await freePort()
   const expectedRedirectUri = `http://localhost:${port}/auth/callback`
 
-  const { id, redirectUri } = (await invoke('hermes:mcp-oauth:listen', {
+  const { id, redirectUri } = (await invoke('lemon:mcp-oauth:listen', {
     redirectUri: expectedRedirectUri,
     expectedState: 'expected-state'
   })) as { id: string; redirectUri: string }
@@ -150,7 +150,7 @@ test('listen can bind an exact loopback redirect URI and ignores wrong path/stat
   const wrongState = await fetch(`${redirectUri}?code=nope&state=wrong-state`)
   assert.equal(wrongState.status, 400)
 
-  const waitPromise = invoke('hermes:mcp-oauth:wait', id, 5000) as Promise<{
+  const waitPromise = invoke('lemon:mcp-oauth:wait', id, 5000) as Promise<{
     code: null | string
     error: null | string
     state: null | string
@@ -169,7 +169,7 @@ test('listen can bind an exact loopback redirect URI and ignores wrong path/stat
 
 test('concurrent listener starts cannot exceed the pending listener cap', async () => {
   const listeners = await Promise.allSettled(
-    Array.from({ length: 9 }, () => invoke('hermes:mcp-oauth:listen') as Promise<{ id: string; redirectUri: string }>)
+    Array.from({ length: 9 }, () => invoke('lemon:mcp-oauth:listen') as Promise<{ id: string; redirectUri: string }>)
   )
 
   const fulfilled = listeners.filter(
@@ -184,7 +184,7 @@ test('concurrent listener starts cannot exceed the pending listener cap', async 
   assert.equal(rejected.length, 1)
   assert.match(String(rejected[0]!.reason), /Too many MCP OAuth listeners/)
 
-  await Promise.all(fulfilled.map(result => invoke('hermes:mcp-oauth:cancel', result.value.id)))
+  await Promise.all(fulfilled.map(result => invoke('lemon:mcp-oauth:cancel', result.value.id)))
 })
 
 test('listen can bind an exact IPv6 loopback redirect URI when the host supports it', async () => {
@@ -198,14 +198,14 @@ test('listen can bind an exact IPv6 loopback redirect URI when the host supports
 
   const expectedRedirectUri = `http://[::1]:${port}/auth/callback`
 
-  const { id, redirectUri } = (await invoke('hermes:mcp-oauth:listen', {
+  const { id, redirectUri } = (await invoke('lemon:mcp-oauth:listen', {
     redirectUri: expectedRedirectUri,
     expectedState: 'ipv6-state'
   })) as { id: string; redirectUri: string }
 
   assert.equal(redirectUri, expectedRedirectUri)
 
-  const waitPromise = invoke('hermes:mcp-oauth:wait', id, 5000) as Promise<{
+  const waitPromise = invoke('lemon:mcp-oauth:wait', id, 5000) as Promise<{
     code: null | string
     error: null | string
     state: null | string
@@ -223,7 +223,7 @@ test('listener lifetime timeout frees the port and pending slot when wait is nev
   const port = await freePort()
   const redirectUri = `http://127.0.0.1:${port}/auth/callback`
 
-  const first = (await invoke('hermes:mcp-oauth:listen', { redirectUri, timeoutMs: 1000 })) as {
+  const first = (await invoke('lemon:mcp-oauth:listen', { redirectUri, timeoutMs: 1000 })) as {
     id: string
     redirectUri: string
   }
@@ -233,11 +233,11 @@ test('listener lifetime timeout frees the port and pending slot when wait is nev
   await new Promise(resolve => setTimeout(resolve, 1200))
   await assert.rejects(fetch(`${redirectUri}?code=late&state=s`))
 
-  const second = (await invoke('hermes:mcp-oauth:listen', { redirectUri, timeoutMs: 1000 })) as {
+  const second = (await invoke('lemon:mcp-oauth:listen', { redirectUri, timeoutMs: 1000 })) as {
     id: string
     redirectUri: string
   }
 
   assert.equal(second.redirectUri, redirectUri)
-  await invoke('hermes:mcp-oauth:cancel', second.id)
+  await invoke('lemon:mcp-oauth:cancel', second.id)
 })

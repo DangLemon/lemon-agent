@@ -5,15 +5,15 @@ export interface GitBashOptions {
   env: Record<string, string | undefined>
   fileExists: (filePath: string) => boolean
   findOnPath?: (command: string) => string | null
-  hermesHome?: string
+  lemonHome?: string
   localAppDataProductDirs?: string[]
 }
 
 /**
  * Locate bash.exe on Windows.
  * Resolution order (first match wins):
- *   1. HERMES_GIT_BASH_PATH env var override
- *   2. PortableGit under the selected HERMES_HOME
+ *   1. LEMON_GIT_BASH_PATH env var override
+ *   2. PortableGit under the selected LEMON_HOME
  *   3. PortableGit under branded %LOCALAPPDATA% product dirs
  *   4. Standard Git for Windows install locations
  *   5. %LOCALAPPDATA%\Programs\Git\ (user-scoped)
@@ -26,8 +26,8 @@ export function findGitBash(opts: GitBashOptions): string | null {
     return findOnPath ? findOnPath('bash') : null
   }
 
-  // Respect HERMES_GIT_BASH_PATH if set (mirrors tools/environments/local.py:_find_bash).
-  const gitBashPath = env.HERMES_GIT_BASH_PATH
+  // Respect LEMON_GIT_BASH_PATH if set (mirrors tools/environments/local.py:_find_bash).
+  const gitBashPath = env.LEMON_GIT_BASH_PATH
 
   if (gitBashPath && fileExists(gitBashPath)) {
     return gitBashPath
@@ -41,9 +41,9 @@ export function findGitBash(opts: GitBashOptions): string | null {
   const joinWin = path.win32.join
 
   const productHomes = [
-    opts.hermesHome,
+    opts.lemonHome,
     ...(localAppData
-      ? (opts.localAppDataProductDirs?.length ? opts.localAppDataProductDirs : ['hermes']).map(name =>
+      ? (opts.localAppDataProductDirs?.length ? opts.localAppDataProductDirs : ['lemon']).map(name =>
           joinWin(localAppData, name)
         )
       : [])

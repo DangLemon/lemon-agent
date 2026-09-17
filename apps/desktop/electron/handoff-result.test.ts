@@ -46,12 +46,12 @@ test('reports each result at most once', () => {
   assert.equal(readAndConsumeHandoffResult(home), null)
 })
 
-test('Lemon AI result filename is primary while legacy Hermes result is consumed as fallback', () => {
+test('Lemon AI result filename is primary while legacy Lemon AI result is consumed as fallback', () => {
   const home = tempHome()
   const resultName = '.lemon-ai-update-result.json'
-  const legacyResultNames = ['.hermes-update-result.json']
+  const legacyResultNames = ['.lemon-ai-update-result.json']
 
-  writeNamed(home, '.hermes-update-result.json', {
+  writeNamed(home, '.lemon-ai-update-result.json', {
     ok: false,
     exit_code: 9,
     message: 'legacy handoff failed',
@@ -110,7 +110,7 @@ test('manual flag survives the round trip and defaults false', () => {
     ok: true,
     exit_code: 0,
     manual: true,
-    message: 'Update complete. Reopen Hermes to finish (it could not restart itself).',
+    message: 'Update complete. Reopen Lemon AI to finish (it could not restart itself).',
     branch: 'main',
     finished_at: Math.floor(Date.now() / 1000)
   })
@@ -142,7 +142,7 @@ test('an old manual result survives the freshness window but an old ordinary one
     ok: true,
     exit_code: 0,
     manual: true,
-    message: 'Update complete. Reopen Hermes to finish (it could not restart itself).',
+    message: 'Update complete. Reopen Lemon AI to finish (it could not restart itself).',
     branch: 'main',
     finished_at: stale
   })

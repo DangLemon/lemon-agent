@@ -321,7 +321,7 @@ function executableName(command: string): string {
 function siblingPythonForCommand(command: string): string | null {
   const name = executableName(command)
 
-  if (!/^hermes(?:\.exe|\.cmd|\.bat)?$/i.test(name)) {return null}
+  if (!/^lemon(?:\.exe|\.cmd|\.bat)?$/i.test(name)) {return null}
 
   const directory = path.dirname(command)
 
@@ -340,7 +340,7 @@ function splitShebang(line: string): string[] {
 function shebangPythonForCommand(command: string): { command: string; argsPrefix: string[] } | null {
   const name = executableName(command)
 
-  if (!/^hermes(?:\.exe|\.cmd|\.bat)?$/i.test(name)) {return null}
+  if (!/^lemon(?:\.exe|\.cmd|\.bat)?$/i.test(name)) {return null}
 
   let script = command
 
@@ -384,21 +384,21 @@ function pythonFromBackendRoot(root: string | undefined): string | null {
   return candidates.find(candidate => fs.existsSync(candidate)) ?? null
 }
 
-function seedArgs(seedScriptPath: string, { hermesHome, profile, resourcePath }: { hermesHome: string; profile?: null | string; resourcePath: string }): string[] {
-  const homeFlag = path.basename(seedScriptPath) === LEGACY_HARNESS_SEED_FILENAME ? '--hermes-home' : '--lemon-home'
+function seedArgs(seedScriptPath: string, { lemonHome, profile, resourcePath }: { lemonHome: string; profile?: null | string; resourcePath: string }): string[] {
+  const homeFlag = path.basename(seedScriptPath) === LEGACY_HARNESS_SEED_FILENAME ? '--lemon-home' : '--lemon-home'
 
-  return [seedScriptPath, '--resource', resourcePath, homeFlag, hermesHome, '--profile', String(profile || '')]
+  return [seedScriptPath, '--resource', resourcePath, homeFlag, lemonHome, '--profile', String(profile || '')]
 }
 
 export function buildInternalDesktopInitialProviderSeedInvocation(
   backend: { args?: string[]; command?: string; kind?: string; root?: string; shell?: boolean },
   seedScriptPath: string,
-  options: { hermesHome: string; profile?: null | string; resourcePath: string }
+  options: { lemonHome: string; profile?: null | string; resourcePath: string }
 ): { command: string; args: string[]; shell: boolean } {
   if (!backend.command) {fail('cannot seed initial provider without a backend command')}
 
   const backendArgs = Array.isArray(backend.args) ? backend.args : []
-  const moduleIndex = backendArgs.findIndex((arg, index) => arg === '-m' && backendArgs[index + 1] === 'hermes_cli.main')
+  const moduleIndex = backendArgs.findIndex((arg, index) => arg === '-m' && backendArgs[index + 1] === 'lemon_cli.main')
 
   if (moduleIndex >= 0) {
     return {
@@ -439,7 +439,7 @@ export async function runInternalDesktopInitialProviderSeed(
     backend,
     environment = process['env'],
     execFile: run = execFileAsync,
-    hermesHome,
+    lemonHome,
     profile,
     resourcePath,
     seedScriptPath
@@ -447,7 +447,7 @@ export async function runInternalDesktopInitialProviderSeed(
     backend: { args?: string[]; command?: string; env?: Record<string, string>; kind?: string; root?: string; shell?: boolean }
     environment?: NodeJS.ProcessEnv | Record<string, string | undefined>
     execFile?: InternalDesktopSeedExec
-    hermesHome: string
+    lemonHome: string
     profile?: null | string
     resourcePath: string
     seedScriptPath: string | null
@@ -460,18 +460,17 @@ export async function runInternalDesktopInitialProviderSeed(
   if (!seedScriptPath) {fail('initial provider seed helper is missing')}
 
   const invocation = buildInternalDesktopInitialProviderSeedInvocation(backend, seedScriptPath, {
-    hermesHome,
+    lemonHome,
     profile,
     resourcePath
   })
 
   await run(invocation.command, invocation.args, {
-    cwd: backend.root || hermesHome,
+    cwd: backend.root || lemonHome,
     env: {
       ...environment,
       ...(backend['env'] || {}),
-      LEMON_AI_HOME: hermesHome,
-      HERMES_HOME: hermesHome
+      LEMON_HOME: lemonHome,
     },
     shell: invocation.shell,
     timeout: INITIAL_PROVIDER_SEED_TIMEOUT_MS

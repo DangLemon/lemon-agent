@@ -1,6 +1,6 @@
-"""Tests for the secret-source tracking in ``hermes_cli.env_loader``.
+"""Tests for the secret-source tracking in ``lemon_cli.env_loader``.
 
-These cover the small public surface that lets `hermes model` / `hermes setup`
+These cover the small public surface that lets `lemon model` / `lemon setup`
 label detected credentials with their origin ("from Bitwarden") so users
 don't see an unexplained "credentials ✓" line when their .env is empty.
 """
@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from hermes_cli import env_loader  # noqa: E402
+from lemon_cli import env_loader  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -99,7 +99,7 @@ def test_apply_external_secret_sources_records_bitwarden_origin(tmp_path, monkey
     """End-to-end: when the Bitwarden source fetches keys, applied vars
     end up in ``_SECRET_SOURCES`` so the UI can label them."""
 
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("LEMON_HOME", str(tmp_path))
     monkeypatch.setenv("BWS_ACCESS_TOKEN", "0.test-token")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     config_path = tmp_path / "config.yaml"
@@ -181,27 +181,27 @@ def test_single_profile_scoped_load_keeps_override_behavior(tmp_path, monkeypatc
     not on the home override alone -- single-profile ``-p`` runs still load.
     """
     from agent import secret_scope
-    from hermes_constants import reset_hermes_home_override, set_hermes_home_override
+    from lemon_constants import reset_lemon_home_override, set_lemon_home_override
 
-    monkeypatch.delenv("HERMES_TEST_SHARED_ADAPTER_CONFIG", raising=False)
+    monkeypatch.delenv("LEMON_TEST_SHARED_ADAPTER_CONFIG", raising=False)
     other_home = tmp_path / "other"
     other_home.mkdir()
-    (other_home / ".env").write_text("HERMES_TEST_SHARED_ADAPTER_CONFIG=second\n")
+    (other_home / ".env").write_text("LEMON_TEST_SHARED_ADAPTER_CONFIG=second\n")
 
     was_active = secret_scope.is_multiplex_active()
     secret_scope.set_multiplex_active(False)
-    home_token = set_hermes_home_override(other_home)
+    home_token = set_lemon_home_override(other_home)
     try:
-        loaded = env_loader.load_hermes_dotenv(hermes_home=other_home)
+        loaded = env_loader.load_lemon_dotenv(lemon_home=other_home)
     finally:
         secret_scope.set_multiplex_active(was_active)
-        reset_hermes_home_override(home_token)
+        reset_lemon_home_override(home_token)
 
     try:
-        assert os.environ.get("HERMES_TEST_SHARED_ADAPTER_CONFIG") == "second"
+        assert os.environ.get("LEMON_TEST_SHARED_ADAPTER_CONFIG") == "second"
         assert (other_home / ".env") in loaded
     finally:
-        os.environ.pop("HERMES_TEST_SHARED_ADAPTER_CONFIG", None)
+        os.environ.pop("LEMON_TEST_SHARED_ADAPTER_CONFIG", None)
 
 
 def test_multiplex_dotenv_load_hydrates_sources_without_global_env(
@@ -211,9 +211,9 @@ def test_multiplex_dotenv_load_hydrates_sources_without_global_env(
     from agent import secret_scope
     import agent.secret_sources.bitwarden as bw_module
     from agent.secret_sources import registry as reg_module
-    from hermes_constants import (
-        reset_hermes_home_override,
-        set_hermes_home_override,
+    from lemon_constants import (
+        reset_lemon_home_override,
+        set_lemon_home_override,
     )
 
     monkeypatch.delenv("BWS_ACCESS_TOKEN", raising=False)
@@ -238,13 +238,13 @@ def test_multiplex_dotenv_load_hydrates_sources_without_global_env(
     reg_module._reset_registry_for_tests()
 
     was_active = secret_scope.is_multiplex_active()
-    home_token = set_hermes_home_override(tmp_path)
+    home_token = set_lemon_home_override(tmp_path)
     secret_scope.set_multiplex_active(True)
     try:
-        assert env_loader.load_hermes_dotenv(hermes_home=tmp_path) == []
+        assert env_loader.load_lemon_dotenv(lemon_home=tmp_path) == []
     finally:
         secret_scope.set_multiplex_active(was_active)
-        reset_hermes_home_override(home_token)
+        reset_lemon_home_override(home_token)
 
     assert env_loader.get_secret_source_values(tmp_path) == {
         "ANTHROPIC_API_KEY": "profile-provider-key"
@@ -256,7 +256,7 @@ def test_multiplex_dotenv_load_hydrates_sources_without_global_env(
 def test_cold_profile_hydration_seeds_op_env_bootstrap(tmp_path, monkeypatch):
     """The .op.env bootstrap file must feed cold-profile hydration.
 
-    load_hermes_dotenv() reads <home>/.op.env for OP_SERVICE_ACCOUNT_TOKEN
+    load_lemon_dotenv() reads <home>/.op.env for OP_SERVICE_ACCOUNT_TOKEN
     (the documented gitignored 1Password bootstrap); hydration must mirror
     that or a cold profile using the supported .op.env flow fails 1Password
     resolution (sweeper review on #74549). .env wins on conflict.
@@ -328,7 +328,7 @@ def test_cold_profile_hydration_dotenv_wins_over_op_env(tmp_path, monkeypatch):
 def test_apply_external_secret_sources_noop_when_disabled(tmp_path, monkeypatch):
     """Disabled Bitwarden config must not touch the source map."""
 
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("LEMON_HOME", str(tmp_path))
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
         "secrets:\n"
@@ -343,15 +343,15 @@ def test_apply_external_secret_sources_noop_when_disabled(tmp_path, monkeypatch)
 
 
 def test_apply_external_secret_sources_dedupes_within_process(tmp_path, monkeypatch):
-    """``load_hermes_dotenv()`` is called at module-import time from several
-    hot modules (cli.py, hermes_cli/main.py, run_agent.py, ...).  The
+    """``load_lemon_dotenv()`` is called at module-import time from several
+    hot modules (cli.py, lemon_cli/main.py, run_agent.py, ...).  The
     Bitwarden status line previously printed once per call — 3-5x per
     startup.  The applied-home guard must short-circuit subsequent calls
     so the heavy work (config re-parse, Bitwarden lookup, status print)
-    runs exactly once per HERMES_HOME per process.
+    runs exactly once per LEMON_HOME per process.
     """
 
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("LEMON_HOME", str(tmp_path))
     monkeypatch.setenv("BWS_ACCESS_TOKEN", "0.test-token")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     config_path = tmp_path / "config.yaml"
@@ -378,7 +378,7 @@ def test_apply_external_secret_sources_dedupes_within_process(tmp_path, monkeypa
     reg_module._reset_registry_for_tests()
 
     # Five calls in a row, simulating module-import-time invocations from
-    # cli.py, hermes_cli/main.py, run_agent.py, trajectory_compressor.py,
+    # cli.py, lemon_cli/main.py, run_agent.py, trajectory_compressor.py,
     # gateway/run.py.  Only the first should actually call the backend.
     for _ in range(5):
         env_loader._apply_external_secret_sources(tmp_path)
@@ -403,7 +403,7 @@ def test_apply_external_secret_sources_dedupes_within_process(tmp_path, monkeypa
 def test_apply_external_secret_sources_status_line_suppresses_secret_names(
     tmp_path, monkeypatch, capsys
 ):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("LEMON_HOME", str(tmp_path))
     monkeypatch.setenv("BWS_ACCESS_TOKEN", "0.test-token")
     monkeypatch.delenv("LEAK_THIS_API_KEY", raising=False)
     monkeypatch.delenv("LEAK_THIS_TOKEN", raising=False)
@@ -514,7 +514,7 @@ def test_apply_external_secret_sources_records_onepassword_origin(tmp_path, monk
     """When the 1Password source resolves refs, applied vars end up in
     ``_SECRET_SOURCES`` labeled ``onepassword``."""
 
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("LEMON_HOME", str(tmp_path))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     (tmp_path / "config.yaml").write_text(
         "secrets:\n"
@@ -552,10 +552,10 @@ def test_apply_external_secret_sources_survives_non_dict_section(tmp_path, monke
 
     Both `onepassword: true` (non-dict) and a bad bitwarden section must be
     coerced to empty config instead of raising AttributeError up through
-    load_hermes_dotenv().
+    load_lemon_dotenv().
     """
 
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("LEMON_HOME", str(tmp_path))
     (tmp_path / "config.yaml").write_text(
         "secrets:\n"
         "  bitwarden: true\n"
@@ -571,7 +571,7 @@ def test_apply_external_secret_sources_survives_non_dict_section(tmp_path, monke
 def test_apply_external_secret_sources_bad_ttl_does_not_crash(tmp_path, monkeypatch):
     """A non-numeric cache_ttl_seconds must be coerced, not crash startup."""
 
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("LEMON_HOME", str(tmp_path))
     (tmp_path / "config.yaml").write_text(
         "secrets:\n"
         "  onepassword:\n"

@@ -41,11 +41,11 @@ describe('internal company static harness capabilities', () => {
 
   it('lets static env flags opt into advanced harness surfaces and terminal visibility', () => {
     const ui = harnessUiFlagsFromEnv({
-      VITE_HERMES_HARNESS_SHOW_AGENTS: '1',
-      VITE_HERMES_HARNESS_SHOW_CRON: 'false',
-      VITE_HERMES_HARNESS_SHOW_MESSAGING: 'true',
-      VITE_HERMES_HARNESS_SHOW_TERMINAL: '0',
-      VITE_HERMES_HARNESS_SHOW_WEBHOOKS: 'yes'
+      VITE_LEMON_HARNESS_SHOW_AGENTS: '1',
+      VITE_LEMON_HARNESS_SHOW_CRON: 'false',
+      VITE_LEMON_HARNESS_SHOW_MESSAGING: 'true',
+      VITE_LEMON_HARNESS_SHOW_TERMINAL: '0',
+      VITE_LEMON_HARNESS_SHOW_WEBHOOKS: 'yes'
     })
 
     const state = initialInternalCompanyCapabilities(true, ui)
@@ -102,11 +102,11 @@ describe('internal company static harness capabilities', () => {
   })
 
   it('recognizes only the internal harness selector', () => {
-    expect(internalCompanyExpectedFromEnv({ VITE_HERMES_DESKTOP_HARNESS: 'internal' })).toBe(true)
-    expect(internalCompanyExpectedFromEnv({ VITE_HERMES_DESKTOP_HARNESS: 'internal-company' })).toBe(false)
-    expect(internalCompanyExpectedFromEnv({ VITE_HERMES_DESKTOP_HARNESS: '1' })).toBe(false)
-    expect(internalCompanyExpectedFromEnv({ VITE_HERMES_INTERNAL_COMPANY_EXPECTED: '1' })).toBe(false)
-    expect(internalCompanyExpectedFromEnv({ VITE_HERMES_DESKTOP_HARNESS: 'upstream' })).toBe(false)
+    expect(internalCompanyExpectedFromEnv({ VITE_LEMON_DESKTOP_HARNESS: 'internal' })).toBe(true)
+    expect(internalCompanyExpectedFromEnv({ VITE_LEMON_DESKTOP_HARNESS: 'internal-company' })).toBe(false)
+    expect(internalCompanyExpectedFromEnv({ VITE_LEMON_DESKTOP_HARNESS: '1' })).toBe(false)
+    expect(internalCompanyExpectedFromEnv({ VITE_LEMON_INTERNAL_COMPANY_EXPECTED: '1' })).toBe(false)
+    expect(internalCompanyExpectedFromEnv({ VITE_LEMON_DESKTOP_HARNESS: 'upstream' })).toBe(false)
   })
 
   it('maps configured Vite build constants into the same env contract used by runtime helpers', () => {

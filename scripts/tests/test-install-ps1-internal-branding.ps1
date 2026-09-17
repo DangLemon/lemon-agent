@@ -115,11 +115,11 @@ Assert-Equal 'Lemon Digital' $lemon.CompanyName 'internal company name is Lemon 
 $lemonSoul = Get-DefaultSoulContent -AgentName $lemon.AgentName -CompanyName $lemon.CompanyName
 Assert-True ($lemonSoul.StartsWith('You are Lemon AI, built by Lemon Digital.')) `
     'internal SOUL seed starts with Lemon AI and Lemon Digital'
-Assert-True (-not $lemonSoul.Contains('Hermes Agent')) 'internal SOUL seed excludes Hermes Agent'
+Assert-True (-not $lemonSoul.Contains('Hermes')) 'internal SOUL seed excludes Hermes'
 Assert-True (-not $lemonSoul.Contains('Nous Research')) 'internal SOUL seed excludes Nous Research'
 $lemonDiagnostics = @(Get-InstallerDiagnosticLines `
     -InternalBuild $true `
-    -HermesHome 'C:\Users\tester\AppData\Local\Lemon AI' `
+    -LemonHome 'C:\Users\tester\AppData\Local\Lemon AI' `
     -InstallDir 'C:\Users\tester\AppData\Local\Lemon AI\lemon-agent' `
     -RuntimeDirName 'lemon-agent' `
     -CliArgs 'desktop')
@@ -129,15 +129,15 @@ Assert-True ($lemonDiagnostics -contains 'Lemon AI install root: C:\Users\tester
     'internal diagnostics label Lemon AI install root'
 Assert-True ($lemonDiagnostics -contains 'Lemon AI runtime dir: lemon-agent') `
     'internal diagnostics label Lemon runtime directory'
-Assert-True ($lemonDiagnostics -contains 'Lemon AI CLI command: hermes desktop') `
-    'internal diagnostics keep hermes as the technical CLI command'
+Assert-True ($lemonDiagnostics -contains 'Lemon AI CLI command: lemon desktop') `
+    'internal diagnostics keep lemon as the technical CLI command'
 
 $public = Get-InstallerBrandIdentity -InternalBuild $false
-Assert-Equal 'Hermes Agent' $public.AgentName 'ordinary agent name remains Hermes Agent'
-Assert-Equal 'Nous Research' $public.CompanyName 'ordinary company remains Nous Research'
+Assert-Equal 'Lemon AI' $public.AgentName 'ordinary agent name remains Lemon AI'
+Assert-Equal 'Lemon Digital' $public.CompanyName 'ordinary company is Lemon Digital'
 $publicSoul = Get-DefaultSoulContent -AgentName $public.AgentName -CompanyName $public.CompanyName
-Assert-True ($publicSoul.StartsWith('You are Hermes Agent, built by Nous Research.')) `
-    'ordinary SOUL seed keeps the public Hermes identity'
+Assert-True ($publicSoul.StartsWith('You are Lemon AI, built by Lemon Digital.')) `
+    'ordinary SOUL seed keeps the public Lemon AI identity'
 
 
 $desktopRoot = 'C:\fixture\apps\desktop'
@@ -150,26 +150,27 @@ Assert-True (@($internalCandidates | Where-Object { $_ -like '*Hermes.exe' }).Co
 
 $publicCandidates = @(Get-DesktopExecutableCandidates -DesktopDir $desktopRoot -InternalBuild $false)
 Assert-Equal 2 $publicCandidates.Count 'ordinary build probes both architecture output directories'
-Assert-True (@($publicCandidates | Where-Object { [System.IO.Path]::GetFileName($_) -ne 'Hermes.exe' }).Count -eq 0) `
-    'ordinary build keeps Hermes.exe'
+Assert-True (@($publicCandidates | Where-Object { [System.IO.Path]::GetFileName($_) -ne 'Lemon AI.exe' }).Count -eq 0) `
+    'ordinary build keeps Lemon AI.exe'
 
 $lemonExe = Join-Path (Join-Path $desktopRoot 'win-unpacked') 'Lemon AI.exe'
-$hermesExe = Join-Path (Join-Path $desktopRoot 'win-unpacked') 'Hermes.exe'
 $lemonShortcut = Get-DesktopShortcutIdentity -TargetExe $lemonExe -InternalBuild $true
 Assert-Equal 'Lemon AI.lnk' $lemonShortcut.LinkName 'internal shortcut is Lemon AI.lnk'
 Assert-Equal 'Lemon AI' $lemonShortcut.Description 'internal shortcut description is Lemon AI'
+$legacyHermesExe = Join-Path (Join-Path $desktopRoot 'win-unpacked') 'Hermes.exe'
 Assert-ThrowsLike {
-    Get-DesktopShortcutIdentity -TargetExe $hermesExe -InternalBuild $true | Out-Null
+    Get-DesktopShortcutIdentity -TargetExe $legacyHermesExe -InternalBuild $true | Out-Null
 } '*requires Lemon AI.exe*' 'internal shortcut rejects a legacy Hermes.exe target'
 
-$publicShortcut = Get-DesktopShortcutIdentity -TargetExe $hermesExe -InternalBuild $false
-Assert-Equal 'Hermes.lnk' $publicShortcut.LinkName 'ordinary shortcut remains Hermes.lnk'
-Assert-Equal 'Hermes Agent' $publicShortcut.Description 'ordinary shortcut description remains Hermes Agent'
+$publicShortcut = Get-DesktopShortcutIdentity -TargetExe $lemonExe -InternalBuild $false
+Assert-Equal 'Lemon AI.lnk' $publicShortcut.LinkName 'ordinary shortcut remains Lemon AI.lnk'
+Assert-Equal 'Lemon AI' $publicShortcut.Description 'ordinary shortcut description remains Lemon AI'
 
-# Legacy Hermes is accepted only by the migration ownership check, which lets
+# Legacy Hermes.exe is accepted only by the migration ownership check, which lets
 # a Lemon install remove an old owned shortcut after creating Lemon AI.lnk.
 $InternalDesktopBuild = $true
-$legacyShortcut = [pscustomobject]@{ TargetPath = $hermesExe }
+$legacyHermesExe = Join-Path (Join-Path $desktopRoot 'win-unpacked') 'Hermes.exe'
+$legacyShortcut = [pscustomobject]@{ TargetPath = $legacyHermesExe }
 $workDir = Split-Path -Parent $lemonExe
 Assert-True (Test-ShortcutOwnsTarget `
     -Shortcut $legacyShortcut -TargetExe $lemonExe -WorkDir $workDir) `
@@ -193,25 +194,25 @@ Set-Content -LiteralPath $cmdStub -Encoding Ascii -Value @(
     'exit /b 0'
 )
 $oldPath = $env:PATH
-$oldRepo = $env:HERMES_INSTALL_REPOSITORY
+$oldRepo = $env:LEMON_INSTALL_REPOSITORY
 $oldCapture = $env:CMD_INSTALL_CAPTURE
 try {
     $env:PATH = "$smokeRoot;$oldPath"
-    $env:HERMES_INSTALL_REPOSITORY = 'DangLemon/hermes-agent'
+    $env:LEMON_INSTALL_REPOSITORY = 'DangLemon/lemon-agent'
     $env:CMD_INSTALL_CAPTURE = $cmdCapture
     & cmd.exe /d /c (Join-Path $PSScriptRoot '..\install.cmd') | Out-Null
     Assert-Equal 0 $LASTEXITCODE 'shipped install.cmd executes successfully with the PowerShell stub'
     $capturedCmdArgs = Get-Content -LiteralPath $cmdCapture -Raw
     Assert-True ($capturedCmdArgs.Contains("`$installerArgs = @{ Repository = `$repo }")) `
         'shipped install.cmd uses named Repository splatting'
-    Assert-True ($capturedCmdArgs.Contains('DangLemon/hermes-agent')) `
+    Assert-True ($capturedCmdArgs.Contains('DangLemon/lemon-agent')) `
         'shipped install.cmd carries the selected Lemon repository'
 } finally {
     $env:PATH = $oldPath
-    $env:HERMES_INSTALL_REPOSITORY = $oldRepo
+    $env:LEMON_INSTALL_REPOSITORY = $oldRepo
     $env:CMD_INSTALL_CAPTURE = $oldCapture
 }
-$env:HERMES_INSTALLER_BRAND = 'lemon'
+$env:LEMON_INSTALLER_BRAND = 'lemon'
 $powerShellExe = if ($PSVersionTable.PSEdition -eq 'Core') { 'pwsh.exe' } else { 'powershell.exe' }
 $previousErrorActionPreference = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
@@ -223,7 +224,7 @@ try {
         -Stage 'config-templates' `
         -NonInteractive `
         -Json `
-        -HermesHome $smokeHome `
+        -LemonHome $smokeHome `
         -InstallDir $smokeInstall 2>&1)
     $stageExit = $LASTEXITCODE
 } finally {
@@ -252,7 +253,7 @@ if (Test-Path -LiteralPath $smokeSoulPath -PathType Leaf) {
     $smokeSoul = Get-Content -LiteralPath $smokeSoulPath -Raw
     Assert-True ($smokeSoul.Contains('You are Lemon AI, built by Lemon Digital.')) `
         'clean profile SOUL.md uses Lemon AI and Lemon Digital'
-    Assert-True (-not $smokeSoul.Contains('Hermes Agent')) 'clean profile SOUL.md has no Hermes Agent identity'
+    Assert-True (-not $smokeSoul.Contains('Lemon AI')) 'clean profile SOUL.md has no Lemon AI identity'
     Assert-True (-not $smokeSoul.Contains('Nous Research')) 'clean profile SOUL.md has no Nous Research identity'
 }
 
@@ -262,25 +263,25 @@ $smokeAppDir = if ([string]::IsNullOrWhiteSpace($DesktopBuildRoot)) {
     (Resolve-Path -LiteralPath $DesktopBuildRoot -ErrorAction Stop).ProviderPath
 }
 $smokeLemonExe = Join-Path $smokeAppDir 'Lemon AI.exe'
-$smokeHermesExe = Join-Path $smokeAppDir 'Hermes.exe'
+$smokeLemonExe = Join-Path $smokeAppDir 'Lemon AI.exe'
 if ([string]::IsNullOrWhiteSpace($DesktopBuildRoot)) {
     New-Item -ItemType Directory -Force -Path (Join-Path $smokeAppDir 'resources') | Out-Null
     New-Item -ItemType File -Force -Path $smokeLemonExe, (Join-Path $smokeAppDir 'resources\icon.ico') | Out-Null
 } else {
     Assert-True (Test-Path -LiteralPath $smokeLemonExe -PathType Leaf) 'built desktop output contains Lemon AI.exe'
-    Assert-True (-not (Test-Path -LiteralPath $smokeHermesExe -PathType Leaf)) 'built internal output has no Hermes.exe'
+    Assert-True (-not (Test-Path -LiteralPath $smokeLemonExe -PathType Leaf)) 'built internal output has no Lemon AI.exe'
 }
 
 $shell = New-Object -ComObject WScript.Shell
-$legacyPath = Join-Path $smokePrograms 'Hermes.lnk'
+$legacyPath = Join-Path $smokePrograms 'Lemon AI.lnk'
 $legacyShortcutSmoke = $shell.CreateShortcut($legacyPath)
-$legacyShortcutSmoke.TargetPath = $smokeHermesExe
+$legacyShortcutSmoke.TargetPath = $smokeLemonExe
 $legacyShortcutSmoke.WorkingDirectory = $smokeAppDir
 $legacyShortcutSmoke.Save()
 
-$foreignPath = Join-Path $smokeDesktop 'Hermes.lnk'
+$foreignPath = Join-Path $smokeDesktop 'Lemon AI.lnk'
 $foreignShortcutSmoke = $shell.CreateShortcut($foreignPath)
-$foreignShortcutSmoke.TargetPath = Join-Path $smokeRoot 'foreign\Hermes.exe'
+$foreignShortcutSmoke.TargetPath = Join-Path $smokeRoot 'foreign\Lemon AI.exe'
 $foreignShortcutSmoke.Save()
 
 $InternalDesktopBuild = $true
@@ -304,9 +305,9 @@ foreach ($shortcutPath in @(
     }
 }
 Assert-True (-not (Test-Path -LiteralPath $legacyPath -PathType Leaf)) `
-    'clean profile removes an owned legacy Hermes shortcut'
+    'clean profile removes an owned legacy Lemon AI shortcut'
 Assert-True (Test-Path -LiteralPath $foreignPath -PathType Leaf) `
-    'clean profile keeps a foreign Hermes shortcut'
+    'clean profile keeps a foreign Lemon AI shortcut'
 
 if ($script:Failures -gt 0) {
     try {

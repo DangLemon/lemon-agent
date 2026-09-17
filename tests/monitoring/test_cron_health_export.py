@@ -102,17 +102,17 @@ def test_registered_observable_metric_names_cover_snapshot_metrics(monkeypatch):
             self.attributes = {}
 
     gateway_snapshot = type("S", (), {"metrics": [
-        _M("hermes.gateway.up"), _M("hermes.gateway.active_agents"),
-        _M("hermes.gateway.busy"), _M("hermes.gateway.drainable"),
-        _M("hermes.gateway.restart_requested"),
-        _M("hermes.platform.up"), _M("hermes.platform.degraded"),
+        _M("lemon.gateway.up"), _M("lemon.gateway.active_agents"),
+        _M("lemon.gateway.busy"), _M("lemon.gateway.drainable"),
+        _M("lemon.gateway.restart_requested"),
+        _M("lemon.platform.up"), _M("lemon.platform.degraded"),
     ]})()
     cron_snapshot = type("S", (), {"metrics": [
-        _M("hermes.cron.scheduler.heartbeat_age_seconds"),
-        _M("hermes.cron.scheduler.last_success_age_seconds"),
-        _M("hermes.cron.scheduler.catch_up_occurrences"),
-        _M("hermes.cron.jobs.enabled"), _M("hermes.cron.jobs.running"),
-        _M("hermes.cron.jobs.overdue"),
+        _M("lemon.cron.scheduler.heartbeat_age_seconds"),
+        _M("lemon.cron.scheduler.last_success_age_seconds"),
+        _M("lemon.cron.scheduler.catch_up_occurrences"),
+        _M("lemon.cron.jobs.enabled"), _M("lemon.cron.jobs.running"),
+        _M("lemon.cron.jobs.overdue"),
     ]})()
     monkeypatch.setattr(gateway_health_export, "_read_gateway_snapshot", lambda config: gateway_snapshot)
     monkeypatch.setattr(gateway_health_export, "_read_cron_snapshot", lambda: cron_snapshot)
@@ -130,7 +130,7 @@ def test_monitoring_docs_distinguish_relay_health_scope_and_terminal_flush():
 
     text = Path("docs/observability/monitoring.md").read_text(encoding="utf-8")
 
-    assert "Hermes Agent-owned Relay transport health" in text
+    assert "Lemon AI-owned Relay transport health" in text
     assert "authoritative shared connector/platform state" in text
     assert "up to one second" in text
     assert "terminal" in text

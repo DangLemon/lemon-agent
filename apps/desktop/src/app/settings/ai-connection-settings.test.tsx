@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { CustomEndpoint, CustomEndpointUpdate } from '@/types/hermes'
+import type { CustomEndpoint, CustomEndpointUpdate } from '@/types/lemon'
 
 const getCustomEndpoints = vi.fn()
 const saveCustomEndpoint = vi.fn()
@@ -12,7 +12,7 @@ const captureCapabilityScope = vi.fn((scope?: unknown) =>
   scope && typeof scope === 'object' ? scope : { profile: scope ?? 'default' }
 )
 
-vi.mock('@/hermes', () => ({
+vi.mock('@/lemon', () => ({
   activateCustomEndpoint: vi.fn(),
   captureCapabilityScope: (scope?: unknown) => captureCapabilityScope(scope),
   getCustomEndpoints: (scope?: unknown) => getCustomEndpoints(scope),

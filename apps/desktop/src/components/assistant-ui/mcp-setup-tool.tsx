@@ -19,7 +19,7 @@ import {
   type McpCatalogEntry,
   removeMcpServer,
   setMcpServerEnabled
-} from '@/hermes'
+} from '@/lemon'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
 import { AlertCircle, CheckCircle2, Loader2 } from '@/lib/icons'
@@ -281,7 +281,7 @@ function McpSetupPending({ args }: ToolCallMessagePartProps) {
           cancelled: () => cancelRef.current || !oauthScopeGuard(),
           cancel: oauthClient.cancel,
           relayCallback: oauthClient.relayCallback,
-          openExternal: url => window.hermesDesktop.openExternal(url)
+          openExternal: url => window.lemonDesktop.openExternal(url)
         })
 
         triggerHaptic('submit')
@@ -331,7 +331,7 @@ function McpSetupPending({ args }: ToolCallMessagePartProps) {
             cancelled: () => cancelRef.current || !oauthScopeGuard(),
             cancel: oauthClient.cancel,
             relayCallback: oauthClient.relayCallback,
-            openExternal: url => window.hermesDesktop.openExternal(url)
+            openExternal: url => window.lemonDesktop.openExternal(url)
           })
         } catch (error) {
           await removeMcpServer(known.name).catch(() => {

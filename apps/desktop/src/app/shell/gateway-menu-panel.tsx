@@ -5,7 +5,7 @@ import { StatusDot, type StatusTone } from '@/components/status-dot'
 import { Button } from '@/components/ui/button'
 import { LogView } from '@/components/ui/log-view'
 import { Tip } from '@/components/ui/tooltip'
-import { getLogs } from '@/hermes'
+import { getLogs } from '@/lemon'
 import { useI18n } from '@/i18n'
 import { LayoutDashboard, Power, RefreshCw } from '@/lib/icons'
 import { runtimeReadinessForBrand, type RuntimeReadinessResult } from '@/lib/runtime-readiness'
@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 import { reconnectGateway } from '@/store/gateway-reconnect'
 import { notifyError } from '@/store/notifications'
 import { runGatewayRestart } from '@/store/system-actions'
-import type { StatusResponse } from '@/types/hermes'
+import type { StatusResponse } from '@/types/lemon'
 
 interface GatewayMenuPanelProps {
   gatewayState: string

@@ -52,7 +52,7 @@ def _get_max_read_chars() -> int:
     global _max_read_chars_cached
     if _max_read_chars_cached is None:
         try:
-            from hermes_cli.config import load_config
+            from lemon_cli.config import load_config
             val = load_config().get("file_read_max_chars")
         except Exception:
             val = None
@@ -68,7 +68,7 @@ def _truncate_to_char_budget(content: str, max_chars: int) -> tuple[str, int, bo
     ``next_offset`` instead of rejecting the read. If not even the first line
     fits it is clamped mid-line so the read is never empty and the cursor advances.
 
-    Ported in spirit from nearai/ironclaw#5029 (dual line/byte cap on ``read_file``). Where hermes
+    Ported in spirit from nearai/ironclaw#5029 (dual line/byte cap on ``read_file``). Where lemon
     previously hard-rejected an oversized read (forcing the model to guess a smaller ``limit`` and burn a
     round-trip returning nothing), this trims the content to the last *complete line* that fits within
     ``max_chars`` and reports how many lines were kept so the caller can offer a ``next_offset``
@@ -540,7 +540,7 @@ def read_file_tool(path: str, offset: int = 1, limit: int = 2000, task_id: str =
     """Read a file with pagination and line numbers.
 
     Guard order: device-path blocklist (no I/O) → stat-based special-file
-    guard (host only) → document extraction → binary-extension guard → Hermes
+    guard (host only) → document extraction → binary-extension guard → Lemon AI
     internal denylist → negative-result cache → dedup stub → real read.
     """
     try:
@@ -577,7 +577,7 @@ def read_file_tool(path: str, offset: int = 1, limit: int = 2000, task_id: str =
                 f"Cannot read binary file '{path}' ({_resolved.suffix.lower()}). "
                 "Use vision_analyze for images, or terminal to inspect binary files.")
 
-        # Hermes internal denylist (prompt injection via catalog metadata,
+        # Lemon AI internal denylist (prompt injection via catalog metadata,
         # credential stores). Pass the RESOLVED path: the denylist's own
         # resolve() uses the process cwd and would miss a relative "auth.json".
         block_error = get_read_block_error(str(_resolved))
@@ -1138,7 +1138,7 @@ def _handle_write_file(args, **kw):
             "write_file: missing required field 'content'. The tool call included a "
             "path but no content argument — this is almost always a dropped-arg bug "
             "under context pressure. Re-emit the tool call with the full content "
-            "payload, or use execute_code with hermes_tools.write_file() for very "
+            "payload, or use execute_code with lemon_tools.write_file() for very "
             "large files."
         )
     if not isinstance(args["content"], str):
@@ -1247,7 +1247,7 @@ def __getattr__(name):  # PEP 562 — lazy so no import cycles
     if target is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     import importlib
-    from hermes_cli.plugin_compat import warn_once
+    from lemon_cli.plugin_compat import warn_once
     warn_once(__name__, name, *target)
     return getattr(importlib.import_module(target[0]), target[1])
 # ---- END PLUGIN-COMPAT ----

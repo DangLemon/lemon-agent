@@ -18,7 +18,7 @@ const DEFAULT_SEED_HELPER = path.join(DESKTOP_ROOT, 'electron', 'lemon-ai-harnes
 const RECEIPT_FILENAME = 'installer-receipt.json'
 const RENDERER_HARNESS_MARKER_FILENAME = 'lemon-ai-renderer-harness.json'
 
-const EXPECTED_REPOSITORY = 'DangLemon/hermes-agent'
+const EXPECTED_REPOSITORY = 'DangLemon/lemon-agent'
 const EXPECTED_WINDOWS_VERSION = {
   ProductName: 'Lemon AI',
   FileDescription: 'Lemon AI',
@@ -89,18 +89,18 @@ function parseArgs(argv = process.argv.slice(2), env = process.env) {
   }
 
   return {
-    platform: args.platform ?? env.HERMES_INSTALLER_PLATFORM ?? process.platform,
-    arch: args.arch ?? env.HERMES_INSTALLER_ARCH ?? process.arch,
-    expectedSha: args.sha ?? env.HERMES_INSTALLER_SHA ?? env.GITHUB_SHA,
-    expectedRef: args.ref ?? env.HERMES_INSTALLER_REF ?? env.GITHUB_REF_NAME ?? env.GITHUB_HEAD_REF,
-    appPath: args.app ?? env.HERMES_INSTALLER_APP,
-    installerPath: args.installer ?? env.HERMES_INSTALLER_ARTIFACT,
-    canonicalManifestPath: args.canonical ?? env.HERMES_INSTALLER_CANONICAL_MANIFEST ?? DEFAULT_CANONICAL_MANIFEST,
-    generatedConfigPath: args['builder-config'] ?? env.HERMES_INSTALLER_BUILDER_CONFIG ?? DEFAULT_GENERATED_CONFIG,
-    sourceSeedHelperPath: args['seed-helper'] ?? env.HERMES_INSTALLER_SEED_HELPER ?? DEFAULT_SEED_HELPER,
-    outputDir: args.out ?? env.HERMES_INSTALLER_OUTPUT_DIR,
-    releaseRoot: args['release-root'] ?? env.HERMES_INSTALLER_RELEASE_ROOT ?? DEFAULT_RELEASE_ROOT,
-    repoRoot: args['repo-root'] ?? env.HERMES_INSTALLER_REPO_ROOT ?? REPO_ROOT
+    platform: args.platform ?? env.LEMON_INSTALLER_PLATFORM ?? process.platform,
+    arch: args.arch ?? env.LEMON_INSTALLER_ARCH ?? process.arch,
+    expectedSha: args.sha ?? env.LEMON_INSTALLER_SHA ?? env.GITHUB_SHA,
+    expectedRef: args.ref ?? env.LEMON_INSTALLER_REF ?? env.GITHUB_REF_NAME ?? env.GITHUB_HEAD_REF,
+    appPath: args.app ?? env.LEMON_INSTALLER_APP,
+    installerPath: args.installer ?? env.LEMON_INSTALLER_ARTIFACT,
+    canonicalManifestPath: args.canonical ?? env.LEMON_INSTALLER_CANONICAL_MANIFEST ?? DEFAULT_CANONICAL_MANIFEST,
+    generatedConfigPath: args['builder-config'] ?? env.LEMON_INSTALLER_BUILDER_CONFIG ?? DEFAULT_GENERATED_CONFIG,
+    sourceSeedHelperPath: args['seed-helper'] ?? env.LEMON_INSTALLER_SEED_HELPER ?? DEFAULT_SEED_HELPER,
+    outputDir: args.out ?? env.LEMON_INSTALLER_OUTPUT_DIR,
+    releaseRoot: args['release-root'] ?? env.LEMON_INSTALLER_RELEASE_ROOT ?? DEFAULT_RELEASE_ROOT,
+    repoRoot: args['repo-root'] ?? env.LEMON_INSTALLER_REPO_ROOT ?? REPO_ROOT
   }
 }
 
@@ -212,17 +212,17 @@ export function validateGeneratedConfig(config) {
   )
   assertEqual(
     config.extraMetadata?.homepage,
-    'https://github.com/DangLemon/hermes-agent',
+    'https://github.com/DangLemon/lemon-agent',
     'electron-builder extraMetadata.homepage'
   )
   assertEqual(
     config.extraMetadata?.bugs?.url,
-    'https://github.com/DangLemon/hermes-agent/issues',
+    'https://github.com/DangLemon/lemon-agent/issues',
     'electron-builder extraMetadata.bugs.url'
   )
   assertEqual(
     config.extraMetadata?.repository?.url,
-    'git+https://github.com/DangLemon/hermes-agent.git',
+    'git+https://github.com/DangLemon/lemon-agent.git',
     'electron-builder extraMetadata.repository.url'
   )
   assertEqual(config.copyright, 'Copyright © 2026 Lemon Digital', 'electron-builder copyright')
@@ -236,10 +236,10 @@ export function validateGeneratedConfig(config) {
   assertEqual(config.appId, 'com.lemondigital.lemonai', 'electron-builder appId')
 
   const serializedConfig = JSON.stringify(config)
-  if (serializedConfig.includes('NousResearch/hermes-agent'))
-    fail('electron-builder config contains upstream Hermes repository')
-  if (serializedConfig.includes('hermes-updater'))
-    fail('electron-builder config contains upstream Hermes updater cache name')
+  if (serializedConfig.includes('DangLemon/lemon-agent'))
+    fail('electron-builder config contains upstream Lemon AI repository')
+  if (serializedConfig.includes('lemon-updater'))
+    fail('electron-builder config contains upstream Lemon AI updater cache name')
 }
 
 export function validateRendererHarnessMarker({ markerPath, manifest }) {
@@ -468,7 +468,7 @@ export function readWindowsVersionInfo(exePath, { spawn = spawnSync } = {}) {
     fail(`Windows VersionInfo requires Windows: ${exePath}`)
   }
 
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-versioninfo-'))
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-versioninfo-'))
   const scriptPath = path.join(tempDir, 'read-versioninfo.ps1')
   try {
     fs.writeFileSync(

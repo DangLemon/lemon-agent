@@ -2,7 +2,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 
 import { translateNow } from '@/i18n'
-import { appBrand, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { appBrand, replaceLemonBrandTerms } from '@/lib/app-brand'
 import {
   appendAssistantTextPart,
   appendReasoningPart,
@@ -45,7 +45,7 @@ interface MessageStreamOptions {
     runtimeSessionId?: string | null
   ) => Promise<void>
   queryClient: QueryClient
-  refreshHermesConfig: () => Promise<void>
+  refreshLemonConfig: () => Promise<void>
   refreshSessions: () => Promise<void>
   sessionStateByRuntimeIdRef: MutableRefObject<Map<string, ClientSessionState>>
   updateSessionState: (
@@ -73,7 +73,7 @@ export function useMessageStream({
   activeSessionIdRef,
   hydrateFromStoredSession,
   queryClient,
-  refreshHermesConfig,
+  refreshLemonConfig,
   refreshSessions,
   sessionStateByRuntimeIdRef,
   updateSessionState
@@ -807,7 +807,7 @@ export function useMessageStream({
         const streamId = state.streamId ?? `assistant-error-${Date.now()}`
         const groupId = state.pendingBranchGroup ?? undefined
         const prev = state.messages
-        const error = errorMessage.trim() || replaceHermesBrandTerms('Hermes reported an error', appBrand())
+        const error = errorMessage.trim() || replaceLemonBrandTerms('Lemon AI reported an error', appBrand())
 
         const durationS = state.turnStartedAt
           ? Math.max(1, Math.round((Date.now() - state.turnStartedAt) / 1000))
@@ -873,7 +873,7 @@ export function useMessageStream({
     finalizeInterimAssistantMessage,
     hydrateFromStoredSession,
     queryClient,
-    refreshHermesConfig,
+    refreshLemonConfig,
     scheduleSessionsRefresh,
     sessionInterrupted,
     sessionStateByRuntimeIdRef,

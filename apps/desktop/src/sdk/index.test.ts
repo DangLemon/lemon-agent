@@ -110,8 +110,8 @@ describe('host.state turn flags', () => {
 })
 
 describe('host.connections', () => {
-  const desktopWindow = window as unknown as { hermesDesktop?: Window['hermesDesktop'] }
-  const originalDesktop = desktopWindow.hermesDesktop
+  const desktopWindow = window as unknown as { lemonDesktop?: Window['lemonDesktop'] }
+  const originalDesktop = desktopWindow.lemonDesktop
 
   const connection = (id: string, label: string) => ({
     id,
@@ -123,15 +123,15 @@ describe('host.connections', () => {
   })
 
   const stubBridge = (list: () => Promise<unknown>) => {
-    desktopWindow.hermesDesktop = {
+    desktopWindow.lemonDesktop = {
       ...originalDesktop,
       connections: { list }
-    } as unknown as Window['hermesDesktop']
+    } as unknown as Window['lemonDesktop']
   }
 
   afterEach(() => {
     vi.unstubAllGlobals()
-    desktopWindow.hermesDesktop = originalDesktop
+    desktopWindow.lemonDesktop = originalDesktop
   })
 
   it('returns the registry rows, not the envelope that carries them (#89823)', async () => {
@@ -170,14 +170,14 @@ describe('host.connections', () => {
   })
 
   it('still rejects on a Desktop build without the connection registry', async () => {
-    desktopWindow.hermesDesktop = undefined
+    desktopWindow.lemonDesktop = undefined
 
     await expect(host.connections()).rejects.toThrow('This Desktop build has no connection registry')
   })
 
   it('brands missing registry errors for internal builds', async () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
-    desktopWindow.hermesDesktop = undefined
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
+    desktopWindow.lemonDesktop = undefined
 
     await expect(host.connections()).rejects.toThrow('This Desktop build has no connection registry. Update Lemon AI.')
   })
@@ -243,7 +243,7 @@ describe('host workspace scope', () => {
   })
 
   it('brands the Bot workspace unsupported notification for internal builds', () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
 
     const route = {
       connectionId: 'connection-b',

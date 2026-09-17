@@ -1,7 +1,7 @@
 """delegate_task children must never trigger the interactive sudo prompt.
 
 Subagents run on worker threads of the parent process and inherit
-process-wide interactivity signals (``HERMES_INTERACTIVE=1`` set by the CLI
+process-wide interactivity signals (``LEMON_INTERACTIVE=1`` set by the CLI
 at startup). Before the fix, ``_transform_sudo_command`` passed the
 interactive gate inside a child, found no thread-local sudo callback, and
 fell through to the raw ``/dev/tty`` password prompt — printed mid-TUI from
@@ -28,7 +28,7 @@ from tools import terminal_tool_sudo as tts
 def _clean_sudo_state(monkeypatch):
     """Isolate sudo-related process/thread state per test."""
     monkeypatch.delenv("SUDO_PASSWORD", raising=False)
-    monkeypatch.delenv("HERMES_GATEWAY_SESSION", raising=False)
+    monkeypatch.delenv("LEMON_GATEWAY_SESSION", raising=False)
     # Host sudoers NOPASSWD must not short-circuit the path under test.
     monkeypatch.setattr(tts, "_sudo_nopasswd_works", lambda: False)
     tts._reset_cached_sudo_passwords()
@@ -64,7 +64,7 @@ def _transform_in_child(command: str):
 
 class TestDelegatedChildNeverPrompts:
     def test_interactive_env_does_not_prompt_in_child(self, monkeypatch):
-        monkeypatch.setenv("HERMES_INTERACTIVE", "1")
+        monkeypatch.setenv("LEMON_INTERACTIVE", "1")
         calls = []
         monkeypatch.setattr(
             tts,
@@ -80,7 +80,7 @@ class TestDelegatedChildNeverPrompts:
 
     def test_stale_thread_callback_does_not_prompt_in_child(self, monkeypatch):
         # Precondition sanity: the interactive gate WOULD fire outside a child.
-        monkeypatch.delenv("HERMES_INTERACTIVE", raising=False)
+        monkeypatch.delenv("LEMON_INTERACTIVE", raising=False)
         calls = []
 
         def _run_child_with_stale_callback():
@@ -100,7 +100,7 @@ class TestDelegatedChildNeverPrompts:
 
     def test_parent_context_still_prompts(self, monkeypatch):
         """The fix must not break interactive prompting outside children."""
-        monkeypatch.setenv("HERMES_INTERACTIVE", "1")
+        monkeypatch.setenv("LEMON_INTERACTIVE", "1")
         monkeypatch.setattr(
             tts, "_prompt_for_sudo_password", lambda timeout_seconds=45: "hunter2"
         )
@@ -112,7 +112,7 @@ class TestDelegatedChildNeverPrompts:
 
     def test_configured_password_still_works_in_child(self, monkeypatch):
         monkeypatch.setenv("SUDO_PASSWORD", "s3cret")
-        monkeypatch.setenv("HERMES_INTERACTIVE", "1")
+        monkeypatch.setenv("LEMON_INTERACTIVE", "1")
 
         transformed, sudo_stdin = _transform_in_child("sudo whoami")
 
@@ -130,11 +130,11 @@ class TestDelegatedChildFailureMessaging:
         assert "SUDO_PASSWORD" in out
 
     def test_parent_output_unchanged(self, monkeypatch):
-        monkeypatch.delenv("HERMES_GATEWAY_SESSION", raising=False)
+        monkeypatch.delenv("LEMON_GATEWAY_SESSION", raising=False)
         out = tts._handle_sudo_failure("sudo: a password is required", env_type="local")
         assert out == "sudo: a password is required"
 
     def test_gateway_tip_preserved(self, monkeypatch):
-        monkeypatch.setenv("HERMES_GATEWAY_SESSION", "1")
+        monkeypatch.setenv("LEMON_GATEWAY_SESSION", "1")
         out = tts._handle_sudo_failure("sudo: a password is required", env_type="local")
         assert "To enable sudo over messaging" in out

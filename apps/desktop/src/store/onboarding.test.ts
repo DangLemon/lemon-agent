@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as notifications from '@/store/notifications'
 import { makeOAuthProvider } from '@/test/oauth-provider'
-import type { OAuthProvider } from '@/types/hermes'
+import type { OAuthProvider } from '@/types/lemon'
 
 import {
   $desktopOnboarding,
@@ -31,7 +31,7 @@ function baseState(overrides: Partial<DesktopOnboardingState> = {}): DesktopOnbo
 }
 
 function installApiMock(api: (request: { path: string }) => Promise<unknown>) {
-  Object.defineProperty(window, 'hermesDesktop', {
+  Object.defineProperty(window, 'lemonDesktop', {
     configurable: true,
     value: { api }
   })
@@ -144,7 +144,7 @@ describe('refreshOnboarding', () => {
 
     installApiMock(api)
     // Simulate a returning user: cache is set and store is configured.
-    window.localStorage.setItem('hermes-desktop-onboarded-v1', '1')
+    window.localStorage.setItem('lemon-desktop-onboarded-v1', '1')
     $desktopOnboarding.set(
       baseState({
         configured: true,
@@ -161,12 +161,12 @@ describe('refreshOnboarding', () => {
     expect($desktopOnboarding.get().configured).toBe(true)
     expect($desktopOnboarding.get().reason).toBeNull()
     // The cache must survive the refresh — proving we didn't downgrade.
-    expect(window.localStorage.getItem('hermes-desktop-onboarded-v1')).toBe('1')
+    expect(window.localStorage.getItem('lemon-desktop-onboarded-v1')).toBe('1')
   })
 
   it('shows a non-blocking notification when preserving configured on fallback', async () => {
     const notifySpy = vi.spyOn(notifications, 'notify')
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
 
     installApiMock(vi.fn())
     $desktopOnboarding.set(
@@ -192,8 +192,8 @@ describe('refreshOnboarding', () => {
   })
 
   it('brands backend readiness reasons before storing the onboarding overlay reason', async () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
-    const sourceEnvPath = ['~/.hermes/', 'env'].join('.')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
+    const sourceEnvPath = ['~/.lemon-ai/', 'env'].join('.')
     const brandedEnvPath = ['~/.lemon-ai/', 'env'].join('.')
     installApiMock(vi.fn())
 
@@ -206,7 +206,7 @@ describe('refreshOnboarding', () => {
         if (method === 'setup.runtime_check') {
           return {
             ok: false,
-            error: `Run 'hermes model', then check ${sourceEnvPath} because Hermes backend failed.`
+            error: `Run 'lemon model', then check ${sourceEnvPath} because Lemon AI backend failed.`
           } as never
         }
 
@@ -216,13 +216,13 @@ describe('refreshOnboarding', () => {
 
     expect(ready).toBe(false)
     expect($desktopOnboarding.get().reason).toContain(
-      `Run 'hermes model', then check ${brandedEnvPath} because Lemon AI backend failed.`
+      `Run 'lemon model', then check ${brandedEnvPath} because Lemon AI backend failed.`
     )
   })
 
   it('enters setup when the selected OpenRouter credential is genuinely empty', async () => {
     installApiMock(vi.fn())
-    window.localStorage.setItem('hermes-desktop-onboarded-v1', '1')
+    window.localStorage.setItem('lemon-desktop-onboarded-v1', '1')
     $desktopOnboarding.set(
       baseState({
         configured: true,
@@ -237,7 +237,7 @@ describe('refreshOnboarding', () => {
     expect(ready).toBe(false)
     expect($desktopOnboarding.get().configured).toBe(false)
     expect($desktopOnboarding.get().reason).toContain('No usable credentials found for openrouter.')
-    expect(window.localStorage.getItem('hermes-desktop-onboarded-v1')).toBeNull()
+    expect(window.localStorage.getItem('lemon-desktop-onboarded-v1')).toBeNull()
   })
 
   it('keeps a keyless custom runtime out of setup', async () => {
@@ -678,15 +678,15 @@ describe('saveOnboardingLocalEndpoint', () => {
   })
 
   it('brands local endpoint backend failure messages before returning them to the overlay', async () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
-    const sourceEnvPath = ['~/.hermes/', 'env'].join('.')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
+    const sourceEnvPath = ['~/.lemon-ai/', 'env'].join('.')
     const brandedEnvPath = ['~/.lemon-ai/', 'env'].join('.')
     installApiMock(async ({ path }: { path: string }) => {
       if (path === '/api/providers/validate') {
         return {
           ok: false,
           reachable: true,
-          message: `Run 'hermes model', then check ${sourceEnvPath} because Hermes backend failed.`,
+          message: `Run 'lemon model', then check ${sourceEnvPath} because Lemon AI backend failed.`,
           models: []
         }
       }
@@ -700,7 +700,7 @@ describe('saveOnboardingLocalEndpoint', () => {
 
     expect(result).toEqual({
       ok: false,
-      message: `Run 'hermes model', then check ${brandedEnvPath} because Lemon AI backend failed.`
+      message: `Run 'lemon model', then check ${brandedEnvPath} because Lemon AI backend failed.`
     })
   })
 })

@@ -1,12 +1,12 @@
 import { useStore } from '@nanostores/react'
 
 import { ModelVisibilityDialog } from '@/components/model-visibility-dialog'
-import type { HermesGateway } from '@/hermes'
+import type { LemonGateway } from '@/lemon'
 import { $modelVisibilityOpen, setModelVisibilityOpen } from '@/store/model-visibility'
 import { $activeSessionId, $gatewayState } from '@/store/session'
 
 interface ModelVisibilityOverlayProps {
-  gateway?: HermesGateway
+  gateway?: LemonGateway
   onOpenProviders: () => void
   ownerConnectionId?: string
   profile: string

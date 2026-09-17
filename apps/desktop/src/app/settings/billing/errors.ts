@@ -1,4 +1,4 @@
-import { appBrand, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { appBrand, replaceLemonBrandTerms } from '@/lib/app-brand'
 
 import type { BillingRefusal } from './api'
 
@@ -62,8 +62,8 @@ export const resolveRefusal = (refusal: BillingRefusal): BillingRefusalPresentat
     case 'remote_spending_disabled':
       return {
         action: portalAction(refusal.portalUrl),
-        message: replaceHermesBrandTerms(
-          "Remote spending is off for this account — a billing admin can turn it on from the portal's Hermes Agent page.",
+        message: replaceLemonBrandTerms(
+          "Remote spending is off for this account — a billing admin can turn it on from the portal's Lemon AI page.",
           appBrand()
         ),
         title: 'Remote spending is off'

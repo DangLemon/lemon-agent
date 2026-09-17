@@ -9,7 +9,7 @@ vi.mock('@/store/gateway', () => ({
   ensureGatewayForProfile: vi.fn(async () => undefined),
   openGatewayForProfile: vi.fn(async () => undefined)
 }))
-vi.mock('@/hermes', () => ({
+vi.mock('@/lemon', () => ({
   getProfiles: vi.fn(async () => ({ profiles: [] })),
   setApiRequestProfile: vi.fn()
 }))

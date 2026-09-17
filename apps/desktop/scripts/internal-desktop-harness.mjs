@@ -6,7 +6,7 @@ export const HARNESS_RESOURCE_FILENAME = 'lemon-ai-harness.json'
 export const HARNESS_SEED_FILENAME = 'lemon-ai-harness-seed.py'
 export const HARNESS_SEED_SOURCE_FILENAME = 'lemon-ai-harness-seed.py'
 export const HARNESS_SCHEMA_VERSION = 1
-export const HARNESS_CONFIG_ENV_KEYS = ['LEMON_AI_DESKTOP_HARNESS_CONFIG', 'HERMES_DESKTOP_HARNESS_CONFIG']
+export const HARNESS_CONFIG_ENV_KEYS = ['LEMON_DESKTOP_HARNESS_CONFIG']
 const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DEFAULT_BUILD_DIR = path.join(APP_ROOT, 'build')
 const UI_KEYS = ['agents', 'cron', 'messaging', 'terminal', 'webhooks']
@@ -173,20 +173,7 @@ export function validateHarnessResource(input) {
 }
 
 export function selectedHarnessConfigInputPath(env = process.env) {
-  // The installer brand is an explicit product choice. A Hermes build may
-  // still inherit the Lemon selector from a shared package script or shell
-  // environment, so let the brand suppress that selector before looking at
-  // either config variable.
-  if (String(env.HERMES_INSTALLER_BRAND || '').trim().toLowerCase() === 'hermes') {
-    return ''
-  }
-
-  for (const key of HARNESS_CONFIG_ENV_KEYS) {
-    const selected = String(env[key] || '').trim()
-    if (selected) return selected
-  }
-
-  return ''
+  return String(env.LEMON_DESKTOP_HARNESS_CONFIG || '').trim()
 }
 
 export function loadHarnessConfigInput(env = process.env) {
@@ -232,10 +219,10 @@ export function resolveHarnessViteDefines(env = process.env) {
   const resource = loadHarnessConfigInput(env)
   if (!resource) return {}
   const defines = {
-    'import.meta.env.VITE_HERMES_DESKTOP_HARNESS': JSON.stringify('internal')
+    'import.meta.env.VITE_LEMON_DESKTOP_HARNESS': JSON.stringify('internal')
   }
   for (const key of UI_KEYS) {
-    defines[`import.meta.env.VITE_HERMES_HARNESS_SHOW_${key.toUpperCase()}`] = JSON.stringify(String(resource.ui[key]))
+    defines[`import.meta.env.VITE_LEMON_HARNESS_SHOW_${key.toUpperCase()}`] = JSON.stringify(String(resource.ui[key]))
   }
   return defines
 }

@@ -7,13 +7,13 @@ export function resolveElectronBundleDefines({ env = process.env, isDev = false 
 
   if (isDev) {
     return internalPackage
-      ? { [`${DEFINE_PREFIX}HERMES_DESKTOP_INTERNAL_PACKAGE`]: JSON.stringify('1') }
+      ? { [`${DEFINE_PREFIX}LEMON_DESKTOP_INTERNAL_PACKAGE`]: JSON.stringify('1') }
       : {}
   }
 
   return {
-    [`${DEFINE_PREFIX}HERMES_DESKTOP_IS_PACKAGED`]: JSON.stringify(true),
-    [`${DEFINE_PREFIX}HERMES_DESKTOP_INTERNAL_PACKAGE`]: JSON.stringify(internalPackage ? '1' : '')
+    [`${DEFINE_PREFIX}LEMON_DESKTOP_IS_PACKAGED`]: JSON.stringify(true),
+    [`${DEFINE_PREFIX}LEMON_DESKTOP_INTERNAL_PACKAGE`]: JSON.stringify(internalPackage ? '1' : '')
   }
 }
 

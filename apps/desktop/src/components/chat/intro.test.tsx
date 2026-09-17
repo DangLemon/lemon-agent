@@ -33,12 +33,12 @@ async function loadIntroHarness() {
 }
 
 describe('Intro', () => {
-  it('keeps the upstream Hermes fresh-chat wordmark by default', async () => {
+  it('keeps the upstream Lemon AI fresh-chat wordmark by default', async () => {
     const { Intro } = await loadIntro()
 
     render(<Intro seed={0} />)
 
-    expect(screen.getAllByText('HERMES AGENT')).toHaveLength(2)
+    expect(screen.getAllByText('LEMON AGENT')).toHaveLength(2)
     expect(screen.queryAllByText('LEMON AI')).toHaveLength(0)
   })
 
@@ -56,7 +56,7 @@ describe('Intro', () => {
       screen.getByText('Viết nội dung, tìm thông tin hoặc xử lý tài liệu - bắt đầu bằng một yêu cầu.')
     ).toBeTruthy()
     expect(screen.queryByText('LEMON AI')).toBeNull()
-    expect(screen.queryAllByText('HERMES AGENT')).toHaveLength(0)
+    expect(screen.queryAllByText('LEMON AGENT')).toHaveLength(0)
   })
 
   it('inserts an editable starter draft and focuses the real composer without submitting', async () => {
@@ -64,9 +64,9 @@ describe('Intro', () => {
     const insert = vi.fn()
     const focus = vi.fn()
     const submit = vi.fn()
-    window.addEventListener('hermes:composer-insert', insert)
-    window.addEventListener('hermes:composer-focus', focus)
-    window.addEventListener('hermes:composer-submit', submit)
+    window.addEventListener('lemon:composer-insert', insert)
+    window.addEventListener('lemon:composer-focus', focus)
+    window.addEventListener('lemon:composer-submit', submit)
 
     render(
       <I18nProvider configClient={null} initialLocale="vi">
@@ -90,8 +90,8 @@ describe('Intro', () => {
     expect(focus.mock.calls[0]?.[0]).toMatchObject({ detail: { target: 'main' } })
     expect(submit).not.toHaveBeenCalled()
 
-    window.removeEventListener('hermes:composer-insert', insert)
-    window.removeEventListener('hermes:composer-focus', focus)
-    window.removeEventListener('hermes:composer-submit', submit)
+    window.removeEventListener('lemon:composer-insert', insert)
+    window.removeEventListener('lemon:composer-focus', focus)
+    window.removeEventListener('lemon:composer-submit', submit)
   })
 })

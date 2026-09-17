@@ -28,7 +28,7 @@ concurrency:
 jobs:
   # A `paths:` filter cannot gate this workflow correctly. The flake packages
   # the product, and nine of the checks then run the built binary, so a change
-  # to hermes_cli/ alone can fail `nix flake check` without touching one file
+  # to lemon_cli/ alone can fail `nix flake check` without touching one file
   # under nix/. The `nix` lane therefore follows python_prod as well as the
   # flake inputs. On push the classifier fails open and every lane is true.
   detect:
@@ -54,8 +54,8 @@ jobs:
     # takes minutes and not seconds when the cache misses. `nix flake check`
     # builds 21 checks, and --max-jobs defaults to the core count. It uses the
     # wider runner with no more configuration.
-    runs-on: ${{ github.repository == 'NousResearch/hermes-agent' && 'ubuntu-latest-32-core' || 'ubuntu-latest' }}
-    timeout-minutes: ${{ github.repository == 'NousResearch/hermes-agent' && 60 || 120 }}
+    runs-on: ${{ github.repository == 'DangLemon/lemon-agent' && 'ubuntu-latest-32-core' || 'ubuntu-latest' }}
+    timeout-minutes: ${{ github.repository == 'DangLemon/lemon-agent' && 60 || 120 }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -117,7 +117,7 @@ jobs:
         # --print-build-logs: a check that fails then prints the assertion
         # that failed, and not only the derivation that failed to build.
         run: |
-          if [ "${{ github.repository }}" = "NousResearch/hermes-agent" ]; then
+          if [ "${{ github.repository }}" = "DangLemon/lemon-agent" ]; then
             nix flake check --print-build-logs
           else
             nix flake check --print-build-logs --max-jobs 2 --cores 2

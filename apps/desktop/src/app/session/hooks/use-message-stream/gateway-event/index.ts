@@ -1,4 +1,4 @@
-import { registryBackendScopeKey } from '@hermes/shared'
+import { registryBackendScopeKey } from '@lemon-ai/shared'
 import { useCallback, useEffect, useRef } from 'react'
 
 import type { GatewayEventPayload } from '@/lib/chat-messages'
@@ -14,7 +14,7 @@ import { replayPendingApproval } from '@/store/prompts'
 import { setSessionProviderWait } from '@/store/provider-wait'
 import { isSessionGone } from '@/store/session-gone-latch'
 import { setSessionDraftingTool } from '@/store/tool-drafting'
-import type { RpcEvent } from '@/types/hermes'
+import type { RpcEvent } from '@/types/lemon'
 
 import { handleDesktopBridgeEvent } from './desktop-bridge'
 import { handleInputRequestEvent } from './input-requests'
@@ -93,13 +93,13 @@ const HANDLERS: GatewayEventHandler[] = [
 
 /** The gateway-event dispatcher, extracted from useMessageStream. */
 export function useGatewayEventHandler(deps: GatewayEventDeps) {
-  const { activeSessionIdRef, compactedTurnRef, refreshHermesConfig, sessionStateByRuntimeIdRef } = deps
+  const { activeSessionIdRef, compactedTurnRef, refreshLemonConfig, sessionStateByRuntimeIdRef } = deps
 
   const unscopedStreamSessionIdRef = useRef<string | null>(null)
 
   // session.info arrives in bursts (agent build ready + turn end + title /
   // MCP / compress edges within the same second). Each used to fire its own
-  // refreshHermesConfig — two REST calls (config + defaults) per event, per
+  // refreshLemonConfig — two REST calls (config + defaults) per event, per
   // turn, including for BACKGROUND sessions whose values the fetch can't even
   // apply. Coalesce to one trailing fetch per burst; the caller gates on
   // `apply` so background traffic doesn't schedule anything.
@@ -111,16 +111,16 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
     }
 
     if (typeof window === 'undefined') {
-      void refreshHermesConfig()
+      void refreshLemonConfig()
 
       return
     }
 
     configRefreshTimerRef.current = window.setTimeout(() => {
       configRefreshTimerRef.current = null
-      void refreshHermesConfig()
+      void refreshLemonConfig()
     }, 300)
-  }, [refreshHermesConfig])
+  }, [refreshLemonConfig])
 
   useEffect(
     () => () => {

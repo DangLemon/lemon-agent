@@ -1,7 +1,7 @@
-export function buildHermesBackendSpawnEnv({
+export function buildLemonBackendSpawnEnv({
   processEnv = process.env,
   runtimeEnv = {},
-  hermesHome,
+  lemonHome,
   backendEnv = {},
   terminalCwd,
   sessionToken,
@@ -11,7 +11,7 @@ export function buildHermesBackendSpawnEnv({
 }: {
   processEnv?: NodeJS.ProcessEnv | Record<string, string | undefined>
   runtimeEnv?: Record<string, string | undefined>
-  hermesHome: string
+  lemonHome: string
   backendEnv?: Record<string, string>
   terminalCwd: string
   sessionToken: string
@@ -23,12 +23,12 @@ export function buildHermesBackendSpawnEnv({
     ...processEnv,
     ...backendEnv,
     ...runtimeEnv,
-    HERMES_HOME: hermesHome,
+    LEMON_HOME: lemonHome,
     TERMINAL_CWD: terminalCwd,
-    HERMES_DASHBOARD_SESSION_TOKEN: sessionToken,
-    HERMES_DESKTOP: '1',
+    LEMON_DASHBOARD_SESSION_TOKEN: sessionToken,
+    LEMON_DESKTOP: '1',
     ...parentIdentityEnv,
-    HERMES_WEB_DIST: webDist,
-    ...(readyFile ? { HERMES_DESKTOP_READY_FILE: readyFile } : {})
+    LEMON_WEB_DIST: webDist,
+    ...(readyFile ? { LEMON_DESKTOP_READY_FILE: readyFile } : {})
   }
 }

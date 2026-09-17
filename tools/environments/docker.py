@@ -29,7 +29,7 @@ from tools.environments.docker_egress import (
 )
 from tools.environments.path_utils import sanitize_task_id_for_path
 from tools.environments.remote_common import bash_argv, run_capture
-from tools.environments.local_env_policy import _HERMES_PROVIDER_ENV_BLOCKLIST, _is_hermes_internal_secret
+from tools.environments.local_env_policy import _LEMON_PROVIDER_ENV_BLOCKLIST, _is_lemon_internal_secret
 
 logger = logging.getLogger(__name__)
 
@@ -79,10 +79,10 @@ def _normalize_env_dict(env: dict | None) -> dict[str, str]:
     return normalized
 
 
-def _load_hermes_env_vars() -> dict[str, str]:
-    """Load ~/.hermes/.env values without failing Docker command execution."""
+def _load_lemon_env_vars() -> dict[str, str]:
+    """Load ~/.lemon-ai/.env values without failing Docker command execution."""
     try:
-        from hermes_cli.config import load_env
+        from lemon_cli.config import load_env
         return load_env() or {}
     except Exception:
         return {}
@@ -106,10 +106,10 @@ _sandbox_dir_name = sanitize_task_id_for_path
 
 
 def _get_active_profile_name() -> str:
-    """Active Hermes profile name, or ``"default"`` on any error. Resolved at container-create
+    """Active Lemon AI profile name, or ``"default"`` on any error. Resolved at container-create
     time so a container stays tagged with its creator even if the process switches profiles."""
     try:
-        from hermes_cli.profiles import get_active_profile_name
+        from lemon_cli.profiles import get_active_profile_name
         return get_active_profile_name() or "default"
     except Exception:
         return "default"
@@ -129,16 +129,16 @@ def _container_identity(shared_key: str = "") -> str:
 def reap_orphan_containers(
     *, max_age_seconds: int = 600, profile_filter: str | None = None, docker_exe: str | None = None,
 ) -> int:
-    """Remove stale hermes-tagged containers left behind by prior processes (SIGKILL/OOM
+    """Remove stale lemon-tagged containers left behind by prior processes (SIGKILL/OOM
     exits that bypass atexit). Only ``status=exited`` containers (running ones may belong
     to a sibling process), only the caller's profile, and only if ``FinishedAt`` is older
     than *max_age_seconds* (a just-exited sibling may be about to reuse its container).
     Best-effort and idempotent: failures log at debug and the count removed so far is returned.
     """
     docker = docker_exe or find_docker() or "docker"
-    filters = ["--filter", "label=hermes-agent=1", "--filter", "status=exited"]
+    filters = ["--filter", "label=lemon-agent=1", "--filter", "status=exited"]
     if profile_filter:
-        filters.extend(["--filter", f"label=hermes-profile={_sanitize_label_value(profile_filter)}"])
+        filters.extend(["--filter", f"label=lemon-profile={_sanitize_label_value(profile_filter)}"])
 
     listing = _docker_query(
         [docker, "ps", "-a", *filters, "--format", "{{.ID}}"], timeout=15,
@@ -211,15 +211,15 @@ def _docker_query(
 
 
 def find_docker() -> Optional[str]:
-    """Locate the docker/podman CLI (cached): ``HERMES_DOCKER_BINARY`` override, ``docker``
+    """Locate the docker/podman CLI (cached): ``LEMON_DOCKER_BINARY`` override, ``docker``
     on PATH, ``podman`` on PATH, then macOS Docker Desktop locations; ``None`` if absent."""
     global _docker_executable
     if _docker_executable is not None:
         return _docker_executable
 
-    override = os.getenv("HERMES_DOCKER_BINARY")
+    override = os.getenv("LEMON_DOCKER_BINARY")
     if override and _is_executable(override):
-        logger.info("Using HERMES_DOCKER_BINARY override: %s", override)
+        logger.info("Using LEMON_DOCKER_BINARY override: %s", override)
         found = override
     elif found := shutil.which("docker"):
         pass
@@ -523,7 +523,7 @@ class DockerEnvironment(BaseEnvironment):
         # Resolved once so it works when /usr/local/bin is not in PATH (macOS services).
         self._docker_exe = find_docker() or "docker"
 
-        # s6-overlay images (e.g. hermes-agent:latest) already use /init as PID 1 and exec
+        # s6-overlay images (e.g. lemon-agent:latest) already use /init as PID 1 and exec
         # /run/s6/basedir/bin/init during startup. For those images we must (a) skip Docker's --init (two
         # competing PID-1 inits) and (b) mount /run with exec instead of noexec, or s6 stage0 dies with exit
         # 126 "Permission denied". Detected once here; defaults are kept on any inspection failure. See
@@ -543,7 +543,7 @@ class DockerEnvironment(BaseEnvironment):
             + egress_host_args + volume_args + env_args + validated_extra)
         logger.info("Docker run_args: %s", all_run_args)
 
-        # Labels identify hermes containers to the orphan reaper (hermes-agent=1),
+        # Labels identify lemon containers to the orphan reaper (lemon-agent=1),
         # cross-process reuse (task-id/profile) and operators. The reuse identity
         # is captured at start and never changes for the container's lifetime.
         # Egress posture gets its own label: env/CA mounts are immutable after
@@ -551,9 +551,9 @@ class DockerEnvironment(BaseEnvironment):
         profile_name = _container_identity(shared_container_key)
         task_label = _sanitize_label_value(task_id)
         self._labels = {
-            "hermes-agent": "1",
-            "hermes-task-id": task_label,
-            "hermes-profile": profile_name,
+            "lemon-agent": "1",
+            "lemon-task-id": task_label,
+            "lemon-profile": profile_name,
             _EGRESS_LABEL_KEY: egress_label}
         # Saved for container recreation on "No such container" recovery.
         self._image = image
@@ -625,7 +625,7 @@ class DockerEnvironment(BaseEnvironment):
 
     def _mount_args(self, volumes, host_cwd, auto_mount_cwd, task_id) -> tuple[list[str], list[str]]:
         """``(volume_args, writable_args)`` for user volumes, host cwd and /workspace,/root.
-        Persistent mode bind-mounts from TERMINAL_SANDBOX_DIR (default ~/.hermes/sandboxes/)."""
+        Persistent mode bind-mounts from TERMINAL_SANDBOX_DIR (default ~/.lemon-ai/sandboxes/)."""
         volume_args: list[str] = []
         for vol in (volumes or []):
             if not isinstance(vol, str):
@@ -739,7 +739,7 @@ class DockerEnvironment(BaseEnvironment):
         """Start a fresh container and return its id. A failed ``docker run`` (exit 125, timeout
         mid-pull) can leave a "Created" orphan the exited-only reaper never catches, so it is
         removed by name before re-raising."""
-        container_name = f"hermes-{uuid.uuid4().hex[:8]}"
+        container_name = f"lemon-{uuid.uuid4().hex[:8]}"
         run_cmd = self._run_command(container_name, cwd)
         logger.debug("Starting container: %s", ' '.join(run_cmd))
         try:
@@ -785,8 +785,8 @@ class DockerEnvironment(BaseEnvironment):
 
     def _resolve_passthrough_env(self) -> tuple[dict[str, str], set[str]]:
         """Forwarded values plus scoped names that must be unset. Explicit docker_forward_env
-        entries are an opt-in that wins over the Hermes secret blocklist; only implicit
-        passthrough keys are filtered (incl. Hermes-internal dynamic secrets)."""
+        entries are an opt-in that wins over the Lemon AI secret blocklist; only implicit
+        passthrough keys are filtered (incl. Lemon AI-internal dynamic secrets)."""
         exec_env: dict[str, str] = {}
         passthrough_keys: set[str] = set()
         resolve_passthrough_value = None
@@ -799,12 +799,12 @@ class DockerEnvironment(BaseEnvironment):
             passthrough_keys = set(get_all_passthrough())
         except Exception:
             pass
-        implicit_forward = {k for k in passthrough_keys if not _is_hermes_internal_secret(k)}
-        forward_keys = set(self._forward_env) | (implicit_forward - _HERMES_PROVIDER_ENV_BLOCKLIST)
-        hermes_env = _load_hermes_env_vars() if forward_keys else {}
+        implicit_forward = {k for k in passthrough_keys if not _is_lemon_internal_secret(k)}
+        forward_keys = set(self._forward_env) | (implicit_forward - _LEMON_PROVIDER_ENV_BLOCKLIST)
+        lemon_env = _load_lemon_env_vars() if forward_keys else {}
         unset_names: set[str] = set()
         for key in sorted(forward_keys):
-            value = os.getenv(key) or hermes_env.get(key)
+            value = os.getenv(key) or lemon_env.get(key)
             if resolve_passthrough_value is not None:
                 value = resolve_passthrough_value(key, value)
             if value is not None:
@@ -868,8 +868,8 @@ class DockerEnvironment(BaseEnvironment):
         self._container_id = None
 
         existing = self._find_reusable_container(
-            self._labels.get("hermes-task-id", ""),
-            self._labels.get("hermes-profile", ""),
+            self._labels.get("lemon-task-id", ""),
+            self._labels.get("lemon-profile", ""),
             self._labels.get(_EGRESS_LABEL_KEY, "off"))
         if existing is not None:
             cid, state = existing
@@ -887,7 +887,7 @@ class DockerEnvironment(BaseEnvironment):
                 logger.error("Recovery: no saved image name, cannot recreate container")
                 return False
             try:
-                new_name = f"hermes-{uuid.uuid4().hex[:8]}"
+                new_name = f"lemon-{uuid.uuid4().hex[:8]}"
                 result = run_capture(
                     self._run_command(new_name, self.cwd), timeout=120, check=True,
                     env=self._docker_client_env(self._run_env_values))
@@ -955,13 +955,13 @@ class DockerEnvironment(BaseEnvironment):
         """``(container_id, state)`` of an existing container labeled for this task/profile/
         egress posture, or ``None`` on miss or any failure. With egress off the probe is
         widened to all task+profile containers and post-filtered to reject a non-"off" egress
-        label — else a container built with egress on would be reused after ``hermes egress
+        label — else a container built with egress on would be reused after ``lemon egress
         disable`` with its baked-in proxy env and CA mounts."""
         egress_off = egress_label == "off"
         filters = [
-            "--filter", "label=hermes-agent=1",
-            "--filter", f"label=hermes-task-id={task_label}",
-            "--filter", f"label=hermes-profile={profile_label}"]
+            "--filter", "label=lemon-agent=1",
+            "--filter", f"label=lemon-task-id={task_label}",
+            "--filter", f"label=lemon-profile={profile_label}"]
         if egress_off:
             fmt = '{{.ID}}\t{{.State}}\t{{.Label "' + _EGRESS_LABEL_KEY + '"}}'
         else:
@@ -1037,7 +1037,7 @@ class DockerEnvironment(BaseEnvironment):
                 except (subprocess.TimeoutExpired, OSError) as e:
                     logger.warning(fail_msg, log_id, e)
 
-        t = threading.Thread(target=_do_cleanup, daemon=True, name=f"hermes-cleanup-{log_id}")
+        t = threading.Thread(target=_do_cleanup, daemon=True, name=f"lemon-cleanup-{log_id}")
         t.start()
         self._cleanup_thread = t
         self._container_id = None

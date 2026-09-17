@@ -25,7 +25,7 @@ from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
-_THREAD_NAME = "hermes-periodic-scheduler"
+_THREAD_NAME = "lemon-periodic-scheduler"
 
 
 class ScheduledHandle:

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { type CSSProperties } from 'react'
 
 import { HackeryButton } from '../components/hackery-button'
-import { $productName, launchHermesDesktop } from '../store'
+import { $productName, launchLemonDesktop } from '../store'
 
 /*
  * Success screen. The product-specific wordmark stays as the visual anchor
@@ -14,7 +14,7 @@ import { $productName, launchHermesDesktop } from '../store'
  * Launching the desktop can fail (e.g. Stage-Desktop was skipped and
  * the staged desktop executable doesn't exist). We catch the Tauri error and surface it
  * inline rather than silently doing nothing — the previous version
- * had `onClick={() => void launchHermesDesktop()}` which swallowed
+ * had `onClick={() => void launchLemonDesktop()}` which swallowed
  * the rejection and left the user staring at an unresponsive button.
  */
 export default function Success() {
@@ -27,7 +27,7 @@ export default function Success() {
     setLaunching(true)
 
     try {
-      await launchHermesDesktop()
+      await launchLemonDesktop()
       // On success the installer exits — control never returns here.
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -37,7 +37,7 @@ export default function Success() {
   }
 
   return (
-    <div className="hermes-fade-in flex h-full flex-col items-center justify-center gap-8 px-12 py-10">
+    <div className="lemon-fade-in flex h-full flex-col items-center justify-center gap-8 px-12 py-10">
       <div className="w-full max-w-2xl min-w-0 text-center">
         <p
           className="fit-text mx-auto mb-4 w-full font-['Collapse'] font-bold uppercase leading-[0.9] tracking-[0.08em] text-midground mix-blend-plus-lighter dark:text-foreground/90"
@@ -57,7 +57,7 @@ export default function Success() {
 
         <p className="m-0 text-center text-base leading-normal tracking-tight text-muted-foreground">
           Bạn có thể mở ngay tại đây. Lệnh kỹ thuật cho terminal:{' '}
-          <code className="font-mono text-sm text-foreground/80">hermes desktop</code>.
+          <code className="font-mono text-sm text-foreground/80">lemon desktop</code>.
         </p>
       </div>
 

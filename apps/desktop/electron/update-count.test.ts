@@ -15,15 +15,15 @@ import {
 } from './update-count'
 
 function createTempGitRepo() {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-update-count-'))
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-update-count-'))
   const git = (...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8', timeout: 10_000 }).trim()
 
   try {
     git('init', '--quiet')
     git('config', 'commit.gpgSign', 'false')
     git('config', 'core.hooksPath', '.git/no-hooks')
-    git('config', 'user.name', 'Hermes Test')
-    git('config', 'user.email', 'hermes@example.invalid')
+    git('config', 'user.name', 'Lemon AI Test')
+    git('config', 'user.email', 'lemon@example.invalid')
 
     return { cwd, git }
   } catch (error) {
@@ -268,10 +268,10 @@ test('compareApiUrl builds the GitHub compare URL for HTTPS origins', () => {
   assert.equal(
     compareApiUrl({
       currentSha: SHA_A,
-      originUrl: 'https://github.com/NousResearch/hermes-agent.git',
+      originUrl: 'https://github.com/DangLemon/lemon-agent.git',
       targetSha: SHA_B
     }),
-    `https://api.github.com/repos/NousResearch/hermes-agent/compare/${SHA_A}...${SHA_B}`
+    `https://api.github.com/repos/DangLemon/lemon-agent/compare/${SHA_A}...${SHA_B}`
   )
 })
 
@@ -279,23 +279,23 @@ test('compareApiUrl can use the configured Lemon source repository independent o
   assert.equal(
     compareApiUrl({
       currentSha: SHA_A,
-      originUrl: 'https://github.com/NousResearch/hermes-agent.git',
-      sourceRepository: 'DangLemon/hermes-agent',
+      originUrl: 'https://github.com/DangLemon/lemon-agent.git',
+      sourceRepository: 'DangLemon/lemon-agent',
       targetSha: SHA_B
     }),
-    `https://api.github.com/repos/DangLemon/hermes-agent/compare/${SHA_A}...${SHA_B}`
+    `https://api.github.com/repos/DangLemon/lemon-agent/compare/${SHA_A}...${SHA_B}`
   )
 })
 
 test('compareApiUrl handles SSH origin forms', () => {
   for (const originUrl of [
-    'git@github.com:NousResearch/hermes-agent.git',
-    'ssh://git@github.com/NousResearch/hermes-agent.git',
-    'git@github.com:NousResearch/hermes-agent'
+    'git@github.com:DangLemon/lemon-agent.git',
+    'ssh://git@github.com/DangLemon/lemon-agent.git',
+    'git@github.com:DangLemon/lemon-agent'
   ]) {
     assert.equal(
       compareApiUrl({ currentSha: SHA_A, originUrl, targetSha: SHA_B }),
-      `https://api.github.com/repos/NousResearch/hermes-agent/compare/${SHA_A}...${SHA_B}`
+      `https://api.github.com/repos/DangLemon/lemon-agent/compare/${SHA_A}...${SHA_B}`
     )
   }
 })

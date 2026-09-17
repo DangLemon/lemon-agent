@@ -1,4 +1,4 @@
-import { createMcpOAuthClient, listMcpServers } from '@/hermes'
+import { createMcpOAuthClient, listMcpServers } from '@/lemon'
 import { translateNow } from '@/i18n'
 import { completeMcpDesktopOAuth, McpOAuthCancelled } from '@/lib/mcp-dashboard-oauth'
 import { captureMcpOAuthScopeGuard } from '@/lib/mcp-oauth-scope'
@@ -49,7 +49,7 @@ async function reconnect(server: string, sessionId: string | null, cancelled: ()
       cancelled: () => cancelled() || !oauthScopeGuard(),
       cancel: oauthClient.cancel,
       relayCallback: oauthClient.relayCallback,
-      openExternal: url => window.hermesDesktop.openExternal(url)
+      openExternal: url => window.lemonDesktop.openExternal(url)
     })
 
     // Fresh tokens reach the live session before the pill claims success.

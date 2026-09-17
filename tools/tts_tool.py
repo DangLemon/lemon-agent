@@ -19,7 +19,7 @@ import tempfile
 from pathlib import Path
 from typing import Callable, Dict, Any, List, Optional
 
-from hermes_constants import display_hermes_home
+from lemon_constants import display_lemon_home
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 def get_env_value(name, default=None):
     """Read env values through the live config module (resolved per call so test patches apply)."""
     try:
-        from hermes_cli.config import get_env_value as _get_env_value
+        from lemon_cli.config import get_env_value as _get_env_value
     except ImportError:
         return os.getenv(name, default)
     value = _get_env_value(name)
@@ -112,8 +112,8 @@ DEFAULT_PROVIDER = "edge"
 
 
 def _get_default_output_dir() -> str:
-    from hermes_constants import get_hermes_dir
-    return str(get_hermes_dir("cache/audio", "audio_cache"))
+    from lemon_constants import get_lemon_dir
+    return str(get_lemon_dir("cache/audio", "audio_cache"))
 
 
 DEFAULT_OUTPUT_DIR = _DEFAULT_OUTPUT_DIR_AT_IMPORT = _get_default_output_dir()
@@ -125,11 +125,11 @@ def _default_output_dir() -> str:
 
     Same bug class as skills_tool (f8723c478) and skills_sync (#65828): long-lived multi-profile runtimes
     (dashboard console, TUI/Desktop backend, cron, kanban workers) import this module once under the launch
-    HERMES_HOME and later scope requests to a different profile via
-    ``hermes_constants.set_hermes_home_override()`` — a frozen module constant keeps writing synthesized
+    LEMON_HOME and later scope requests to a different profile via
+    ``lemon_constants.set_lemon_home_override()`` — a frozen module constant keeps writing synthesized
     audio into the launch profile's cache instead of the active profile's (#98749). Keep the legacy
     ``DEFAULT_OUTPUT_DIR`` module attribute for tests and external patchers; when it has not been patched,
-    re-resolve from the live profile-scoped HERMES_HOME on every call.
+    re-resolve from the live profile-scoped LEMON_HOME on every call.
     """
     if DEFAULT_OUTPUT_DIR != _DEFAULT_OUTPUT_DIR_AT_IMPORT:
         return DEFAULT_OUTPUT_DIR
@@ -139,10 +139,10 @@ def _default_output_dir() -> str:
 def _load_tts_config() -> Dict[str, Any]:
     """Return the ``tts`` config section ({} when unavailable)."""
     try:
-        from hermes_cli.config import load_config
+        from lemon_cli.config import load_config
         return load_config().get("tts") or {}
     except ImportError:
-        logger.debug("hermes_cli.config not available, using default TTS config")
+        logger.debug("lemon_cli.config not available, using default TTS config")
     except Exception as e:
         logger.warning("Failed to load TTS config: %s", e, exc_info=True)
     return {}
@@ -176,18 +176,18 @@ _BUILTIN_DISPATCH: Dict[str, tuple] = {
     "xai": (None, "xAI TTS", "_generate_xai_tts", None),
     "mistral": (lambda: _importable(_import_mistral_client), "Mistral Voxtral TTS", "_generate_mistral_tts",
                 "Mistral provider selected but 'mistralai' package not installed. "
-                "Run `hermes setup` to install Mistral support."),
+                "Run `lemon setup` to install Mistral support."),
     "gemini": (None, "Google Gemini TTS", "_generate_gemini_tts", None),
     "neutts": (lambda: _check_neutts_available(), "NeuTTS (local)", "_generate_neutts",
                "NeuTTS provider selected but neutts is not installed. "
-               "Run hermes setup and choose NeuTTS, or install espeak-ng and run python -m pip install -U neutts[all]."),
+               "Run lemon setup and choose NeuTTS, or install espeak-ng and run python -m pip install -U neutts[all]."),
     "kittentts": (lambda: _importable(_import_kittentts), "KittenTTS (local, ~25MB)", "_generate_kittentts",
                   "KittenTTS provider selected but 'kittentts' package not installed. "
-                  "Run 'hermes setup tts' and choose KittenTTS, or install manually: "
+                  "Run 'lemon setup tts' and choose KittenTTS, or install manually: "
                   "pip install https://github.com/KittenML/KittenTTS/releases/download/0.8.1/kittentts-0.8.1-py3-none-any.whl"),
     "piper": (lambda: _importable(_import_piper), "Piper (local)", "_generate_piper_tts",
               "Piper provider selected but 'piper-tts' package not installed. "
-              "Run 'hermes tools' and select Piper under TTS, or install manually: "
+              "Run 'lemon tools' and select Piper under TTS, or install manually: "
               "pip install piper-tts")}
 
 
@@ -275,7 +275,7 @@ def _apply_call_overrides(tts_config: Dict[str, Any], speed: Optional[float], pr
 def _session_platform() -> tuple:
     """``(platform, wants_opus)`` — platforms delivering voice bubbles only as Ogg/Opus want Opus."""
     from gateway.session_context import get_session_env
-    platform = get_session_env("HERMES_SESSION_PLATFORM", "").lower()
+    platform = get_session_env("LEMON_SESSION_PLATFORM", "").lower()
     return platform, platform in OPUS_VOICE_PLATFORMS
 
 
@@ -534,7 +534,7 @@ TTS_SCHEMA = {
             },
             "output_path": {
                 "type": "string",
-                "description": f"Optional custom file path to save the audio. Defaults to {display_hermes_home()}/audio_cache/<timestamp>.mp3"
+                "description": f"Optional custom file path to save the audio. Defaults to {display_lemon_home()}/audio_cache/<timestamp>.mp3"
             },
             "speed": {
                 "type": "number",
@@ -655,7 +655,7 @@ _PLUGIN_COMPAT_LAZY = {
     'TTS_RESPONSE_BODY_CHUNK_BYTES': ('tools.tts_tool_providers', 'TTS_RESPONSE_BODY_CHUNK_BYTES'),
     'TTS_RESPONSE_BODY_LIMIT_BYTES': ('tools.tts_tool_providers', 'TTS_RESPONSE_BODY_LIMIT_BYTES'),
     'acquire_tts_lease': ('tools.tts_tool_lifecycle', 'acquire_tts_lease'),
-    'hermes_xai_user_agent': ('tools.xai_http', 'hermes_xai_user_agent'),
+    'lemon_xai_user_agent': ('tools.xai_http', 'lemon_xai_user_agent'),
     'managed_nous_tools_enabled': ('tools.tool_backend_helpers', 'managed_nous_tools_enabled'),
     'nous_tool_gateway_unavailable_message': ('tools.tool_backend_helpers', 'nous_tool_gateway_unavailable_message'),
     'read_selection': ('tools.tool_backend_helpers', 'read_selection'),
@@ -667,7 +667,7 @@ _PLUGIN_COMPAT_LAZY = {
     'stream_tts_to_speaker': ('tools.tts_tool_speaker', 'stream_tts_to_speaker'),
     'tts_lease_holders': ('tools.tts_tool_lifecycle', 'tts_lease_holders'),
     'warm_tts_provider': ('tools.tts_tool_lifecycle', 'warm_tts_provider'),
-    'windows_hide_flags': ('hermes_cli._subprocess_compat', 'windows_hide_flags'),
+    'windows_hide_flags': ('lemon_cli._subprocess_compat', 'windows_hide_flags'),
 }
 
 
@@ -676,7 +676,7 @@ def __getattr__(name):  # PEP 562 — lazy so no import cycles
     if target is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     import importlib
-    from hermes_cli.plugin_compat import warn_once
+    from lemon_cli.plugin_compat import warn_once
     warn_once(__name__, name, *target)
     return getattr(importlib.import_module(target[0]), target[1])
 # ---- END PLUGIN-COMPAT ----

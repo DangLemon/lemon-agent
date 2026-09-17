@@ -1,8 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Hermes",
+  "productName": "Lemon AI Setup",
   "version": "0.0.1",
-  "identifier": "com.nousresearch.hermes.setup",
+  "identifier": "com.lemondigital.lemonai.setup",
+  "mainBinaryName": "Lemon AI Setup",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:5175",
@@ -13,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Hermes",
+        "title": "Lemon AI Setup",
         "width": 880,
         "height": 620,
         "minWidth": 720,
@@ -34,21 +35,21 @@
   "bundle": {
     "active": true,
     "category": "DeveloperTool",
-    "shortDescription": "Hermes",
-    "longDescription": "Installs Hermes Agent on your machine. Drives scripts/install.ps1 (Windows) and scripts/install.sh (macOS/Linux).",
-    "publisher": "Nous Research",
-    "copyright": "Copyright © 2026 Nous Research",
+    "shortDescription": "Lemon AI Setup",
+    "longDescription": "Installs Lemon AI on your machine. Drives scripts/install.ps1 (Windows) and scripts/install.sh (macOS/Linux).",
+    "publisher": "Lemon Digital",
+    "copyright": "Copyright © 2026 Lemon Digital",
     "targets": [
       "app",
       "dmg",
       "appimage"
     ],
     "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
+      "icons/lemon-32x32.png",
+      "icons/lemon-128x128.png",
+      "icons/lemon-128x128@2x.png",
+      "icons/lemon-icon.icns",
+      "icons/lemon-icon.ico"
     ],
     "windows": {
       "webviewInstallMode": {
@@ -58,7 +59,9 @@
     "macOS": {
       "minimumSystemVersion": "11.0",
       "hardenedRuntime": true,
-      "entitlements": "entitlements.plist"
+      "entitlements": "entitlements.plist",
+      "infoPlist": "Info.lemon.plist",
+      "signingIdentity": "-"
     }
   },
   "plugins": {

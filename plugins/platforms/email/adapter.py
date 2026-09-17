@@ -1,4 +1,4 @@
-"""Email platform adapter for the Hermes gateway: users talk to Hermes by sending email; IMAP (polled)
+"""Email platform adapter for the Lemon AI gateway: users talk to Lemon AI by sending email; IMAP (polled)
 receives, SMTP sends. Configured via EMAIL_* env vars or ``platforms.email`` in config.yaml (see website docs)."""
 
 import asyncio
@@ -144,10 +144,10 @@ def _send_imap_id(imap: "imaplib.IMAP4") -> None:
     returns ``BYE Unsafe Login``); other servers may reject it, so failures are swallowed."""
     try:
         try:
-            from hermes_cli import __version__ as _hermes_version
+            from lemon_cli import __version__ as _lemon_version
         except Exception:  # noqa: BLE001 — keep ID best-effort if import fails
-            _hermes_version = "0"
-        imap.xatom("ID", f'("name" "hermes-agent" "version" "{_hermes_version}" '
+            _lemon_version = "0"
+        imap.xatom("ID", f'("name" "lemon-agent" "version" "{_lemon_version}" '
                          '"vendor" "NousResearch" "support-email" "noreply@nousresearch.com")')
     except Exception as e:  # noqa: BLE001 — best-effort, never fatal
         logger.debug("[Email] IMAP ID command not accepted: %s", e)
@@ -464,7 +464,7 @@ class EmailAdapter(BasePlatformAdapter):
         # Validate up front so a missing host is an actionable config error, not IMAP4_SSL("") raising ``[Errno 8]``.
         required = (("EMAIL_ADDRESS", self._address), ("EMAIL_PASSWORD", self._password), ("EMAIL_IMAP_HOST", self._imap_host), ("EMAIL_SMTP_HOST", self._smtp_host))
         if missing := [name for name, value in required if not value]:
-            message = f"Not configured — missing {', '.join(missing)}. Set it via `hermes gateway setup` (env) or platforms.email in config.yaml."
+            message = f"Not configured — missing {', '.join(missing)}. Set it via `lemon gateway setup` (env) or platforms.email in config.yaml."
             # Non-retryable: a blank-but-present env var used to drive an indefinite retry loop that leaked until OOM.
             return self._fail("[Email] %s", message, "email_missing_configuration", message, retryable=False)
         if not self._probe_imap(is_reconnect) or not self._probe_smtp():
@@ -652,12 +652,12 @@ class EmailAdapter(BasePlatformAdapter):
                    attach_empty_body: bool = False) -> Tuple[MIMEMultipart, str, str]:
         """Build a threaded reply skeleton. Returns ``(msg, msg_id, subject)``."""
         msg, ctx = MIMEMultipart(), self._thread_context.get(to_addr, {})
-        subject = ctx.get("subject", "Hermes Agent")
+        subject = ctx.get("subject", "Lemon AI")
         if not subject.startswith("Re:"):
             subject = f"Re: {subject}"
         original_msg_id = reply_to_msg_id or ctx.get("message_id")
         threading = (("In-Reply-To", original_msg_id), ("References", original_msg_id)) if original_msg_id else ()
-        msg_id = f"<hermes-{uuid.uuid4().hex[:12]}@{self._message_id_domain()}>"
+        msg_id = f"<lemon-{uuid.uuid4().hex[:12]}@{self._message_id_domain()}>"
         for key, value in (("From", self._address), ("To", to_addr), ("Subject", subject), *threading,
                            ("Date", formatdate(localtime=True)), ("Message-ID", msg_id)):
             msg[key] = value
@@ -758,7 +758,7 @@ async def _standalone_send(pconfig, chat_id, message, *, thread_id=None, media_f
         return {"error": "Email not configured (EMAIL_ADDRESS, EMAIL_PASSWORD, EMAIL_SMTP_HOST required)"}
     try:
         msg = MIMEText(message, "plain", "utf-8")
-        for key, value in (("From", address), ("To", chat_id), ("Subject", "Hermes Agent"), ("Date", formatdate(localtime=True))):
+        for key, value in (("From", address), ("To", chat_id), ("Subject", "Lemon AI"), ("Date", formatdate(localtime=True))):
             msg[key] = value
         server = _open_smtp(smtp_host, smtp_port, smtp_security, _tls_context(smtp_tls_verify, smtp_host), smtplib.SMTP, smtplib.SMTP_SSL)
         server.login(address, password)
@@ -777,7 +777,7 @@ def _is_connected(config) -> bool:
     """Connected when an address is configured (PlatformConfig.extra or EMAIL_ADDRESS)."""
     if (getattr(config, "extra", {}) or {}).get("address"):
         return True
-    import hermes_cli.gateway as gateway_mod
+    import lemon_cli.gateway as gateway_mod
     return bool((gateway_mod.get_env_value("EMAIL_ADDRESS") or "").strip())
 
 
@@ -787,7 +787,7 @@ def _build_adapter(config):
 
 
 def register(ctx) -> None:
-    """Plugin entry point — called by the Hermes plugin system."""
+    """Plugin entry point — called by the Lemon AI plugin system."""
     ctx.register_platform(
         name="email", label="Email", adapter_factory=_build_adapter, check_fn=check_email_requirements, is_connected=_is_connected,
         required_env=["EMAIL_ADDRESS", "EMAIL_PASSWORD", "EMAIL_SMTP_HOST"],

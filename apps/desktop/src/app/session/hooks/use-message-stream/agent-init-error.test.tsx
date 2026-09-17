@@ -100,7 +100,7 @@ describe('useMessageStream agent-init error surfacing (#63078)', () => {
   })
 
   it('brands only the static gateway error fallback when the backend omits error text', () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
     mountStream()
     seedOptimisticFirstMessage()
 
@@ -121,9 +121,9 @@ describe('useMessageStream agent-init error surfacing (#63078)', () => {
 
   it('preserves raw gateway error payloads in transcript, toast, and native notification storage', () => {
     const notify = vi.fn().mockResolvedValue(true)
-    const sourceEnvPath = ['~/.hermes/', 'env'].join('.')
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
-    Object.defineProperty(window, 'hermesDesktop', {
+    const sourceEnvPath = ['~/.lemon-ai/', 'env'].join('.')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
+    Object.defineProperty(window, 'lemonDesktop', {
       configurable: true,
       value: { notify }
     })
@@ -135,14 +135,14 @@ describe('useMessageStream agent-init error surfacing (#63078)', () => {
     act(() =>
       stream.handleEvent({
         payload: {
-          message: `Run 'hermes model', then check ${sourceEnvPath} because Hermes-4.5 failed in the Hermes gateway.`
+          message: `Run 'lemon model', then check ${sourceEnvPath} because Hermes-4.5 failed in the Lemon AI gateway.`
         },
         session_id: SID,
         type: 'error'
       })
     )
 
-    const expected = `Run 'hermes model', then check ${sourceEnvPath} because Hermes-4.5 failed in the Hermes gateway.`
+    const expected = `Run 'lemon model', then check ${sourceEnvPath} because Hermes-4.5 failed in the Lemon AI gateway.`
     const state = stream.state()
 
     expect(state.messages.some(m => m.role === 'assistant' && m.error === expected)).toBe(true)

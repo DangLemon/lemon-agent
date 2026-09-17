@@ -30,7 +30,7 @@ export const $poolLimits = atom<PoolLimits>({ ...POOL_LIMITS_DEFAULTS })
  *  bridge (web/older builds just keep the defaults for the UI). */
 export async function loadPoolLimits(): Promise<void> {
   try {
-    const limits = await window.hermesDesktop?.getPoolLimits?.()
+    const limits = await window.lemonDesktop?.getPoolLimits?.()
 
     if (limits) {
       $poolLimits.set(limits)
@@ -53,7 +53,7 @@ export async function savePoolLimits(next: { maxBackends?: number; idleMs?: numb
   $poolLimits.set(optimistic)
 
   try {
-    const result = await window.hermesDesktop?.setPoolLimits?.(next)
+    const result = await window.lemonDesktop?.setPoolLimits?.(next)
 
     if (result?.limits) {
       $poolLimits.set(result.limits)

@@ -30,7 +30,7 @@ def _is_successful_goal_turn(result: Any, status: str, raw: Any) -> bool:
 
 def _active_goal_manager(session: dict):
     """The session's GoalManager when a goal is active, else None."""
-    from hermes_cli.goals import GoalManager
+    from lemon_cli.goals import GoalManager
     try:
         max_turns = int((_load_cfg().get("goals") or {}).get("max_turns", 20) or 20)
     except Exception:
@@ -141,7 +141,7 @@ class _TurnScopes:
 
     approval: Any = None
     session_tokens: list = dataclasses.field(default_factory=list)
-    home: Any = None  # per-turn HERMES_HOME override for a resumed remote profile
+    home: Any = None  # per-turn LEMON_HOME override for a resumed remote profile
     secret: Any = None
     terminal: Any = None
 
@@ -152,7 +152,7 @@ def _route_turn_images(agent, prompt: Any, images: list[str]) -> Any:
     Decision table: agent/image_routing.py."""
     try:
         from agent.image_routing import build_native_content_parts, decide_image_input_mode
-        from hermes_cli.config import load_config as _tui_load_config
+        from lemon_cli.config import load_config as _tui_load_config
         _provider, _model = _active_image_routing_identity(agent)
         mode = decide_image_input_mode(
             _provider, _model, _tui_load_config(),
@@ -195,7 +195,7 @@ def _start_turn_voice() -> tuple[Any, bool]:
             if is_audio_output_active():
                 return False
             try:
-                from hermes_cli.voice import is_continuous_active
+                from lemon_cli.voice import is_continuous_active
                 return not is_continuous_active()
             except Exception:
                 return True
@@ -293,7 +293,7 @@ def _goal_followup_after_turn(
     try:
         if session.get("session_key") and (goal_mgr := _active_goal_manager(session)) is not None:
             try:
-                from hermes_cli.goals import gather_background_processes as _gather_bg
+                from lemon_cli.goals import gather_background_processes as _gather_bg
                 _bg_procs = _gather_bg()
             except Exception:
                 _bg_procs = None
@@ -312,7 +312,7 @@ def _goal_followup_after_turn(
 def _after_complete_turn(sid: str, session: dict, st: _TurnRun, raw: Any) -> None:
     """Hooks for a ``complete`` turn: /loop tick evaluation, pending title, voice fallback."""
     try:
-        from hermes_cli.loops import LoopManager
+        from lemon_cli.loops import LoopManager
         loop_sid_key = session.get("session_key") or ""
         if loop_sid_key:
             loop_mgr = LoopManager(session_id=loop_sid_key)
@@ -342,7 +342,7 @@ def _after_complete_turn(sid: str, session: dict, st: _TurnRun, raw: Any) -> Non
         try:
             threading.Thread(target=_speak_text_with_barge, args=(raw,), daemon=True).start()
         except ImportError:
-            logger.warning("voice TTS skipped: hermes_cli.voice unavailable")
+            logger.warning("voice TTS skipped: lemon_cli.voice unavailable")
         except Exception as e:
             logger.warning("voice TTS dispatch failed: %s", e)
 
@@ -449,7 +449,7 @@ def _prepare_turn_input(sid: str, session: dict, st: _TurnRun, text: Any, images
     scopes.session_tokens = _set_session_context(session["session_key"], ui_session_id=sid)
     profile_home = session.get("profile_home")
     if profile_home:
-        scopes.home = set_hermes_home_override(profile_home)
+        scopes.home = set_lemon_home_override(profile_home)
         scopes.secret = set_secret_scope(build_profile_secret_scope(Path(profile_home)))
         from tools.terminal_scope import install_profile_terminal_scope
         scopes.terminal = install_profile_terminal_scope(Path(profile_home))
@@ -716,8 +716,8 @@ def _finish_turn(sid: str, session: dict, st: _TurnRun) -> None:
     history.clear()
     if isinstance(run_kwargs, dict):
         run_kwargs.clear()
-    try:  # while the profile HERMES_HOME override is still active (session's own config)
-        from hermes_cli.mem_trim import trim_memory
+    try:  # while the profile LEMON_HOME override is still active (session's own config)
+        from lemon_cli.mem_trim import trim_memory
         trim_memory(reason="tui turn completion")
     except Exception:
         logger.debug("post-turn memory trim failed", exc_info=True)
@@ -741,7 +741,7 @@ def _finish_turn(sid: str, session: dict, st: _TurnRun) -> None:
             from tools.approval_context import reset_current_session_key
             reset_current_session_key(scopes.approval)
     if scopes.home is not None:
-        reset_hermes_home_override(scopes.home)
+        reset_lemon_home_override(scopes.home)
     if scopes.secret is not None:
         reset_secret_scope(scopes.secret)
     if scopes.terminal is not None:

@@ -11,9 +11,9 @@ import { SCAFFOLD_LABEL_CLASS } from '@/components/chat/scaffold-row'
 import { Codicon } from '@/components/ui/codicon'
 import { Loader } from '@/components/ui/loader'
 import { StatusPulse } from '@/components/ui/status-pulse'
-import { getLocalModelsStatus } from '@/hermes'
+import { getLocalModelsStatus } from '@/lemon'
 import { useI18n } from '@/i18n'
-import { appBrand, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { appBrand, replaceLemonBrandTerms } from '@/lib/app-brand'
 import { cn } from '@/lib/utils'
 import { $backgroundResume } from '@/store/background-delegation'
 import { sessionCompacting } from '@/store/compaction'
@@ -22,7 +22,7 @@ import { sessionAwaitingInput } from '@/store/prompts'
 import { parseModelLoadWait, sessionProviderWait } from '@/store/provider-wait'
 import { $currentModel } from '@/store/session'
 import { type DraftingTool, sessionDraftingTool } from '@/store/tool-drafting'
-import type { LocalModelLoadProgress } from '@/types/hermes'
+import type { LocalModelLoadProgress } from '@/types/lemon'
 
 // A status line is scaffolding like any other — "Editing" while the model
 // drafts a call is the same kind of line as "Explored 3 files" once it has run,
@@ -371,7 +371,7 @@ export const TurnActivityIndicator: FC = () => {
   }
 
   return (
-    <StatusRow data-slot="aui_turn-activity" label={hint || replaceHermesBrandTerms('Hermes is working', appBrand())}>
+    <StatusRow data-slot="aui_turn-activity" label={hint || replaceLemonBrandTerms('Lemon AI is working', appBrand())}>
       <StatusPulse
         aria-hidden="true"
         className="dither inline-block size-3 rounded-[2px] text-midground/80"

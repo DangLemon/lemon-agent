@@ -6,25 +6,25 @@ const INTERNAL_MODE = 'internal'
 const ORDINARY_MODE = 'ordinary'
 const DISABLED_AUTO_DISCOVERY_VALUES = new Set(['false', '0', 'no'])
 
-const HERMES_MAC_COPY = {
-  CFBundleDisplayName: 'Hermes',
-  CFBundleExecutable: 'Hermes',
-  CFBundleName: 'Hermes',
+const LEMON_MAC_COPY = {
+  CFBundleDisplayName: 'Lemon AI',
+  CFBundleExecutable: 'Lemon AI',
+  CFBundleName: 'Lemon AI',
   NSHumanReadableCopyright: 'Copyright © 2026 Nous Research',
-  NSAudioCaptureUsageDescription: 'Hermes uses audio capture for voice conversations.',
-  NSCameraUsageDescription: 'Hermes uses the camera when a plugin or feature you enable requests it.',
-  NSMicrophoneUsageDescription: 'Hermes uses the microphone for voice input and voice conversations.',
-  NSCalendarsUsageDescription: 'Hermes needs access to Calendar to provide requested meeting and scheduling support.',
+  NSAudioCaptureUsageDescription: 'Lemon AI uses audio capture for voice conversations.',
+  NSCameraUsageDescription: 'Lemon AI uses the camera when a plugin or feature you enable requests it.',
+  NSMicrophoneUsageDescription: 'Lemon AI uses the microphone for voice input and voice conversations.',
+  NSCalendarsUsageDescription: 'Lemon AI needs access to Calendar to provide requested meeting and scheduling support.',
   NSCalendarsFullAccessUsageDescription:
-    'Hermes needs full access to Calendar to read and manage events when explicitly requested.',
+    'Lemon AI needs full access to Calendar to read and manage events when explicitly requested.',
   NSRemindersUsageDescription:
-    'Hermes needs access to Reminders to provide requested personal-assistant and scheduling support.',
+    'Lemon AI needs access to Reminders to provide requested personal-assistant and scheduling support.',
   NSRemindersFullAccessUsageDescription:
-    'Hermes needs full access to Reminders to read and manage reminders when explicitly requested.',
-  NSScreenCaptureUsageDescription: 'Hermes captures the screen when you ask the agent to screenshot or record it.',
+    'Lemon AI needs full access to Reminders to read and manage reminders when explicitly requested.',
+  NSScreenCaptureUsageDescription: 'Lemon AI captures the screen when you ask the agent to screenshot or record it.',
   NSLocalNetworkUsageDescription:
-    'Hermes connects to devices on your local network when a plugin or feature you enable requests it.',
-  NSAppleMusicUsageDescription: 'Hermes accesses your music library when a plugin or feature you enable requests it.'
+    'Lemon AI connects to devices on your local network when a plugin or feature you enable requests it.',
+  NSAppleMusicUsageDescription: 'Lemon AI accesses your music library when a plugin or feature you enable requests it.'
 }
 
 const LEMON_MAC_COPY = {
@@ -56,62 +56,62 @@ export function resolveDesktopBuildMode({ env = process.env, harnessResource } =
 export function createDesktopPackageConfig(baseBuild, { env = process.env, harnessResource } = {}) {
   const config = structuredClone(baseBuild)
 
-  if (String(env.HERMES_INSTALLER_BRAND ?? '').trim().toLowerCase() === 'hermes') {
-    config.productName = 'Hermes'
-    config.appId = 'com.nousresearch.hermes'
-    config.executableName = 'Hermes'
+  if (String(env.LEMON_INSTALLER_BRAND ?? '').trim().toLowerCase() === 'lemon') {
+    config.productName = 'Lemon AI'
+    config.appId = 'com.nousresearch.lemon-ai'
+    config.executableName = 'Lemon AI'
     config.extraMetadata = {
       ...(config.extraMetadata || {}),
-      name: 'hermes',
-      productName: 'Hermes',
+      name: 'lemon',
+      productName: 'Lemon AI',
       author: {
         name: 'Nous Research'
       },
-      description: 'Native desktop shell for Hermes Agent.',
-      homepage: 'https://github.com/NousResearch/hermes-agent',
+      description: 'Native desktop shell for Lemon AI.',
+      homepage: 'https://github.com/DangLemon/lemon-agent',
       bugs: {
-        url: 'https://github.com/NousResearch/hermes-agent/issues'
+        url: 'https://github.com/DangLemon/lemon-agent/issues'
       },
       repository: {
         type: 'git',
-        url: 'git+https://github.com/NousResearch/hermes-agent.git'
+        url: 'git+https://github.com/DangLemon/lemon-agent.git'
       }
     }
     config.copyright = 'Copyright © 2026 Nous Research'
-    config.artifactName = 'Hermes-${version}-${os}-${arch}.${ext}'
+    config.artifactName = 'Lemon AI-${version}-${os}-${arch}.${ext}'
     config.icon = 'assets/icon'
     config.extraResources = config.extraResources.map(entry =>
       entry?.from === 'assets/lemon-icon.ico' && entry?.to === 'icon.ico' ? { ...entry, from: 'assets/icon.ico' } : entry
     )
     config.mac = {
       ...config.mac,
-      executableName: 'Hermes',
+      executableName: 'Lemon AI',
       extendInfo: {
         ...config.mac.extendInfo,
-        ...HERMES_MAC_COPY
+        ...LEMON_MAC_COPY
       }
     }
     config.dmg = {
       ...config.dmg,
-      title: 'Install Hermes'
+      title: 'Install Lemon AI'
     }
     config.win = {
       ...config.win,
-      legalTrademarks: 'Hermes'
+      legalTrademarks: 'Lemon AI'
     }
     config.linux = {
       ...config.linux,
       maintainer: 'Nous Research <support@nousresearch.com>',
-      synopsis: 'Native desktop shell for Hermes Agent.'
+      synopsis: 'Native desktop shell for Lemon AI.'
     }
     config.nsis = {
       ...config.nsis,
-      shortcutName: 'Hermes',
-      uninstallDisplayName: 'Hermes'
+      shortcutName: 'Lemon AI',
+      uninstallDisplayName: 'Lemon AI'
     }
     config.protocols = config.protocols.map(protocol =>
-      Array.isArray(protocol?.schemes) && protocol.schemes.includes('hermes')
-        ? { ...protocol, name: 'Hermes Protocol' }
+      Array.isArray(protocol?.schemes) && protocol.schemes.includes('lemon')
+        ? { ...protocol, name: 'Lemon AI Protocol' }
         : protocol
     )
 
@@ -133,13 +133,13 @@ export function createDesktopPackageConfig(baseBuild, { env = process.env, harne
       name: 'Lemon Digital'
     },
     description: 'Native desktop shell for Lemon AI.',
-    homepage: 'https://github.com/DangLemon/hermes-agent',
+    homepage: 'https://github.com/DangLemon/lemon-agent',
     bugs: {
-      url: 'https://github.com/DangLemon/hermes-agent/issues'
+      url: 'https://github.com/DangLemon/lemon-agent/issues'
     },
     repository: {
       type: 'git',
-      url: 'git+https://github.com/DangLemon/hermes-agent.git'
+      url: 'git+https://github.com/DangLemon/lemon-agent.git'
     }
   }
   config.copyright = 'Copyright © 2026 Lemon Digital'
@@ -179,7 +179,7 @@ export function createDesktopPackageConfig(baseBuild, { env = process.env, harne
     uninstallDisplayName: 'Lemon AI'
   }
   config.protocols = config.protocols.map(protocol =>
-    Array.isArray(protocol?.schemes) && protocol.schemes.includes('hermes')
+    Array.isArray(protocol?.schemes) && protocol.schemes.includes('lemon')
       ? { ...protocol, name: 'Lemon AI Protocol' }
       : protocol
   )
@@ -226,11 +226,11 @@ export function exeIdentityForMode(mode, desktopRoot) {
 
   return {
     icon: path.join(desktopRoot, 'assets', 'icon.ico'),
-    productName: 'Hermes',
-    fileDescription: 'Hermes',
+    productName: 'Lemon AI',
+    fileDescription: 'Lemon AI',
     companyName: 'Nous Research',
     legalCopyright: 'Copyright (c) 2026 Nous Research'
   }
 }
 
-export { HERMES_MAC_COPY, LEMON_MAC_COPY }
+export { LEMON_MAC_COPY, LEMON_MAC_COPY }

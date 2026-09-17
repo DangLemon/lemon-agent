@@ -18,14 +18,14 @@ def test_install_sh_config_stage_emits_lemon_diagnostics_and_seed() -> None:
         tmp = Path(raw_tmp)
         home = tmp / "home"
         install_dir = tmp / "install"
-        hermes_home = home / ".lemon-ai"
+        lemon_home = home / ".lemon-ai"
         install_dir.mkdir(parents=True)
         home.mkdir()
         (install_dir / (".env" + ".example")).write_text("DUMMY_KEY=\n", encoding="utf-8")
         (install_dir / "cli-config.yaml.example").write_text("profiles: {}\n", encoding="utf-8")
 
         env = os.environ.copy()
-        env.update({"HOME": str(home), "HERMES_INSTALLER_BRAND": "lemon"})
+        env.update({"HOME": str(home), "LEMON_INSTALLER_BRAND": "lemon"})
 
         result = subprocess.run(
             [
@@ -37,8 +37,8 @@ def test_install_sh_config_stage_emits_lemon_diagnostics_and_seed() -> None:
                 "--json",
                 "--dir",
                 str(install_dir),
-                "--hermes-home",
-                str(hermes_home),
+                "--lemon-home",
+                str(lemon_home),
             ],
             env=env,
             text=True,
@@ -47,15 +47,15 @@ def test_install_sh_config_stage_emits_lemon_diagnostics_and_seed() -> None:
             check=True,
         )
 
-        assert f"Lemon AI home: {hermes_home}" in result.stdout
+        assert f"Lemon AI home: {lemon_home}" in result.stdout
         assert f"Lemon AI install root: {install_dir}" in result.stdout
         assert "Lemon AI runtime dir: lemon-agent" in result.stdout
-        assert "Lemon AI CLI command: hermes config" in result.stdout
+        assert "Lemon AI CLI command: lemon config" in result.stdout
         assert '"ok":true' in result.stdout.replace(" ", "")
 
-        soul = (hermes_home / "SOUL.md").read_text(encoding="utf-8")
+        soul = (lemon_home / "SOUL.md").read_text(encoding="utf-8")
         assert "You are Lemon AI, built by Lemon Digital." in soul
-        assert "Hermes Agent" not in soul
+        assert "Hermes" not in soul
         assert "Nous Research" not in soul
 
 

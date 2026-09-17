@@ -1,7 +1,7 @@
 # .github/workflows/rust-tests.yml
 name: Rust tests
 
-# `cargo test` for the Tauri bootstrap installer (Hermes-Setup). Nothing in CI
+# `cargo test` for the Tauri bootstrap installer (Lemon AI-Setup). Nothing in CI
 # compiled this crate before: `.rs` lives under `apps/`, so the change
 # classifier matched it as `frontend` and ran the TypeScript matrix, which
 # cannot notice a Rust error. The crate's unit tests existed in the tree and had
@@ -30,8 +30,8 @@ jobs:
     # cargo builds codegen units and test binaries in parallel across the
     # cores. This lane also builds the crate from the start when Cargo.toml
     # changes.
-    runs-on: ${{ github.repository == 'NousResearch/hermes-agent' && 'ubuntu-latest-32-core' || 'ubuntu-latest' }}
-    timeout-minutes: ${{ github.repository == 'NousResearch/hermes-agent' && 30 || 60 }}
+    runs-on: ${{ github.repository == 'DangLemon/lemon-agent' && 'ubuntu-latest-32-core' || 'ubuntu-latest' }}
+    timeout-minutes: ${{ github.repository == 'DangLemon/lemon-agent' && 30 || 60 }}
     defaults:
       run:
         working-directory: apps/bootstrap-installer/src-tauri

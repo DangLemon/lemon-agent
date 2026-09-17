@@ -1,6 +1,6 @@
 """Regression: installer/bootstrap must fail closed on diverged managed clones.
 
-When ``~/.hermes/hermes-agent`` has local-only commits (or diverged history),
+When ``~/.lemon-ai/lemon-agent`` has local-only commits (or diverged history),
 ``git pull --ff-only`` fails with exit 128 and bootstrap aborts at the
 repository stage. The installer must not hide that by resetting over the
 checkout; local commits and restored worktree edits must remain inspectable.

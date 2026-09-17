@@ -1,24 +1,24 @@
 /**
  * remote-lifecycle.ts
  *
- * Pure, electron-free remote Hermes dashboard lifecycle over SSH for Desktop
+ * Pure, electron-free remote Lemon AI dashboard lifecycle over SSH for Desktop
  * SSH remote mode. Composes an SshConnection (injected) with HTTP probes
  * through the established tunnel (injected fetch) and the served-token adoption
  * step (injected). Knows how to:
  *
- *   - locate the Hermes install on the remote (login-shell probe),
+ *   - locate the Lemon AI install on the remote (login-shell probe),
  *   - gate the remote platform to Linux/macOS via `uname`,
  *   - reuse an existing desktop-dedicated dashboard via a lockfile + an
  *     AUTHENTICATED /api/status probe (pid liveness alone is insufficient),
  *   - spawn a fresh detached `--isolated --port 0` dashboard and scrape its
- *     `HERMES_DASHBOARD_READY port=<n>` readiness line,
+ *     `LEMON_DASHBOARD_READY port=<n>` readiness line,
  *   - adopt the token the dashboard actually serves (served-token adoption),
  *   - clean up a stale dashboard only when it is provably ours.
  *
  * No `import 'electron'` so it's unit-testable with `node --test`. main.ts wires
- * the real SshConnection, fetch, adoptServedDashboardToken, and waitForHermes in.
+ * the real SshConnection, fetch, adoptServedDashboardToken, and waitForLemon in.
  *
- * The minted HERMES_DASHBOARD_SESSION_TOKEN is the SPAWN credential. After
+ * The minted LEMON_DASHBOARD_SESSION_TOKEN is the SPAWN credential. After
  * readiness the caller runs served-token adoption against the tunneled baseUrl
  * and the SERVED token's fingerprint is what lands in the lockfile — so the
  * reuse probe checks the credential that actually authenticates /api/ws, not
@@ -35,8 +35,8 @@ const LOCKFILE_SCHEMA_VERSION = 2
 // an old running dashboard unsafe to reattach to (token handling, readiness/spawn
 // args, served-token reconciliation). A mismatch forces a clean respawn.
 const PROTOCOL_VERSION = 1
-const READY_RE = /^HERMES_(?:BACKEND|DASHBOARD)_READY port=(\d+)/m
-const REMOTE_LOCK_DIR = '~/.hermes/desktop-ssh'
+const READY_RE = /^LEMON_(?:BACKEND|DASHBOARD)_READY port=(\d+)/m
+const REMOTE_LOCK_DIR = '~/.lemon-ai/desktop-ssh'
 const SUPPORTED_REMOTE_OS = new Set(['Linux', 'Darwin'])
 const DEFAULT_READY_TIMEOUT_MS = 45_000
 const READY_POLL_INTERVAL_MS = 750
@@ -46,10 +46,10 @@ const READY_POLL_INTERVAL_MS = 750
 // Keep startup portable: restricted hosts retain their existing limit.
 const REMOTE_NOFILE_SOFT_LIMIT = 65_536
 
-const DEFAULT_SOURCE_REPOSITORY = 'NousResearch/hermes-agent'
+const DEFAULT_SOURCE_REPOSITORY = 'DangLemon/lemon-agent'
 
-function displayAppName(hostAppName = 'Hermes'): string {
-  return String(hostAppName || 'Hermes').trim() || 'Hermes'
+function displayAppName(hostAppName = 'Lemon AI'): string {
+  return String(hostAppName || 'Lemon AI').trim() || 'Lemon AI'
 }
 
 const SOURCE_REPOSITORY_RE =
@@ -80,7 +80,7 @@ function remoteInstallCommand(sourceRepository = DEFAULT_SOURCE_REPOSITORY) {
   const repository = validateSourceRepository(sourceRepository)
 
   if (repository.toLowerCase() === DEFAULT_SOURCE_REPOSITORY.toLowerCase()) {
-    return 'curl -fsSL https://hermes-agent.nousresearch.com/install.sh | sh'
+    return 'curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | sh'
   }
 
   return `curl -fsSL https://raw.githubusercontent.com/${repository}/main/scripts/install.sh | sh -s -- --repo ${repository}`
@@ -203,26 +203,26 @@ function expandRemotePath(p) {
   return shq(p)
 }
 
-// Resolve the remote hermes executable. An EXPLICIT path is honored strictly
+// Resolve the remote lemon executable. An EXPLICIT path is honored strictly
 // (throws a path-naming error if not executable — never silently falls back to a
 // different install). A BLANK path auto-detects: login-shell `command -v` (a
 // non-login `ssh host cmd` PATH misses user installs), then known install paths.
-async function locateHermes(
+async function locateLemon(
   ssh,
-  remoteHermesPath,
+  remoteLemonPath,
   sourceRepository = DEFAULT_SOURCE_REPOSITORY,
-  hostAppName = 'Hermes'
+  hostAppName = 'Lemon AI'
 ) {
   const appName = displayAppName(hostAppName)
   const resolveLauncher = async (candidate: string) => {
-    // Return the candidate path directly. The hermes binary or wrapper script
+    // Return the candidate path directly. The lemon binary or wrapper script
     // is executable and handles argument forwarding (e.g. `exec <python> <script> "$@"`)
     // correctly on its own. Previously, this function followed `exec` wrappers and
     // returned only the python interpreter, which broke:
     //   - version checking: `<python> --version` printed "Python x.y.z" instead of
-    //     the Hermes version, and
+    //     the Lemon AI version, and
     //   - capability probing: `<python> serve --help` failed entirely.
-    // See https://github.com/NousResearch/hermes-agent/issues/74411
+    // See https://github.com/DangLemon/lemon-agent/issues/74411
     return candidate
   }
 
@@ -237,25 +237,25 @@ async function locateHermes(
     }
   }
 
-  if (remoteHermesPath) {
-    if (await isExecutable(remoteHermesPath)) {
-      return resolveLauncher(remoteHermesPath)
+  if (remoteLemonPath) {
+    if (await isExecutable(remoteLemonPath)) {
+      return resolveLauncher(remoteLemonPath)
     }
 
     const err: any = new Error(
-      `The ${appName} path you set is not an executable on the remote host: "${remoteHermesPath}". ` +
-        'Check the path (it must be the full path to the `hermes` binary on the remote, e.g. ' +
-        `~/hermes-agent/.venv/bin/hermes), or clear it to auto-detect.`
+      `The ${appName} path you set is not an executable on the remote host: "${remoteLemonPath}". ` +
+        'Check the path (it must be the full path to the `lemon` binary on the remote, e.g. ' +
+        `~/lemon-agent/.venv/bin/lemon), or clear it to auto-detect.`
     )
 
-    err.kind = 'hermes-not-found'
+    err.kind = 'lemon-not-found'
     throw err
   }
 
   const candidates: string[] = []
 
   try {
-    const found = (await ssh.exec(`bash -lc ${shq('command -v hermes')}`)).trim()
+    const found = (await ssh.exec(`bash -lc ${shq('command -v lemon')}`)).trim()
 
     if (found) {
       candidates.push(found.split('\n').pop().trim())
@@ -266,9 +266,9 @@ async function locateHermes(
 
   // Fallback candidates when the login-shell probe misses: the installer's
   // command locations (scripts/install.sh) — per-user, root/FHS, legacy venv.
-  candidates.push('~/.local/bin/hermes')
-  candidates.push('/usr/local/bin/hermes')
-  candidates.push('~/.hermes/hermes-agent/venv/bin/hermes')
+  candidates.push('~/.local/bin/lemon')
+  candidates.push('/usr/local/bin/lemon')
+  candidates.push('~/.lemon-ai/lemon-agent/venv/bin/lemon')
 
   for (const candidate of candidates) {
     if (!candidate) {
@@ -281,21 +281,21 @@ async function locateHermes(
   }
 
   const err: any = new Error(
-    `${appName} is not installed on the remote host (could not find a \`hermes\` executable). ` +
+    `${appName} is not installed on the remote host (could not find a \`lemon\` executable). ` +
       `Install it on the remote with:  ${remoteInstallCommand(sourceRepository)}  ` +
       `— or set the ${appName} path explicitly in the SSH connection settings.`
   )
 
-  err.kind = 'hermes-not-found'
+  err.kind = 'lemon-not-found'
   throw err
 }
 
-// Probe the resolved binary's version string (first line of `<hermes> --version`,
-// e.g. "Hermes Agent v0.18.2 ..."), or '' on failure. Surfaces WHICH hermes a
+// Probe the resolved binary's version string (first line of `<lemon> --version`,
+// e.g. "Lemon AI v0.18.2 ..."), or '' on failure. Surfaces WHICH lemon a
 // connection uses, so a stale/unexpected install is visible.
-async function probeHermesVersion(ssh, hermesPath) {
+async function probeLemonVersion(ssh, lemonPath) {
   try {
-    const out = (await ssh.exec(`${expandRemotePath(hermesPath)} --version 2>&1`)).trim()
+    const out = (await ssh.exec(`${expandRemotePath(lemonPath)} --version 2>&1`)).trim()
 
     return (out.split('\n')[0] || '').trim()
   } catch {
@@ -303,7 +303,7 @@ async function probeHermesVersion(ssh, hermesPath) {
   }
 }
 
-async function probeRemotePlatform(ssh, hostAppName = 'Hermes') {
+async function probeRemotePlatform(ssh, hostAppName = 'Lemon AI') {
   const out = (await ssh.exec('uname -s; uname -m')).trim().split('\n')
   const osName = (out[0] || '').trim()
   const arch = (out[1] || '').trim()
@@ -320,16 +320,16 @@ async function probeRemotePlatform(ssh, hostAppName = 'Hermes') {
   return { os: osName, arch }
 }
 
-// The HERMES_HOME the remote dashboard will use (explicit env wins, else
-// ~/.hermes). Recorded in the lockfile so a future reuse can tell it's the same
+// The LEMON_HOME the remote dashboard will use (explicit env wins, else
+// ~/.lemon-ai). Recorded in the lockfile so a future reuse can tell it's the same
 // state store; best-effort.
-async function probeRemoteHermesHome(ssh, hostAppName = 'Hermes') {
+async function probeRemoteLemonHome(ssh, hostAppName = 'Lemon AI') {
   const appName = displayAppName(hostAppName)
 
   try {
-    const out = (await ssh.exec('echo "${HERMES_HOME:-$HOME/.hermes}"')).trim().split('\n').pop()
+    const out = (await ssh.exec('echo "${LEMON_HOME:-$HOME/.lemon-ai}"')).trim().split('\n').pop()
 
-    return out || '~/.hermes'
+    return out || '~/.lemon-ai'
   } catch (cause) {
     const error: any = new Error(`Could not resolve the remote ${appName} home.`)
     error.kind = 'transient-transport-error'
@@ -344,7 +344,7 @@ from pathlib import Path
 
 home=Path(os.path.expanduser(sys.argv[1]))
 if home.parent.name=='profiles':home=home.parent.parent
-marker=home/'.hermes-update-in-progress'
+marker=home/'.lemon-ai-update-in-progress'
 try:
     with marker.open('rb') as stream:raw=stream.read(257)
 except FileNotFoundError:
@@ -379,14 +379,14 @@ else:
  * Refuse normal SSH reuse/spawn while the remote install is being mutated.
  *
  * This probe intentionally uses only the host's system Python and raw marker
- * bytes; it never imports or executes code from the changing Hermes checkout.
+ * bytes; it never imports or executes code from the changing Lemon AI checkout.
  * Absence or a well-formed, confirmed-dead owner is clear. Every parse, read,
  * probe, or transport uncertainty fails closed so a Desktop relaunch cannot
  * start `serve` beside an updater that survived the old app process.
  */
-async function assertRemoteInstallUpdateClear(ssh, hermesHome, hostAppName = 'Hermes') {
+async function assertRemoteInstallUpdateClear(ssh, lemonHome, hostAppName = 'Lemon AI') {
   const appName = displayAppName(hostAppName)
-  const home = assertSafeRemoteHome(hermesHome, hostAppName)
+  const home = assertSafeRemoteHome(lemonHome, hostAppName)
   let observation = ''
 
   try {
@@ -418,9 +418,9 @@ async function assertRemoteInstallUpdateClear(ssh, hermesHome, hostAppName = 'He
   throw error
 }
 
-async function listRemoteHermesProfiles(ssh, hostAppName = 'Hermes') {
+async function listRemoteLemonProfiles(ssh, hostAppName = 'Lemon AI') {
   const appName = displayAppName(hostAppName)
-  const home = assertSafeRemoteHome(await probeRemoteHermesHome(ssh, hostAppName), hostAppName)
+  const home = assertSafeRemoteHome(await probeRemoteLemonHome(ssh, hostAppName), hostAppName)
   const dir = expandRemotePath(`${home}/profiles`)
   let listing = ''
 
@@ -436,7 +436,7 @@ async function listRemoteHermesProfiles(ssh, hostAppName = 'Hermes') {
   return parseRemoteProfileListing(listing)
 }
 
-function assertSafeRemoteHome(home, hostAppName = 'Hermes') {
+function assertSafeRemoteHome(home, hostAppName = 'Lemon AI') {
   const value = String(home || '').trim()
 
   if (!/^(\/|~\/)[A-Za-z0-9._/+-]+$/.test(value) || value.includes('..')) {
@@ -525,7 +525,7 @@ async function readLockfile(ssh, ownershipId) {
     return lockfileSkew('log-path-mismatch')
   }
 
-  for (const field of ['profile', 'hermesPath', 'hermesHome', 'logPath', 'startedAt']) {
+  for (const field of ['profile', 'lemonPath', 'lemonHome', 'logPath', 'startedAt']) {
     if (typeof parsed[field] !== 'string' || parsed[field].length > 1024) {
       return lockfileSkew(`malformed-field ${field}`)
     }
@@ -625,12 +625,12 @@ async function pidIsOurDashboard(
   ssh,
   pid,
   spawnNonce,
-  hermesPath = '',
-  hermesHome = '',
+  lemonPath = '',
+  lemonHome = '',
   ownershipId = '',
   profile = ''
 ) {
-  if (!pid || !/^[0-9a-f]{16}$/.test(String(spawnNonce || '')) || !hermesPath) {
+  if (!pid || !/^[0-9a-f]{16}$/.test(String(spawnNonce || '')) || !lemonPath) {
     return false
   }
 
@@ -638,15 +638,15 @@ async function pidIsOurDashboard(
     const script =
       'import os,shlex,subprocess,sys\n' +
       `pid=${Number(pid)}\n` +
-      `expected=os.path.expanduser(${shq(hermesPath)})\n` +
+      `expected=os.path.expanduser(${shq(lemonPath)})\n` +
       // The installer-facing launcher is intentionally preserved for invocation
-      // (#74411), but it may `exec python <install-dir>/hermes`, leaving neither
-      // launcher nor HERMES_HOME-derived entrypoint in argv. The ownership-scoped
+      // (#74411), but it may `exec python <install-dir>/lemon`, leaving neither
+      // launcher nor LEMON_HOME-derived entrypoint in argv. The ownership-scoped
       // token path + random nonce + exact profile below are the alternative proof.
-      `hermes_home=os.path.expanduser(${shq(hermesHome)}) if ${shq(hermesHome)} else ""\n` +
+      `lemon_home=os.path.expanduser(${shq(lemonHome)}) if ${shq(lemonHome)} else ""\n` +
       'expected_entries={expected}\n' +
-      'if hermes_home:\n' +
-      ' expected_entries.add(os.path.join(hermes_home,"hermes-agent","venv","bin","hermes"))\n' +
+      'if lemon_home:\n' +
+      ' expected_entries.add(os.path.join(lemon_home,"lemon-agent","venv","bin","lemon"))\n' +
       `expected_token=os.path.expanduser(${shq(ownershipId ? spawnTokenPath(ownershipId, spawnNonce) : '')})\n` +
       `expected_profile=${shq(profile)}\n` +
       `nonce=${shq(spawnNonce)}\n` +
@@ -708,8 +708,8 @@ async function cleanupStale(ssh, ownershipId, lock, pidAlive = true) {
       ssh,
       lock.pid,
       lock.spawnNonce,
-      lock.hermesPath,
-      lock.hermesHome,
+      lock.lemonPath,
+      lock.lemonHome,
       ownershipId,
       lock.profile
     ))
@@ -788,14 +788,14 @@ function buildOwnedStaleTerminationCommand(lock, ownershipId) {
   // expandRemotePath() output is already a shell-quoted fragment; embed it
   // raw so $HOME expands at assignment. Double-quoting stores the quote
   // characters in the variable and every identity match below REFUSEs.
-  const expectedPath = expandRemotePath(lock.hermesPath)
-  const expectedHome = lock.hermesHome ? expandRemotePath(lock.hermesHome) : "''"
+  const expectedPath = expandRemotePath(lock.lemonPath)
+  const expectedHome = lock.lemonHome ? expandRemotePath(lock.lemonHome) : "''"
   const expectedToken = expandRemotePath(spawnTokenPath(ownershipId, lock.spawnNonce))
   const nonce = shq(lock.spawnNonce)
   const profile = shq(lock.profile || '')
   const command = `$(ps -ww -o command= -p ${pid} 2>/dev/null || true)`
 
-  const executableMatch = lock.hermesHome
+  const executableMatch = lock.lemonHome
     ? `case "$cmd" in *"$path"*|*"$home"*) ;; *) printf REFUSED; exit 0;; esac; `
     : `case "$cmd" in *"$path"*) ;; *) printf REFUSED; exit 0;; esac; `
 
@@ -828,8 +828,8 @@ function lockMatchesManagedUpdateScope(lock, expected) {
     lock.startedAt === expected.startedAt &&
     lock.creationTime === expected.creationTime &&
     lock.profile === expected.profile &&
-    lock.hermesPath === expected.hermesPath &&
-    lock.hermesHome === expected.hermesHome
+    lock.lemonPath === expected.lemonPath &&
+    lock.lemonHome === expected.lemonHome
   )
 }
 
@@ -842,9 +842,9 @@ function buildOwnedTerminationCommand(lock, ownershipId) {
 import os,select,shlex,signal,subprocess,sys,time
 pid=${pid}
 expected_creation=${py(lock.creationTime)}
-expected_path=os.path.expanduser(${py(lock.hermesPath)})
-hermes_home=os.path.expanduser(${py(lock.hermesHome)})
-expected_entries={expected_path,os.path.join(hermes_home,"hermes-agent","venv","bin","hermes")}
+expected_path=os.path.expanduser(${py(lock.lemonPath)})
+lemon_home=os.path.expanduser(${py(lock.lemonHome)})
+expected_entries={expected_path,os.path.join(lemon_home,"lemon-agent","venv","bin","lemon")}
 expected_token=os.path.expanduser(${py(expectedToken)})
 expected_profile=${py(lock.profile)}
 nonce=${py(lock.spawnNonce)}
@@ -945,7 +945,7 @@ finally:
 // the marker check, spawns the backend, and publishes its initial lockfile.
 // Python keeps the descriptor close-on-exec by default and passes it explicitly
 // only to the intended outer shell; each detached child closes it before
-// execing Hermes.
+// execing Lemon AI.
 function withRemoteUpdateMutex(command, mutexPath) {
   const script = `
 import fcntl,os,subprocess,sys
@@ -957,7 +957,7 @@ fd=os.open(mutex_path,os.O_RDWR|os.O_CREAT|os.O_CLOEXEC,0o600)
 fcntl.flock(fd,fcntl.LOCK_EX)
 result=None
 try:
- result=subprocess.run(["sh","-c",payload,"hermes-update-mutex",str(fd)],pass_fds=(fd,),check=False)
+ result=subprocess.run(["sh","-c",payload,"lemon-update-mutex",str(fd)],pass_fds=(fd,),check=False)
 finally:
  os.close(fd)
 sys.exit(result.returncode if result is not None else 1)
@@ -1010,8 +1010,8 @@ async function terminateOwnedDashboardForUpdate(ssh, expected) {
       ssh,
       lock.pid,
       lock.spawnNonce,
-      lock.hermesPath,
-      lock.hermesHome,
+      lock.lemonPath,
+      lock.lemonHome,
       ownershipId,
       lock.profile
     ))
@@ -1037,8 +1037,8 @@ async function terminateOwnedDashboardForUpdate(ssh, expected) {
       ssh,
       lock.pid,
       lock.spawnNonce,
-      lock.hermesPath,
-      lock.hermesHome,
+      lock.lemonPath,
+      lock.lemonHome,
       ownershipId,
       lock.profile
     ))
@@ -1085,17 +1085,17 @@ async function terminateOwnedDashboardForUpdate(ssh, expected) {
 // Detach so the backend survives the SSH channel closing: setsid (Linux)
 // starts a new session; macOS has no setsid, so fall back to nohup (HUP-immune;
 // fd-detachment is already handled by </dev/null + redirect + &).
-function buildSpawnCommand(hermesPath, profile, opts: any = {}) {
-  const hermes = expandRemotePath(hermesPath)
+function buildSpawnCommand(lemonPath, profile, opts: any = {}) {
+  const lemon = expandRemotePath(lemonPath)
   const profileArgs = profile ? `--profile ${shq(profile)} ` : ''
   const logPath = expandRemotePath(opts.logPath)
   const tokenFilePath = opts.tokenFilePath
   const tokenArg = tokenFilePath ? ` --ssh-session-token-file ${expandRemotePath(tokenFilePath)}` : ''
   const ownerArg = opts.spawnNonce ? ` --ssh-owner-nonce ${validateSpawnNonce(opts.spawnNonce)}` : ''
   const subCmd = `serve --isolated --host 127.0.0.1 --port 0${tokenArg}${ownerArg}`
-  const marker = expandRemotePath(`${remoteInstallRoot(opts.hermesHome || '~/.hermes')}/.hermes-update-in-progress`)
+  const marker = expandRemotePath(`${remoteInstallRoot(opts.lemonHome || '~/.lemon-ai')}/.lemon-ai-update-in-progress`)
 
-  const updateMutex = `${remoteInstallRoot(opts.hermesHome || '~/.hermes')}/.hermes-update-in-progress.mutex`
+  const updateMutex = `${remoteInstallRoot(opts.lemonHome || '~/.lemon-ai')}/.lemon-ai-update-in-progress.mutex`
 
   // The marker probe, ownership reservation, process creation, and initial
   // lockfile publication must be one remote command. A second Desktop process
@@ -1110,10 +1110,10 @@ function buildSpawnCommand(hermesPath, profile, opts: any = {}) {
 
   const dashCmd =
     `ulimit -n ${REMOTE_NOFILE_SOFT_LIMIT} 2>/dev/null || true; ` +
-    `exec env HERMES_DESKTOP=1 ${hermes} ${profileArgs}${subCmd}`
+    `exec env LEMON_DESKTOP=1 ${lemon} ${profileArgs}${subCmd}`
 
   const detachedShell = `eval "exec $1>&-"; ${dashCmd} </dev/null >> ${logPath} 2>&1 & echo $!`
-  const detachedSpawn = `child=$("$(command -v setsid || echo nohup)" sh -c ${shq(detachedShell)} hermes-update-child "$1" & echo $!)`
+  const detachedSpawn = `child=$("$(command -v setsid || echo nohup)" sh -c ${shq(detachedShell)} lemon-update-child "$1" & echo $!)`
 
   if (!opts.ownershipId || !opts.lockMetadata) {
     return withRemoteUpdateMutex(
@@ -1165,11 +1165,11 @@ function buildSpawnCommand(hermesPath, profile, opts: any = {}) {
   )
 }
 
-async function remoteSupportsSshOwnership(ssh, hermesPath) {
-  const hermes = expandRemotePath(hermesPath)
+async function remoteSupportsSshOwnership(ssh, lemonPath) {
+  const lemon = expandRemotePath(lemonPath)
 
   const out = await ssh.exec(
-    `help="$(${hermes} serve --help 2>&1)"; ` +
+    `help="$(${lemon} serve --help 2>&1)"; ` +
       `printf '%s' "$help" | grep -q ssh-session-token-file && ` +
       `printf '%s' "$help" | grep -q ssh-owner-nonce && echo YES || echo NO`
   )
@@ -1217,18 +1217,18 @@ async function scrapeReadyPort(ssh, logPath, { timeoutMs = DEFAULT_READY_TIMEOUT
 async function spawnRemoteDashboard(
   ssh,
   {
-    hermesPath,
+    lemonPath,
     profile,
     token,
     ownershipId,
-    hermesHome = '~/.hermes',
+    lemonHome = '~/.lemon-ai',
     assertInstallClear = async () => {},
-    hostAppName = 'Hermes'
+    hostAppName = 'Lemon AI'
   }
 ) {
   const appName = displayAppName(hostAppName)
 
-  if (!(await remoteSupportsSshOwnership(ssh, hermesPath))) {
+  if (!(await remoteSupportsSshOwnership(ssh, lemonPath))) {
     const err: any = new Error(
       `The remote ${appName} install does not support --ssh-session-token-file and --ssh-owner-nonce. ` +
         `Update ${appName} on the remote host to continue using Desktop SSH mode.`
@@ -1291,11 +1291,11 @@ async function spawnRemoteDashboard(
     // process creation. The caller's probe imports no changing checkout code.
     await assertInstallClear()
     out = await ssh.exec(
-      buildSpawnCommand(hermesPath, profile, {
+      buildSpawnCommand(lemonPath, profile, {
         spawnNonce,
         tokenFilePath,
         logPath,
-        hermesHome,
+        lemonHome,
         ownershipId,
         reservationNonce: spawnNonce,
         lockMetadata: {
@@ -1303,8 +1303,8 @@ async function spawnRemoteDashboard(
           spawnNonce,
           port: 0,
           profile,
-          hermesPath,
-          hermesHome,
+          lemonPath,
+          lemonHome,
           logPath,
           tokenFingerprint: fingerprintToken(token),
           protocolVersion: PROTOCOL_VERSION,
@@ -1391,7 +1391,7 @@ async function openForward(deps, remotePort, attempts = 3) {
 
 /**
  * Establish (or reuse) a remote dashboard and a tunnel to it. `deps` injects the
- * opened SshConnection, forward/pickLocalPort/waitForHermes, a token-gated
+ * opened SshConnection, forward/pickLocalPort/waitForLemon, a token-gated
  * probeReuseProof, and adoptServedToken. Returns the connection descriptor
  * { baseUrl, token, tokenFingerprint, remotePort, localPort, pid, reused, platform }.
  */
@@ -1436,15 +1436,15 @@ async function connect(deps) {
   const {
     ssh,
     profile = '',
-    remoteHermesPath = '',
+    remoteLemonPath = '',
     ownershipId,
     forward,
     pickLocalPort,
-    waitForHermes,
+    waitForLemon,
     probeReuseProof,
     adoptServedToken,
     rememberLog = () => {},
-    hostAppName = 'Hermes',
+    hostAppName = 'Lemon AI',
     readyTimeoutMs = DEFAULT_READY_TIMEOUT_MS,
     signal
   } = deps
@@ -1454,14 +1454,14 @@ async function connect(deps) {
   assertBootstrapNotSuperseded(signal)
   const platform = await probeRemotePlatform(ssh, hostAppName)
   log(`remote platform ${platform.os}/${platform.arch}`)
-  const hermesHome = await probeRemoteHermesHome(ssh, hostAppName)
-  await assertRemoteInstallUpdateClear(ssh, hermesHome, hostAppName)
-  const hermesPath = await locateHermes(ssh, remoteHermesPath, deps.sourceRepository, hostAppName)
-  log(`located hermes at ${hermesPath}`)
-  const hermesVersion = await probeHermesVersion(ssh, hermesPath)
+  const lemonHome = await probeRemoteLemonHome(ssh, hostAppName)
+  await assertRemoteInstallUpdateClear(ssh, lemonHome, hostAppName)
+  const lemonPath = await locateLemon(ssh, remoteLemonPath, deps.sourceRepository, hostAppName)
+  log(`located lemon at ${lemonPath}`)
+  const lemonVersion = await probeLemonVersion(ssh, lemonPath)
 
-  if (hermesVersion) {
-    log(`remote hermes version: ${hermesVersion}`)
+  if (lemonVersion) {
+    log(`remote lemon version: ${lemonVersion}`)
   }
 
   const reuseToken = deps.reuseToken || ''
@@ -1496,8 +1496,8 @@ async function connect(deps) {
         ssh,
         lock.pid,
         lock.spawnNonce,
-        lock.hermesPath,
-        lock.hermesHome,
+        lock.lemonPath,
+        lock.lemonHome,
         ownershipId,
         lock.profile
       ))
@@ -1509,8 +1509,8 @@ async function connect(deps) {
       lock.profile === profile &&
       Boolean(reuseToken) &&
       lock.tokenFingerprint === fingerprintToken(reuseToken) &&
-      lock.hermesPath === hermesPath &&
-      lock.hermesHome === hermesHome
+      lock.lemonPath === lemonPath &&
+      lock.lemonHome === lemonHome
 
     if (reusable) {
       const creationTime = lock.creationTime || (await remoteProcessCreationTime(ssh, lock.pid))
@@ -1521,7 +1521,7 @@ async function connect(deps) {
       }
 
       assertBootstrapNotSuperseded(signal)
-      await assertRemoteInstallUpdateClear(ssh, hermesHome, hostAppName)
+      await assertRemoteInstallUpdateClear(ssh, lemonHome, hostAppName)
       const localPort = await openForward(deps, lock.port)
 
       try {
@@ -1540,7 +1540,7 @@ async function connect(deps) {
         if (reuseClassification === 'authenticated-stale') {
           assertBootstrapNotSuperseded(signal)
           await cancelForwardSafe(deps, localPort, lock.port)
-          await assertRemoteInstallUpdateClear(ssh, hermesHome, hostAppName)
+          await assertRemoteInstallUpdateClear(ssh, lemonHome, hostAppName)
           await cleanupStale(ssh, ownershipId, lock)
         } else if (reuseClassification === 'authenticated-ok') {
           const token = await adoptOwnedServedToken(
@@ -1564,12 +1564,12 @@ async function connect(deps) {
             pid: lock.pid,
             reused: true,
             platform,
-            hermesPath,
-            hermesVersion,
+            lemonPath,
+            lemonVersion,
             ownershipId,
             spawnNonce: lock.spawnNonce,
             logPath: lock.logPath,
-            hermesHome,
+            lemonHome,
             startedAt: lock.startedAt,
             creationTime: lock.creationTime || ''
           }
@@ -1584,22 +1584,22 @@ async function connect(deps) {
       }
     } else {
       assertBootstrapNotSuperseded(signal)
-      await assertRemoteInstallUpdateClear(ssh, hermesHome, hostAppName)
+      await assertRemoteInstallUpdateClear(ssh, lemonHome, hostAppName)
       await cleanupStale(ssh, ownershipId, lock, pidAlive)
     }
   }
 
   assertBootstrapNotSuperseded(signal)
-  await assertRemoteInstallUpdateClear(ssh, hermesHome, hostAppName)
+  await assertRemoteInstallUpdateClear(ssh, lemonHome, hostAppName)
   const spawnToken = mintToken()
 
   const spawned = await spawnRemoteDashboard(ssh, {
-    hermesPath,
+    lemonPath,
     profile,
     token: spawnToken,
     ownershipId,
-    hermesHome,
-    assertInstallClear: () => assertRemoteInstallUpdateClear(ssh, hermesHome, hostAppName),
+    lemonHome,
+    assertInstallClear: () => assertRemoteInstallUpdateClear(ssh, lemonHome, hostAppName),
     hostAppName
   })
 
@@ -1632,8 +1632,8 @@ async function connect(deps) {
     pid,
     port: 0,
     profile,
-    hermesPath,
-    hermesHome,
+    lemonPath,
+    lemonHome,
     logPath,
     tokenFingerprint: fingerprintToken(spawnToken),
     protocolVersion: PROTOCOL_VERSION,
@@ -1662,7 +1662,7 @@ async function connect(deps) {
     localPort = await openForward(deps, remotePort)
     assertBootstrapNotSuperseded(signal)
     const baseUrl = `http://127.0.0.1:${localPort}`
-    await waitForHermes(baseUrl, spawnToken)
+    await waitForLemon(baseUrl, spawnToken)
     assertBootstrapNotSuperseded(signal)
 
     const token = await adoptOwnedServedToken(adoptServedToken, baseUrl, spawnToken, ssh, pid, 'remote dashboard')
@@ -1681,12 +1681,12 @@ async function connect(deps) {
       pid,
       reused: false,
       platform,
-      hermesPath,
-      hermesVersion,
+      lemonPath,
+      lemonVersion,
       ownershipId,
       spawnNonce,
       logPath,
-      hermesHome,
+      lemonHome,
       startedAt: ownedSpawn.startedAt,
       creationTime: ownedSpawn.creationTime || ''
     }
@@ -1720,16 +1720,16 @@ export {
   fingerprintToken,
   isForwardBindCollision,
   isLockfileSkew,
-  listRemoteHermesProfiles,
-  locateHermes,
+  listRemoteLemonProfiles,
+  locateLemon,
   LOCKFILE_SCHEMA_VERSION,
   lockfilePath,
   mintToken,
   openForward,
   ownershipDirectory,
   pidIsOurDashboard,
-  probeHermesVersion,
-  probeRemoteHermesHome,
+  probeLemonVersion,
+  probeRemoteLemonHome,
   probeRemotePlatform,
   PROTOCOL_VERSION,
   readLockfile,

@@ -59,8 +59,8 @@ function escapeHtml(value: string): string {
   })
 }
 
-export function nativeLoginDoneHtml(appName = 'Hermes'): string {
-  const safeAppName = escapeHtml(appName.trim() || 'Hermes')
+export function nativeLoginDoneHtml(appName = 'Lemon AI'): string {
+  const safeAppName = escapeHtml(appName.trim() || 'Lemon AI')
 
   return (
     '<!doctype html><meta charset="utf-8"><title>Signed in</title>' +

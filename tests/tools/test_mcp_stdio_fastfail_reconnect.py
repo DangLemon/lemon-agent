@@ -93,7 +93,7 @@ def _cleanup(mcp_tool_module, name: str) -> None:
 def test_precall_dead_children_respawn_and_retry(monkeypatch, tmp_path):
     """Dead-at-call-time subprocess (the gateway-restart case): respawn,
     retry once, and hand the model a normal result — no error at all."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("LEMON_HOME", str(tmp_path))
     from tools import mcp_tool
     from tools.mcp_tool_handlers import _make_tool_handler
 
@@ -134,7 +134,7 @@ def test_precall_dead_children_respawn_and_retry(monkeypatch, tmp_path):
 def test_midcall_child_exit_respawn_and_retry(monkeypatch, tmp_path):
     """Subprocess dies while the RPC is in flight → respawn and retry once,
     so the caller still gets its result."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("LEMON_HOME", str(tmp_path))
     from tools import mcp_tool
     from tools.mcp_tool_handlers import _make_tool_handler
 
@@ -184,7 +184,7 @@ def test_dead_child_never_returning_is_not_reported_as_a_timeout(
     the subprocess exited, never that something timed out (the
     old "failing the call fast instead of waiting 300s" wording sent the
     investigation into a healthy remote backend)."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("LEMON_HOME", str(tmp_path))
     from tools import mcp_tool
     from tools.mcp_tool_handlers import _make_tool_handler
 
@@ -220,7 +220,7 @@ def test_child_dying_again_after_respawn_does_not_hot_cycle(
     """A server whose child dies immediately after every respawn gets ONE
     retry per call, not an endless respawn loop — run()'s rapid-drop budget
     is what parks it, and this path must not fight that."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("LEMON_HOME", str(tmp_path))
     from tools import mcp_tool
     from tools import mcp_tool_loop as _mcp_loop
     from tools.mcp_tool_handlers import _make_tool_handler

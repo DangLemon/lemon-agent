@@ -1,13 +1,13 @@
 # tui_gateway/ + ui-tui/ — the TUI and its JSON-RPC backend
 
 Applies on top of the root `AGENTS.md`. The TUI fully replaces the classic prompt_toolkit CLI;
-activate with `hermes --tui` or `HERMES_TUI=1`. `tui_gateway` is ALSO the backend the Desktop app
+activate with `lemon --tui` or `LEMON_TUI=1`. `tui_gateway` is ALSO the backend the Desktop app
 and the dashboard `/chat` talk to — changes here have three consumers.
 
 ## Process model
 
 ```
-hermes --tui
+lemon --tui
   └─ Node (Ink)  ──stdio JSON-RPC──  Python (tui_gateway)
        │                                  └─ AIAgent + tools + sessions
        └─ renders transcript, composer, prompts, activity
@@ -50,16 +50,16 @@ existing topical sibling, registered in the table — no `if method == ...` chai
 `commands.catalog` (empty-query list) and `complete.slash` (typed-query completions) already include
 built-ins, user `quick_commands`, AND skill-derived commands (`scan_skill_commands()` /
 `get_skill_commands()`) — clients do not need a new RPC to see skills. The command definitions
-themselves come from `hermes_cli/commands.py` (`hermes_cli/AGENTS.md`).
+themselves come from `lemon_cli/commands.py` (`lemon_cli/AGENTS.md`).
 
 ## Dev commands
 
 ```bash
 cd ui-tui
 npm install       # first time
-npm run dev       # watch mode (rebuilds hermes-ink + tsx --watch)
+npm run dev       # watch mode (rebuilds lemon-ink + tsx --watch)
 npm start         # production
-npm run build     # full build (hermes-ink + tsc)
+npm run build     # full build (lemon-ink + tsc)
 npm run typecheck # tsc --noEmit
 npm run lint      # eslint
 npm run fmt       # prettier

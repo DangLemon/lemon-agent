@@ -6,7 +6,7 @@
 # Uses uv for desktop/server installs and Python's stdlib venv + pip on Termux.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/DangLemon/hermes-agent/main/scripts/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash
 #
 # Or with options:
 #   curl -fsSL ... | bash -s -- --no-venv --skip-setup
@@ -16,7 +16,7 @@
 set -e
 
 # Guard against environment leakage when the installer is launched from another
-# Python-driven tool session (e.g. Hermes terminal tool). A pre-set PYTHONPATH
+# Python-driven tool session (e.g. Lemon AI terminal tool). A pre-set PYTHONPATH
 # can force pip/entrypoints to import a different checkout than the one being
 # installed, which makes fresh installs appear broken or stale.
 if [ -n "${PYTHONPATH:-}" ]; then
@@ -43,9 +43,8 @@ NC='\033[0m' # No Color
 BOLD='\033[1m'
 
 # Configuration
-HERMES_DEFAULT_REPOSITORY="NousResearch/hermes-agent"
-LEMON_DEFAULT_REPOSITORY="DangLemon/hermes-agent"
-REPOSITORY="${HERMES_INSTALL_REPOSITORY:-}"
+LEMON_DEFAULT_REPOSITORY="DangLemon/lemon-agent"
+REPOSITORY="${LEMON_INSTALL_REPOSITORY:-}"
 REPO_URL_SSH=""
 REPO_URL_HTTPS=""
 early_repository_arg() {
@@ -76,7 +75,7 @@ if [ -n "$EARLY_REPOSITORY" ]; then
 fi
 
 valid_runtime_root() {
-    [ -e "$1/.git" ] && [ -f "$1/hermes_cli/main.py" ]
+    [ -e "$1/.git" ] && [ -f "$1/lemon_cli/main.py" ]
 }
 
 is_safe_file_name() {
@@ -116,10 +115,10 @@ PY
 }
 
 selected_internal_harness_config() {
-    if [ -n "${LEMON_AI_DESKTOP_HARNESS_CONFIG:-}" ]; then
-        printf '%s' "$LEMON_AI_DESKTOP_HARNESS_CONFIG"
+    if [ -n "${LEMON_DESKTOP_HARNESS_CONFIG:-}" ]; then
+        printf '%s' "$LEMON_DESKTOP_HARNESS_CONFIG"
     else
-        printf '%s' "${HERMES_DESKTOP_HARNESS_CONFIG:-}"
+        printf '%s' "${LEMON_DESKTOP_HARNESS_CONFIG:-}"
     fi
 }
 
@@ -141,18 +140,18 @@ checkout_internal_harness_config() {
 }
 
 is_internal_desktop_build() {
-    case "${HERMES_INSTALLER_BRAND:-}" in
+    case "${LEMON_INSTALLER_BRAND:-}" in
         lemon) return 0 ;;
-        hermes) return 1 ;;
+        lemon) return 1 ;;
         "")
             ;;
         *)
-            echo "Error: HERMES_INSTALLER_BRAND must be 'hermes' or 'lemon'" >&2
+            echo "Error: LEMON_INSTALLER_BRAND must be 'lemon' or 'lemon'" >&2
             exit 1
             ;;
     esac
 
-    if [ "${HERMES_DESKTOP_INTERNAL:-}" = "1" ]; then
+    if [ "${LEMON_DESKTOP_INTERNAL:-}" = "1" ]; then
         return 0
     fi
 
@@ -179,42 +178,35 @@ fi
 if [ "$INTERNAL_DESKTOP_BUILD" = true ]; then
     DEFAULT_REPOSITORY="$LEMON_DEFAULT_REPOSITORY"
 else
-    DEFAULT_REPOSITORY="$HERMES_DEFAULT_REPOSITORY"
+    DEFAULT_REPOSITORY="$LEMON_DEFAULT_REPOSITORY"
 fi
 REPOSITORY="${REPOSITORY:-$DEFAULT_REPOSITORY}"
 if [ "$INTERNAL_DESKTOP_BUILD" = true ]; then
-    RUNTIME_DIR_NAME="${HERMES_DESKTOP_RUNTIME_DIR_NAME:-}"
+    RUNTIME_DIR_NAME="${LEMON_DESKTOP_RUNTIME_DIR_NAME:-}"
     if [ -z "$RUNTIME_DIR_NAME" ]; then
-        RUNTIME_DIR_NAME="${HERMES_INSTALL_RUNTIME_DIR_NAME:-}"
+        RUNTIME_DIR_NAME="${LEMON_INSTALL_RUNTIME_DIR_NAME:-}"
     fi
 else
-    RUNTIME_DIR_NAME="${HERMES_INSTALL_RUNTIME_DIR_NAME:-}"
+    RUNTIME_DIR_NAME="${LEMON_INSTALL_RUNTIME_DIR_NAME:-}"
 fi
 if [ -z "$RUNTIME_DIR_NAME" ]; then
-    if [ "$INTERNAL_DESKTOP_BUILD" = true ]; then
-        RUNTIME_DIR_NAME="lemon-agent"
-    else
-        RUNTIME_DIR_NAME="hermes-agent"
-    fi
+    RUNTIME_DIR_NAME="lemon-agent"
 fi
 if ! is_safe_file_name "$RUNTIME_DIR_NAME"; then
-    echo "Error: HERMES_INSTALL_RUNTIME_DIR_NAME must be a safe directory name" >&2
+    echo "Error: LEMON_INSTALL_RUNTIME_DIR_NAME must be a safe directory name" >&2
     exit 1
 fi
-DEFAULT_HERMES_HOME="$HOME/.hermes"
+DEFAULT_LEMON_HOME="$HOME/.lemon-ai"
 if [ "$INTERNAL_DESKTOP_BUILD" = true ]; then
-    DEFAULT_HERMES_HOME="$HOME/.lemon-ai"
-fi
-if [ "$INTERNAL_DESKTOP_BUILD" = true ]; then
-    HERMES_HOME="${HERMES_DESKTOP_HOME_OVERRIDE:-$DEFAULT_HERMES_HOME}"
+    LEMON_HOME="${LEMON_DESKTOP_HOME_OVERRIDE:-$DEFAULT_LEMON_HOME}"
 else
-    HERMES_HOME="${HERMES_HOME:-$DEFAULT_HERMES_HOME}"
+    LEMON_HOME="${LEMON_HOME:-$DEFAULT_LEMON_HOME}"
 fi
 # INSTALL_DIR is resolved AFTER arg parsing and OS detection so we can pick an
 # FHS-style layout for root installs.  Track whether the user gave us an
 # explicit directory — if so we never override it.
-if [ -n "${HERMES_INSTALL_DIR:-}" ]; then
-    INSTALL_DIR="$HERMES_INSTALL_DIR"
+if [ -n "${LEMON_INSTALL_DIR:-}" ]; then
+    INSTALL_DIR="$LEMON_INSTALL_DIR"
     INSTALL_DIR_EXPLICIT=true
 else
     INSTALL_DIR=""
@@ -222,30 +214,25 @@ else
 fi
 PYTHON_VERSION="3.11"
 NODE_VERSION="26"
-INSTALLER_DISPLAY_NAME="Hermes Agent Installer"
-INSTALLER_PRODUCT_NAME="Hermes"
-INSTALLER_AGENT_NAME="Hermes Agent"
-INSTALLER_COMPANY_NAME="Nous Research"
-INSTALLER_DESKTOP_APP_NAME="Hermes.app"
-INSTALLER_DESCRIPTION="An open source AI agent by Nous Research."
+INSTALLER_DISPLAY_NAME="Lemon AI Installer"
+INSTALLER_PRODUCT_NAME="Lemon AI"
+INSTALLER_AGENT_NAME="Lemon AI"
+INSTALLER_COMPANY_NAME="Lemon Digital"
+INSTALLER_DESKTOP_APP_NAME="Lemon AI.app"
+INSTALLER_DESCRIPTION="An open source AI agent by Lemon Digital."
 if [ "$INTERNAL_DESKTOP_BUILD" = true ]; then
-    INSTALLER_DISPLAY_NAME="Lemon AI Installer"
-    INSTALLER_PRODUCT_NAME="Lemon AI"
-    INSTALLER_AGENT_NAME="Lemon AI"
-    INSTALLER_COMPANY_NAME="Lemon Digital"
-    INSTALLER_DESKTOP_APP_NAME="Lemon AI.app"
     INSTALLER_DESCRIPTION="Internal AI desktop harness by Lemon Digital."
 fi
 
 installer_diagnostic_lines() {
     local cli_args="${1:-}"
-    printf '%s home: %s\n' "$INSTALLER_PRODUCT_NAME" "$HERMES_HOME"
+    printf '%s home: %s\n' "$INSTALLER_PRODUCT_NAME" "$LEMON_HOME"
     printf '%s install root: %s\n' "$INSTALLER_PRODUCT_NAME" "$INSTALL_DIR"
     printf '%s runtime dir: %s\n' "$INSTALLER_PRODUCT_NAME" "$RUNTIME_DIR_NAME"
     if [ -n "$cli_args" ]; then
-        printf '%s CLI command: hermes %s\n' "$INSTALLER_PRODUCT_NAME" "$cli_args"
+        printf '%s CLI command: lemon %s\n' "$INSTALLER_PRODUCT_NAME" "$cli_args"
     else
-        printf '%s CLI command: hermes\n' "$INSTALLER_PRODUCT_NAME"
+        printf '%s CLI command: lemon\n' "$INSTALLER_PRODUCT_NAME"
     fi
 }
 
@@ -257,8 +244,8 @@ log_installer_diagnostics() {
 }
 
 # FHS-style root install layout (set by resolve_install_layout when applicable):
-#   code at /usr/local/lib/hermes-agent, command at /usr/local/bin/hermes,
-#   data still at /root/.hermes (HERMES_HOME).  Matches Claude Code / Codex CLI
+#   code at /usr/local/lib/lemon-agent, command at /usr/local/bin/lemon,
+#   data still at /root/.lemon-ai (LEMON_HOME).  Matches Claude Code / Codex CLI
 #   and keeps Docker bind-mounted /root/ volumes lean.
 ROOT_FHS_LAYOUT=false
 DETECTED_BROWSER_EXECUTABLE=""
@@ -358,8 +345,8 @@ while [[ $# -gt 0 ]]; do
             INSTALL_DIR_EXPLICIT=true
             shift 2
             ;;
-        --hermes-home)
-            HERMES_HOME="$2"
+        --lemon-home)
+            LEMON_HOME="$2"
             shift 2
             ;;
         --ensure)
@@ -378,8 +365,8 @@ while [[ $# -gt 0 ]]; do
             echo "  --skip-browser Skip Playwright/Chromium install (browser tools won't work)"
             echo "  --skip-computer-use  Skip the cua-driver (Computer Use) install"
             echo "  --no-skills    Start with a blank slate — seed no bundled skills, and"
-            echo "                   write \$HERMES_HOME/.no-bundled-skills so future"
-            echo "                   'hermes update' runs never inject bundled skills either"
+            echo "                   write \$LEMON_HOME/.no-bundled-skills so future"
+            echo "                   'lemon update' runs never inject bundled skills either"
             echo "  --branch NAME  Git branch to install (default: main)"
             echo "  --commit SHA   Pin checkout to a specific commit after clone/update"
             echo "                   (ignored when it would roll an existing install back)"
@@ -392,19 +379,19 @@ while [[ $# -gt 0 ]]; do
             echo "  --non-interactive  Skip stages that require user input"
             echo "  --include-desktop  Also build the desktop app (apps/desktop -> $INSTALLER_DESKTOP_APP_NAME)"
             echo "  --dir PATH     Installation directory"
-            echo "                   default (non-root):  $DEFAULT_HERMES_HOME/$RUNTIME_DIR_NAME"
+            echo "                   default (non-root):  $DEFAULT_LEMON_HOME/$RUNTIME_DIR_NAME"
             echo "                   default (root, Linux): /usr/local/lib/$RUNTIME_DIR_NAME"
-            echo "  --hermes-home PATH  Data directory (default: $DEFAULT_HERMES_HOME, or \$HERMES_HOME)"
+            echo "  --lemon-home PATH  Data directory (default: $DEFAULT_LEMON_HOME, or \$LEMON_HOME)"
             echo "  -h, --help     Show this help"
             echo ""
             echo "Notes:"
             echo "  When running as root on Linux, $INSTALLER_PRODUCT_NAME installs the code under"
             echo "  /usr/local/lib/$RUNTIME_DIR_NAME and links the command into"
-            echo "  /usr/local/bin/hermes (FHS layout — matches Claude Code / Codex CLI)."
-            echo "  Data, config, sessions, and logs still live in \$HERMES_HOME"
-            echo "  (default $DEFAULT_HERMES_HOME).  This keeps Docker bind-mounted volumes"
+            echo "  /usr/local/bin/lemon (FHS layout — matches Claude Code / Codex CLI)."
+            echo "  Data, config, sessions, and logs still live in \$LEMON_HOME"
+            echo "  (default $DEFAULT_LEMON_HOME).  This keeps Docker bind-mounted volumes"
             echo "  small and ensures the command is on PATH for all shells."
-            echo "  Existing installs at \$HERMES_HOME/$RUNTIME_DIR_NAME are preserved in-place."
+            echo "  Existing installs at \$LEMON_HOME/$RUNTIME_DIR_NAME are preserved in-place."
             echo "  --ensure DEPS  Install only specified deps (comma-separated)"
             echo "                   Supported: node, browser, ripgrep, ffmpeg"
             echo "                   Does NOT clone repo or create venv"
@@ -559,8 +546,8 @@ ensure_managed_origin() {
 }
 
 powershell_installer_command() {
-    if [ "$(repository_identity_key "$REPOSITORY")" = "$(repository_identity_key "$HERMES_DEFAULT_REPOSITORY")" ]; then
-        printf '%s\n' "iex (irm https://hermes-agent.nousresearch.com/install.ps1)"
+    if [ "$(repository_identity_key "$REPOSITORY")" = "$(repository_identity_key "$LEMON_DEFAULT_REPOSITORY")" ]; then
+        printf '%s\n' "iex (irm https://github.com/DangLemon/lemon-agent/install.ps1)"
     else
         printf '%s\n' "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/${REPOSITORY}/main/scripts/install.ps1))) -Repository '${REPOSITORY}'"
     fi
@@ -599,8 +586,8 @@ download_archive_checkout() {
 
     local safe_label archive_tmp zip_path extracted_dir
     safe_label="$(printf '%s' "$ARCHIVE_LABEL" | tr -c 'A-Za-z0-9._-' '-')"
-    archive_tmp="$(mktemp -d "${TMPDIR:-/tmp}/hermes-agent-archive.XXXXXX")"
-    zip_path="${archive_tmp}/hermes-agent-${safe_label}.zip"
+    archive_tmp="$(mktemp -d "${TMPDIR:-/tmp}/lemon-agent-archive.XXXXXX")"
+    zip_path="${archive_tmp}/lemon-agent-${safe_label}.zip"
 
     log_info "Downloading GitHub archive for ${REPOSITORY}@${ARCHIVE_LABEL}..."
     if ! curl -fL --retry 3 --connect-timeout 10 --max-time 120 -o "$zip_path" "$ARCHIVE_URL"; then
@@ -656,7 +643,7 @@ download_archive_checkout() {
 
 # npm rewrites tracked package-lock.json files non-deterministically during
 # `npm install` / `npm run pack`. On a managed install those diffs are never
-# intentional, but they leave the checkout dirty — which forces `hermes update`
+# intentional, but they leave the checkout dirty — which forces `lemon update`
 # to autostash on every run and makes branch switches fragile. Restore them so
 # a fresh install ends with a clean tree. Best-effort; only touches lockfiles.
 restore_dirty_lockfiles() {
@@ -725,13 +712,13 @@ EOF
 
 emit_manifest() {
     # Stage-Desktop is included only with --include-desktop, mirroring
-    # install.ps1: the signed bootstrap installer (Hermes-Setup) passes it so
+    # install.ps1: the signed bootstrap installer (Lemon AI-Setup) passes it so
     # a GUI install ends up with a launchable app; the Electron app's own
     # first-launch bootstrap and the CLI one-liner omit it (building the
     # desktop from inside the already-running app would clobber it).
     local desktop_stage=""
-    local repository_title="Download Hermes Agent"
-    local path_title="Install hermes command"
+    local repository_title="Download Lemon AI"
+    local path_title="Install lemon command"
     local config_title="Prepare config and skills"
     local setup_title="Configure API keys and settings"
     local gateway_title="Configure gateway service"
@@ -817,29 +804,29 @@ is_termux() {
     [ -n "${TERMUX_VERSION:-}" ] || [[ "${PREFIX:-}" == *"com.termux/files/usr"* ]]
 }
 
-# Decide where the repo checkout + venv live, and where the `hermes` command
+# Decide where the repo checkout + venv live, and where the `lemon` command
 # symlink goes.  Called after detect_os so $OS/$DISTRO are known.
 #
 # Defaults:
-#   - Non-root, any OS:       INSTALL_DIR = $HERMES_HOME/hermes-agent
+#   - Non-root, any OS:       INSTALL_DIR = $LEMON_HOME/lemon-agent
 #                             command link in $HOME/.local/bin
-#   - Termux (any uid):       INSTALL_DIR = $HERMES_HOME/hermes-agent
+#   - Termux (any uid):       INSTALL_DIR = $LEMON_HOME/lemon-agent
 #                             command link in $PREFIX/bin (already on PATH)
-#   - Root on Linux (new):    INSTALL_DIR = /usr/local/lib/hermes-agent
+#   - Root on Linux (new):    INSTALL_DIR = /usr/local/lib/lemon-agent
 #                             command link in /usr/local/bin
 #                             (unless a legacy install already exists at
-#                              $HERMES_HOME/hermes-agent — then preserve it)
+#                              $LEMON_HOME/lemon-agent — then preserve it)
 #
-# Always no-op when the user set --dir or $HERMES_INSTALL_DIR.
+# Always no-op when the user set --dir or $LEMON_INSTALL_DIR.
 resolve_install_layout() {
     if [ "$INSTALL_DIR_EXPLICIT" = true ]; then
         log_info "Install directory: $INSTALL_DIR (explicit)"
         return 0
     fi
 
-    # Termux: package manager manages /data/data/..., keep code in HERMES_HOME.
+    # Termux: package manager manages /data/data/..., keep code in LEMON_HOME.
     if is_termux; then
-        INSTALL_DIR="$HERMES_HOME/$RUNTIME_DIR_NAME"
+        INSTALL_DIR="$LEMON_HOME/$RUNTIME_DIR_NAME"
         return 0
     fi
 
@@ -847,7 +834,7 @@ resolve_install_layout() {
     # macOS root installs keep the legacy layout because /usr/local/ on macOS
     # is Homebrew territory and we don't want to fight that.
     if [ "$OS" = "linux" ] && [ "$(id -u)" -eq 0 ]; then
-        local preferred_install="$HERMES_HOME/$RUNTIME_DIR_NAME"
+        local preferred_install="$LEMON_HOME/$RUNTIME_DIR_NAME"
         if valid_runtime_root "$preferred_install"; then
             INSTALL_DIR="$preferred_install"
             log_info "Existing install detected at $INSTALL_DIR — keeping layout"
@@ -858,20 +845,20 @@ resolve_install_layout() {
         # Place uv-managed Python under /usr/local/share so the venv interpreter
         # is world-readable.  Default uv paths land in /root/.local/share/uv,
         # which non-root users can't traverse — leaving the shared
-        # /usr/local/bin/hermes wrapper unable to exec the bad-interpreter venv
+        # /usr/local/bin/lemon wrapper unable to exec the bad-interpreter venv
         # python.  See #21457.
         export UV_PYTHON_INSTALL_DIR="${UV_PYTHON_INSTALL_DIR:-/usr/local/share/uv/python}"
         export UV_PYTHON_BIN_DIR="${UV_PYTHON_BIN_DIR:-/usr/local/share/uv/bin}"
         log_info "Root install on Linux — using FHS layout"
         log_info "  Code:    $INSTALL_DIR"
-        log_info "  Command: /usr/local/bin/hermes"
-        log_info "  Data:    $HERMES_HOME (unchanged)"
+        log_info "  Command: /usr/local/bin/lemon"
+        log_info "  Data:    $LEMON_HOME (unchanged)"
         log_info "  uv Python: $UV_PYTHON_INSTALL_DIR (world-readable)"
         return 0
     fi
 
     # Default: non-root, non-Termux → legacy user-scoped layout.
-    INSTALL_DIR="$HERMES_HOME/$RUNTIME_DIR_NAME"
+    INSTALL_DIR="$LEMON_HOME/$RUNTIME_DIR_NAME"
 }
 
 get_command_link_dir() {
@@ -894,32 +881,32 @@ get_command_link_display_dir() {
     fi
 }
 
-# Point a Hermes-managed Node's `npm install -g` at a directory that is on
+# Point a Lemon AI-managed Node's `npm install -g` at a directory that is on
 # PATH. npm's default global prefix for a bundled Node is the Node dir itself,
-# so global package binaries land in $HERMES_HOME/node/bin — which is NOT on
+# so global package binaries land in $LEMON_HOME/node/bin — which is NOT on
 # PATH (only the command link dir is) and is wiped on every Node upgrade.
 # Redirecting the prefix to the link dir's parent makes global bins resolve to
 # the command link dir (node/npm/npx live there too, already on PATH) and
 # survive upgrades. Scoped to the managed Node via its prefix-local global
 # npmrc, so the user's other Node installs and their ~/.npmrc are untouched.
-# Hermes's own global installs pass an explicit --prefix and are unaffected.
-# Idempotent and a no-op when there is no Hermes-managed npm, so calling it on
+# Lemon AI's own global installs pass an explicit --prefix and are unaffected.
+# Idempotent and a no-op when there is no Lemon AI-managed npm, so calling it on
 # every install run repairs pre-existing installs, not just fresh ones.
 configure_managed_node_npm_prefix() {
-    [ -x "$HERMES_HOME/node/bin/npm" ] || return 0
+    [ -x "$LEMON_HOME/node/bin/npm" ] || return 0
     local link_dir
     link_dir="$(get_command_link_dir)"
-    mkdir -p "$HERMES_HOME/node/etc"
-    printf 'prefix=%s\n' "$(dirname "$link_dir")" > "$HERMES_HOME/node/etc/npmrc"
+    mkdir -p "$LEMON_HOME/node/etc"
+    printf 'prefix=%s\n' "$(dirname "$link_dir")" > "$LEMON_HOME/node/etc/npmrc"
 }
 
-get_hermes_command_path() {
+get_lemon_command_path() {
     local link_dir
     link_dir="$(get_command_link_dir)"
-    if [ -x "$link_dir/hermes" ]; then
-        echo "$link_dir/hermes"
+    if [ -x "$link_dir/lemon" ]; then
+        echo "$link_dir/lemon"
     else
-        echo "hermes"
+        echo "lemon"
     fi
 }
 
@@ -980,11 +967,11 @@ install_uv() {
         return 0
     fi
 
-    # Hermes owns its own uv at $HERMES_HOME/bin/uv.  Always install there —
+    # Lemon AI owns its own uv at $LEMON_HOME/bin/uv.  Always install there —
     # no PATH probing, no conda guards, no multi-location resolution chains.
-    # The runtime update path (hermes_cli/managed_uv.py) looks in the same
-    # place, so install.sh and `hermes update` stay in sync.
-    local _managed_uv="$HERMES_HOME/bin/uv"
+    # The runtime update path (lemon_cli/managed_uv.py) looks in the same
+    # place, so install.sh and `lemon update` stay in sync.
+    local _managed_uv="$LEMON_HOME/bin/uv"
 
     if [ -x "$_managed_uv" ]; then
         UV_CMD="$_managed_uv"
@@ -993,15 +980,15 @@ install_uv() {
         return 0
     fi
 
-    log_info "Installing managed uv into $HERMES_HOME/bin ..."
-    mkdir -p "$HERMES_HOME/bin"
+    log_info "Installing managed uv into $LEMON_HOME/bin ..."
+    mkdir -p "$LEMON_HOME/bin"
 
     # Two-stage: download the installer, then run it.  Piping
     # `curl | sh` masks curl failures (sh exits 0 on empty stdin)
     # and conflates network errors with installer errors.
     local _uv_install_log _uv_installer
-    _uv_install_log="$(mktemp 2>/dev/null || echo "/tmp/hermes-uv-install.$$.log")"
-    _uv_installer="$(mktemp 2>/dev/null || echo "/tmp/hermes-uv-installer.$$.sh")"
+    _uv_install_log="$(mktemp 2>/dev/null || echo "/tmp/lemon-uv-install.$$.log")"
+    _uv_installer="$(mktemp 2>/dev/null || echo "/tmp/lemon-uv-installer.$$.sh")"
     if ! curl -LsSf https://astral.sh/uv/install.sh -o "$_uv_installer" 2>"$_uv_install_log"; then
         log_error "Failed to download uv installer from https://astral.sh/uv/install.sh"
         log_info "curl output:"
@@ -1011,8 +998,8 @@ install_uv() {
         exit 1
     fi
     # UV_UNMANAGED_INSTALL tells the astral installer to place the binary
-    # directly into $HERMES_HOME/bin instead of ~/.local/bin.
-    if UV_UNMANAGED_INSTALL="$HERMES_HOME/bin" sh "$_uv_installer" >>"$_uv_install_log" 2>&1; then
+    # directly into $LEMON_HOME/bin instead of ~/.local/bin.
+    if UV_UNMANAGED_INSTALL="$LEMON_HOME/bin" sh "$_uv_installer" >>"$_uv_install_log" 2>&1; then
         rm -f "$_uv_installer"
         if [ -x "$_managed_uv" ]; then
             UV_CMD="$_managed_uv"
@@ -1039,7 +1026,7 @@ install_uv() {
 check_python() {
     if [ "$DISTRO" = "termux" ]; then
         log_info "Checking Termux Python..."
-        # Hermes currently declares requires-python >=3.11,<3.14.  Termux can
+        # Lemon AI currently declares requires-python >=3.11,<3.14.  Termux can
         # expose a newer default `python` before dependencies have compatible
         # wheels, so do not accept the default interpreter until the upper bound
         # is verified. Prefer the project's pinned minor when present, then
@@ -1351,7 +1338,7 @@ check_cxx_compiler() {
 # requires ^22.18.0 || >=24.11.0 — so accepting 23/25 or an early Node 24
 # here only defers the failure to `npm ci` under engine-strict. Keep this in
 # sync with the root package.json. Anything outside the supported lines is
-# replaced with the Hermes-managed Node $NODE_VERSION.
+# replaced with the Lemon AI-managed Node $NODE_VERSION.
 node_satisfies_build() {
     local ver="${1#v}"
     # Pre-release builds are rejected outright, however new they are. `node-pty`
@@ -1396,7 +1383,7 @@ npm_supports_npmrc() {
 check_node() {
     log_info "Checking Node.js (for browser tools)..."
 
-    # Repair pre-existing Hermes-managed installs where `npm install -g` lands
+    # Repair pre-existing Lemon AI-managed installs where `npm install -g` lands
     # off PATH. No-op when there's no managed Node, so this is safe to run on
     # every install — including re-runs that skip the Node (re)install below.
     configure_managed_node_npm_prefix
@@ -1425,11 +1412,11 @@ check_node() {
         return
     fi
 
-    # Prefer a Hermes-managed Node from a previous run over a too-old system one.
-    if [ -x "$HERMES_HOME/node/bin/node" ] && [ -x "$HERMES_HOME/node/bin/npm" ] \
-        && node_satisfies_build "$("$HERMES_HOME/node/bin/node" --version)"; then
-        export PATH="$HERMES_HOME/node/bin:$PATH"
-        log_success "Node.js $("$HERMES_HOME/node/bin/node" --version) found ($INSTALLER_PRODUCT_NAME-managed)"
+    # Prefer a Lemon AI-managed Node from a previous run over a too-old system one.
+    if [ -x "$LEMON_HOME/node/bin/node" ] && [ -x "$LEMON_HOME/node/bin/npm" ] \
+        && node_satisfies_build "$("$LEMON_HOME/node/bin/node" --version)"; then
+        export PATH="$LEMON_HOME/node/bin:$PATH"
+        log_success "Node.js $("$LEMON_HOME/node/bin/node" --version) found ($INSTALLER_PRODUCT_NAME-managed)"
         HAS_NODE=true
         return 0
     fi
@@ -1446,7 +1433,7 @@ check_node() {
     install_node
 }
 
-# Download and adopt one Node release line (e.g. 26) into $HERMES_HOME/node/.
+# Download and adopt one Node release line (e.g. 26) into $LEMON_HOME/node/.
 #
 # Split out of install_node() so the caller can walk a list of candidate lines.
 # A line is rejected — and the caller should try an older one — when nodejs.org
@@ -1491,7 +1478,7 @@ install_node_line() {
         return 1
     fi
 
-    log_info "Extracting to $HERMES_HOME/node/..."
+    log_info "Extracting to $LEMON_HOME/node/..."
     if [[ "$tarball_name" == *.tar.xz ]]; then
         tar xf "$tmp_dir/$tarball_name" -C "$tmp_dir"
     else
@@ -1520,12 +1507,12 @@ install_node_line() {
         return 1
     fi
 
-    # Place into $HERMES_HOME/node/ and symlink binaries into the same bin dir
-    # the hermes command uses (get_command_link_dir): /usr/local/bin for root
+    # Place into $LEMON_HOME/node/ and symlink binaries into the same bin dir
+    # the lemon command uses (get_command_link_dir): /usr/local/bin for root
     # FHS installs, $PREFIX/bin on Termux, ~/.local/bin otherwise.
-    rm -rf "$HERMES_HOME/node"
-    mkdir -p "$HERMES_HOME"
-    mv "$extracted_dir" "$HERMES_HOME/node"
+    rm -rf "$LEMON_HOME/node"
+    mkdir -p "$LEMON_HOME"
+    mv "$extracted_dir" "$LEMON_HOME/node"
     rm -rf "$tmp_dir"
 
     # Node's official linux-x64 builds (observed: v26.7.0) link
@@ -1546,16 +1533,16 @@ install_node_line() {
     local node_link_dir
     node_link_dir="$(get_command_link_dir)"
     mkdir -p "$node_link_dir"
-    ln -sf "$HERMES_HOME/node/bin/node" "$node_link_dir/node"
-    ln -sf "$HERMES_HOME/node/bin/npm"  "$node_link_dir/npm"
-    ln -sf "$HERMES_HOME/node/bin/npx"  "$node_link_dir/npx"
+    ln -sf "$LEMON_HOME/node/bin/node" "$node_link_dir/node"
+    ln -sf "$LEMON_HOME/node/bin/npm"  "$node_link_dir/npm"
+    ln -sf "$LEMON_HOME/node/bin/npx"  "$node_link_dir/npx"
 
     configure_managed_node_npm_prefix
 
-    export PATH="$HERMES_HOME/node/bin:$PATH"
+    export PATH="$LEMON_HOME/node/bin:$PATH"
 
     local installed_ver
-    if ! installed_ver=$("$HERMES_HOME/node/bin/node" --version 2>&1); then
+    if ! installed_ver=$("$LEMON_HOME/node/bin/node" --version 2>&1); then
         # The adopted Node exists but cannot start (observed: missing
         # libatomic.so.1 on minimal Debian/Ubuntu, #87460). Degrade loudly,
         # surface the loader's real error, and remove the broken tree and
@@ -1564,11 +1551,11 @@ install_node_line() {
         log_error "Downloaded Node.js failed to start:"
         printf '%s\n' "$installed_ver" >&2
         log_info "On Debian/Ubuntu the usual fix is: sudo apt-get install -y libatomic1"
-        rm -rf "$HERMES_HOME/node"
+        rm -rf "$LEMON_HOME/node"
         rm -f "$node_link_dir/node" "$node_link_dir/npm" "$node_link_dir/npx"
         return 1
     fi
-    log_success "Node.js $installed_ver installed to $HERMES_HOME/node/"
+    log_success "Node.js $installed_ver installed to $LEMON_HOME/node/"
     HAS_NODE=true
     return 0
 }
@@ -1923,14 +1910,14 @@ clone_repo() {
                 # the whole install at the repository stage. Clear the conflict
                 # markers with `git reset` first -- this keeps working-tree
                 # changes (they're still stashed just below) and only drops the
-                # index-level conflict state. Mirrors the `hermes update` path
+                # index-level conflict state. Mirrors the `lemon update` path
                 # (#4735).
                 if [ -n "$(git ls-files --unmerged)" ]; then
                     log_info "Clearing unmerged index entries from a previous conflict..."
                     git reset -q
                 fi
                 local stash_name
-                stash_name="hermes-install-autostash-$(date -u +%Y%m%d-%H%M%S)"
+                stash_name="lemon-install-autostash-$(date -u +%Y%m%d-%H%M%S)"
                 log_info "Local changes detected, stashing before update..."
                 git stash push --include-untracked -m "$stash_name"
                 autostash_ref="stash@{0}"
@@ -2358,7 +2345,7 @@ install_deps() {
         # one subprocess while keeping ambient user/system uv config hidden
         # (redirected to an empty XDG dir), preserving the #21269 guarantee.
         # Runtime code does the same before its locked syncs
-        # (hermes_cli/managed_uv.py).
+        # (lemon_cli/managed_uv.py).
         if run_locked_uv_sync "$INSTALL_DIR/venv"; then
             log_success "Main package installed (hash-verified via uv.lock)"
             log_success "All dependencies installed"
@@ -2403,7 +2390,7 @@ try:
     specs = data["project"]["optional-dependencies"]["all"]
     extras = []
     for s in specs:
-        m = re.search(r"hermes-agent\[([\w-]+)\]", s)
+        m = re.search(r"lemon-agent\[([\w-]+)\]", s)
         if m:
             extras.append(m.group(1))
     print(",".join(extras))
@@ -2479,18 +2466,18 @@ setup_path() {
     log_info "Setting up $INSTALLER_PRODUCT_NAME command line launcher..."
 
     if [ "$USE_VENV" = true ]; then
-        HERMES_BIN="$INSTALL_DIR/venv/bin/python"
-        HERMES_ENTRYPOINT="$INSTALL_DIR/hermes"
+        LEMON_BIN="$INSTALL_DIR/venv/bin/python"
+        LEMON_ENTRYPOINT="$INSTALL_DIR/lemon"
     else
-        HERMES_BIN="$(which hermes 2>/dev/null || echo "")"
-        if [ -z "$HERMES_BIN" ]; then
-            log_warn "hermes command not found on PATH after install"
+        LEMON_BIN="$(which lemon 2>/dev/null || echo "")"
+        if [ -z "$LEMON_BIN" ]; then
+            log_warn "lemon command not found on PATH after install"
             return 0
         fi
     fi
 
     # Verify the interpreter and the checked-in entrypoint needed by the launcher.
-    if [ ! -x "$HERMES_BIN" ] || { [ "$USE_VENV" = true ] && [ ! -f "$HERMES_ENTRYPOINT" ]; }; then
+    if [ ! -x "$LEMON_BIN" ] || { [ "$USE_VENV" = true ] && [ ! -f "$LEMON_ENTRYPOINT" ]; }; then
         log_warn "$INSTALLER_PRODUCT_NAME launcher prerequisites not found"
         log_info "This usually means the Python package install didn't complete successfully."
         if [ "$DISTRO" = "termux" ]; then
@@ -2508,97 +2495,97 @@ setup_path() {
 
     launcher_home_export() {
         if [ "$INTERNAL_DESKTOP_BUILD" = true ]; then
-            printf 'export HERMES_HOME=%q\n' "$HERMES_HOME"
+            printf 'export LEMON_HOME=%q\n' "$LEMON_HOME"
         fi
-        # Keep direct `hermes update` invocations on the same source selected
+        # Keep direct `lemon update` invocations on the same source selected
         # by the installer. Desktop handoffs pass this through their child
         # environment; the shell launcher must do the same for CLI users.
-        printf 'export HERMES_UPDATE_REPOSITORY=%q\n' "$REPOSITORY"
+        printf 'export LEMON_UPDATE_REPOSITORY=%q\n' "$REPOSITORY"
     }
 
-    # Create a user-facing shim for the hermes command.
+    # Create a user-facing shim for the lemon command.
     # We intentionally clear PYTHONPATH/PYTHONHOME here so inherited env vars
     # can't make this launcher import modules from another checkout.
     mkdir -p "$command_link_dir"
-    # Older installs created this path as a symlink to $HERMES_BIN. Without
+    # Older installs created this path as a symlink to $LEMON_BIN. Without
     # the rm, `cat >` follows the symlink and overwrites the venv pip entry
-    # point with this shim — making `exec "$HERMES_BIN"` self-recurse. (#21454)
-    rm -f "$command_link_dir/hermes"
+    # point with this shim — making `exec "$LEMON_BIN"` self-recurse. (#21454)
+    rm -f "$command_link_dir/lemon"
     if [ "$USE_VENV" = true ]; then
         # uv-generated console scripts resolve themselves through `realpath`,
         # which stock macOS does not provide. Run the checked-in entrypoint
         # with the venv interpreter instead, so the public launcher remains
         # independent of non-standard shell utilities.
-        cat > "$command_link_dir/hermes" <<EOF
+        cat > "$command_link_dir/lemon" <<EOF
 #!/usr/bin/env bash
 unset PYTHONPATH
 unset PYTHONHOME
 $(launcher_home_export)
-exec "$HERMES_BIN" "$HERMES_ENTRYPOINT" "\$@"
+exec "$LEMON_BIN" "$LEMON_ENTRYPOINT" "\$@"
 EOF
     else
-        cat > "$command_link_dir/hermes" <<EOF
+        cat > "$command_link_dir/lemon" <<EOF
 #!/usr/bin/env bash
 unset PYTHONPATH
 unset PYTHONHOME
 $(launcher_home_export)
-exec "$HERMES_BIN" "\$@"
+exec "$LEMON_BIN" "\$@"
 EOF
     fi
-    chmod +x "$command_link_dir/hermes"
-    log_success "Installed hermes launcher → $command_link_display_dir/hermes"
+    chmod +x "$command_link_dir/lemon"
+    log_success "Installed lemon launcher → $command_link_display_dir/lemon"
 
-    # Also expose `hermes-agent`. The `hermes-agent` console script declared in
+    # Also expose `lemon-agent`. The `lemon-agent` console script declared in
     # pyproject.toml's [project.scripts] lives inside the venv, which is not on
     # the login-shell PATH. Without this launcher users can't invoke the agent
     # entrypoint directly from outside the venv. (#74819)
-    rm -f "$command_link_dir/hermes-agent"
+    rm -f "$command_link_dir/lemon-agent"
     if [ "$USE_VENV" = true ]; then
-        cat > "$command_link_dir/hermes-agent" <<EOF
+        cat > "$command_link_dir/lemon-agent" <<EOF
 #!/usr/bin/env bash
 unset PYTHONPATH
 unset PYTHONHOME
 $(launcher_home_export)
-exec "$HERMES_BIN" "$INSTALL_DIR/run_agent.py" "\$@"
+exec "$LEMON_BIN" "$INSTALL_DIR/run_agent.py" "\$@"
 EOF
     else
-        cat > "$command_link_dir/hermes-agent" <<EOF
+        cat > "$command_link_dir/lemon-agent" <<EOF
 #!/usr/bin/env bash
 unset PYTHONPATH
 unset PYTHONHOME
 $(launcher_home_export)
-exec "$HERMES_BIN" run_agent.py "\$@"
+exec "$LEMON_BIN" run_agent.py "\$@"
 EOF
     fi
-    chmod +x "$command_link_dir/hermes-agent"
-    log_success "Installed hermes-agent launcher → $command_link_display_dir/hermes-agent"
+    chmod +x "$command_link_dir/lemon-agent"
+    log_success "Installed lemon-agent launcher → $command_link_display_dir/lemon-agent"
 
-    # Also expose `hermes-acp`. ACP hosts (Zed, JetBrains, Buzz) resolve the
-    # agent by command name on the login-shell PATH, and the `hermes-acp`
+    # Also expose `lemon-acp`. ACP hosts (Zed, JetBrains, Buzz) resolve the
+    # agent by command name on the login-shell PATH, and the `lemon-acp`
     # console script lives inside the venv, which is not on that PATH. Without
-    # this launcher those hosts report Hermes as not installed. (#21454 applies
+    # this launcher those hosts report Lemon AI as not installed. (#21454 applies
     # here too: clear the path first so `cat >` cannot follow an old symlink
     # into the venv and overwrite the console script.)
-    rm -f "$command_link_dir/hermes-acp"
+    rm -f "$command_link_dir/lemon-acp"
     if [ "$USE_VENV" = true ]; then
-        cat > "$command_link_dir/hermes-acp" <<EOF
+        cat > "$command_link_dir/lemon-acp" <<EOF
 #!/usr/bin/env bash
 unset PYTHONPATH
 unset PYTHONHOME
 $(launcher_home_export)
-exec "$HERMES_BIN" "$HERMES_ENTRYPOINT" acp "\$@"
+exec "$LEMON_BIN" "$LEMON_ENTRYPOINT" acp "\$@"
 EOF
     else
-        cat > "$command_link_dir/hermes-acp" <<EOF
+        cat > "$command_link_dir/lemon-acp" <<EOF
 #!/usr/bin/env bash
 unset PYTHONPATH
 unset PYTHONHOME
 $(launcher_home_export)
-exec "$HERMES_BIN" acp "\$@"
+exec "$LEMON_BIN" acp "\$@"
 EOF
     fi
-    chmod +x "$command_link_dir/hermes-acp"
-    log_success "Installed hermes-acp launcher → $command_link_display_dir/hermes-acp"
+    chmod +x "$command_link_dir/lemon-acp"
+    log_success "Installed lemon-acp launcher → $command_link_display_dir/lemon-acp"
 
     if [ "$DISTRO" = "termux" ]; then
         export PATH="$command_link_dir:$PATH"
@@ -2618,14 +2605,14 @@ EOF
         # Probe a fresh non-login interactive bash the way the user will use it.
         # `bash -i -c` sources ~/.bashrc but NOT ~/.bash_profile or /etc/profile,
         # which is the exact scenario where RHEL root loses /usr/local/bin.
-        if env -i HOME="$HOME" TERM="${TERM:-dumb}" bash -i -c 'command -v hermes' \
+        if env -i HOME="$HOME" TERM="${TERM:-dumb}" bash -i -c 'command -v lemon' \
                 >/dev/null 2>&1; then
             log_info "/usr/local/bin is already on PATH for all shells"
             log_success "$INSTALLER_PRODUCT_NAME command line launcher ready"
             return 0
         fi
 
-        log_info "hermes command not on PATH in non-login shells (common on RHEL-family)"
+        log_info "lemon command not on PATH in non-login shells (common on RHEL-family)"
         PATH_LINE='export PATH="/usr/local/bin:$PATH"'
         PATH_COMMENT="# $INSTALLER_AGENT_NAME — ensure /usr/local/bin is on PATH (RHEL non-login shells)"
         for SHELL_CONFIG in "$HOME/.bashrc" "$HOME/.bash_profile"; do
@@ -2708,7 +2695,7 @@ EOF
         log_info "~/.local/bin already on PATH"
     fi
 
-    # Export for current session so hermes works immediately
+    # Export for current session so lemon works immediately
     export PATH="$command_link_dir:$PATH"
 
     log_success "$INSTALLER_PRODUCT_NAME command line launcher ready"
@@ -2717,71 +2704,71 @@ EOF
 copy_config_templates() {
     log_info "Setting up configuration files..."
 
-    # Create ~/.hermes directory structure (config at top level, code in subdir)
-    mkdir -p "$HERMES_HOME"/{cron,sessions,logs,pairing,hooks,image_cache,audio_cache,memories,skills}
+    # Create ~/.lemon-ai directory structure (config at top level, code in subdir)
+    mkdir -p "$LEMON_HOME"/{cron,sessions,logs,pairing,hooks,image_cache,audio_cache,memories,skills}
 
-    # Create .env at $HERMES_HOME/.env (top level, easy to find)
-    if [ ! -f "$HERMES_HOME/.env" ]; then
+    # Create .env at $LEMON_HOME/.env (top level, easy to find)
+    if [ ! -f "$LEMON_HOME/.env" ]; then
         if [ -f "$INSTALL_DIR/.env.example" ]; then
-            cp "$INSTALL_DIR/.env.example" "$HERMES_HOME/.env"
-            log_success "Created $HERMES_HOME/.env from template"
+            cp "$INSTALL_DIR/.env.example" "$LEMON_HOME/.env"
+            log_success "Created $LEMON_HOME/.env from template"
         else
-            touch "$HERMES_HOME/.env"
-            log_success "Created $HERMES_HOME/.env"
+            touch "$LEMON_HOME/.env"
+            log_success "Created $LEMON_HOME/.env"
         fi
     else
-        log_info "$HERMES_HOME/.env already exists, keeping it"
+        log_info "$LEMON_HOME/.env already exists, keeping it"
     fi
     # Restrict .env permissions — this file holds API keys and tokens.
     # 0600 ensures only the file owner can read/write, matching standard
     # practice for credential files (.netrc, .aws/credentials, .ssh/config).
-    chmod 600 "$HERMES_HOME/.env"
+    chmod 600 "$LEMON_HOME/.env"
     configure_browser_env_from_system_browser
 
-    # Create config.yaml at $HERMES_HOME/config.yaml (top level, easy to find)
-    if [ ! -f "$HERMES_HOME/config.yaml" ]; then
+    # Create config.yaml at $LEMON_HOME/config.yaml (top level, easy to find)
+    if [ ! -f "$LEMON_HOME/config.yaml" ]; then
         if [ -f "$INSTALL_DIR/cli-config.yaml.example" ]; then
-            cp "$INSTALL_DIR/cli-config.yaml.example" "$HERMES_HOME/config.yaml"
-            log_success "Created $HERMES_HOME/config.yaml from template"
+            cp "$INSTALL_DIR/cli-config.yaml.example" "$LEMON_HOME/config.yaml"
+            log_success "Created $LEMON_HOME/config.yaml from template"
         fi
     else
-        log_info "$HERMES_HOME/config.yaml already exists, keeping it"
+        log_info "$LEMON_HOME/config.yaml already exists, keeping it"
     fi
 
     # Create SOUL.md if it doesn't exist (global persona file).
-    # This MUST match DEFAULT_SOUL_MD in hermes_cli/default_soul.py — the
+    # This MUST match DEFAULT_SOUL_MD in lemon_cli/default_soul.py — the
     # runtime (_ensure_default_soul_md) treats the old comment-only scaffold as
     # "never customized" and upgrades it to this text on next run, so any drift
     # here is self-healing, but keep them in sync to avoid a churn on first run.
-    if [ ! -f "$HERMES_HOME/SOUL.md" ]; then
-        cat > "$HERMES_HOME/SOUL.md" << SOUL_EOF
+    if [ ! -f "$LEMON_HOME/SOUL.md" ]; then
+        cat > "$LEMON_HOME/SOUL.md" << SOUL_EOF
 You are $INSTALLER_AGENT_NAME, built by $INSTALLER_COMPANY_NAME. Be direct: match the length of your reply to the weight of the ask — a one-line question gets a one-line answer, and finished work gets a short report of what changed, what's verified, and what's left, never a replay of the process. No filler ("Great question," "I'd be happy to"), no restating the request back, no re-summarizing what you already said, no narrating tool calls the user can see. Plain claims over adjectives; when unsure, say so plainly. Agree because it's right, not because the user said it. Depth is earned — give it when the user asks for detail, teaches, or the stakes demand it, not by default.
 SOUL_EOF
-        log_success "Created $HERMES_HOME/SOUL.md (edit to customize personality)"
+        log_success "Created $LEMON_HOME/SOUL.md (edit to customize personality)"
     fi
 
-    log_success "Configuration directory ready: $HERMES_HOME/"
+    log_success "Configuration directory ready: $LEMON_HOME/"
 
-    # Seed bundled skills into $HERMES_HOME/skills/ (manifest-based, one-time per skill)
+    # Seed bundled skills into $LEMON_HOME/skills/ (manifest-based, one-time per skill)
     if [ "$NO_SKILLS" = true ]; then
         # Blank-slate install: write the opt-out marker and skip seeding.
-        # skills_sync.py and `hermes update` both honor this marker, so the
+        # skills_sync.py and `lemon update` both honor this marker, so the
         # default profile stays empty across future updates too.
         printf '%s\n' \
             "This profile opted out of bundled-skill seeding (installed with --no-skills)." \
-            "Delete this file to re-enable sync on the next 'hermes update'." \
-            > "$HERMES_HOME/.no-bundled-skills" 2>/dev/null || true
-        log_info "Skipping bundled skills (--no-skills). Wrote $HERMES_HOME/.no-bundled-skills"
-        log_info "  Future 'hermes update' runs will not inject bundled skills. Delete the marker to opt back in."
+            "Delete this file to re-enable sync on the next 'lemon update'." \
+            > "$LEMON_HOME/.no-bundled-skills" 2>/dev/null || true
+        log_info "Skipping bundled skills (--no-skills). Wrote $LEMON_HOME/.no-bundled-skills"
+        log_info "  Future 'lemon update' runs will not inject bundled skills. Delete the marker to opt back in."
     else
-        log_info "Syncing bundled skills to $HERMES_HOME/skills/ ..."
+        log_info "Syncing bundled skills to $LEMON_HOME/skills/ ..."
         if "$INSTALL_DIR/venv/bin/python" "$INSTALL_DIR/tools/skills_sync.py" 2>/dev/null; then
-            log_success "Skills synced to $HERMES_HOME/skills/"
+            log_success "Skills synced to $LEMON_HOME/skills/"
         else
             # Fallback: simple directory copy if Python sync fails
-            if [ -d "$INSTALL_DIR/skills" ] && [ ! "$(ls -A "$HERMES_HOME/skills/" 2>/dev/null | grep -v '.bundled_manifest')" ]; then
-                cp -r "$INSTALL_DIR/skills/"* "$HERMES_HOME/skills/" 2>/dev/null || true
-                log_success "Skills copied to $HERMES_HOME/skills/"
+            if [ -d "$INSTALL_DIR/skills" ] && [ ! "$(ls -A "$LEMON_HOME/skills/" 2>/dev/null | grep -v '.bundled_manifest')" ]; then
+                cp -r "$INSTALL_DIR/skills/"* "$LEMON_HOME/skills/" 2>/dev/null || true
+                log_success "Skills copied to $LEMON_HOME/skills/"
             fi
         fi
     fi
@@ -2830,14 +2817,14 @@ strip_snap_browser_override() {
     # snap-pointing override here (and its auto-written comment) so the bundled
     # Chromium download runs and the agent stops using the broken binary. A
     # deliberately-set non-snap override is left untouched.
-    local env_file="$HERMES_HOME/.env"
+    local env_file="$LEMON_HOME/.env"
 
     [ -f "$env_file" ] || return 0
     grep -Eq '^AGENT_BROWSER_EXECUTABLE_PATH=/snap/' "$env_file" 2>/dev/null || return 0
 
     local tmp
     tmp="$(mktemp)" || return 0
-    if grep -Ev '^AGENT_BROWSER_EXECUTABLE_PATH=/snap/|^# (Hermes Agent|Lemon AI) browser tools' "$env_file" > "$tmp"; then
+    if grep -Ev '^AGENT_BROWSER_EXECUTABLE_PATH=/snap/|^# (Lemon AI|Lemon AI) browser tools' "$env_file" > "$tmp"; then
         mv "$tmp" "$env_file"
         log_warn "Removed stale Snap browser override (AGENT_BROWSER_EXECUTABLE_PATH=/snap/...) from $env_file"
         log_info "$INSTALLER_PRODUCT_NAME will use the bundled Chromium instead."
@@ -3038,7 +3025,7 @@ run_playwright_install() {
 }
 
 configure_browser_env_from_system_browser() {
-    local env_file="$HERMES_HOME/.env"
+    local env_file="$LEMON_HOME/.env"
     local browser_path="${DETECTED_BROWSER_EXECUTABLE:-}"
 
     if [ -z "$browser_path" ]; then
@@ -3049,7 +3036,7 @@ configure_browser_env_from_system_browser() {
         return 0
     fi
 
-    mkdir -p "$HERMES_HOME"
+    mkdir -p "$LEMON_HOME"
     if [ ! -f "$env_file" ]; then
         touch "$env_file"
     fi
@@ -3081,8 +3068,8 @@ configure_browser_env_from_system_browser() {
 # Naming ui-tui/web excludes the unnamed apps/* workspaces, and
 # --include-workspace-root keeps the root's own devDependencies (the shared
 # ESLint flat config each workspace imports) from being pruned by the scoped
-# install — the same closure `hermes update` installs
-# (hermes_cli/main.py::_update_node_dependencies). Prebuilt/partial checkouts
+# install — the same closure `lemon update` installs
+# (lemon_cli/main.py::_update_node_dependencies). Prebuilt/partial checkouts
 # can lack a workspace, and naming a missing one makes npm fail hard, so fall
 # back to a root-only install that still skips apps/*.
 node_deps_workspace_args() {
@@ -3255,7 +3242,7 @@ install_node_deps() {
         log_success "TUI dependencies installed"
     fi
 
-    # Keep the checkout clean so `hermes update` doesn't autostash every run.
+    # Keep the checkout clean so `lemon update` doesn't autostash every run.
     restore_dirty_lockfiles "$INSTALL_DIR"
 }
 
@@ -3264,7 +3251,7 @@ install_browser_use_cli() {
     # (tools/browser_use_cli.py). Provision it here so fresh installs don't
     # silently fall back to the built-in browser tools. Best-effort: any
     # failure is non-fatal because browser_exec can still run via uvx and
-    # `hermes tools` can install it later.
+    # `lemon tools` can install it later.
     if [ "$SKIP_BROWSER" = true ]; then
         log_info "Skipping Browser Use CLI install (--skip-browser)"
         return 0
@@ -3276,23 +3263,23 @@ install_browser_use_cli() {
         log_info "Skipping Browser Use CLI install (uv unavailable)"
         return 0
     fi
-    # MANAGED-FIRST: only Hermes' managed copy short-circuits. A browser-use
+    # MANAGED-FIRST: only Lemon AI' managed copy short-circuits. A browser-use
     # on the user's PATH is a side install — resolution prefers the managed
     # copy, so it must be provisioned regardless.
-    if [ -x "$HERMES_HOME/bin/browser-use" ]; then
+    if [ -x "$LEMON_HOME/bin/browser-use" ]; then
         log_success "Browser Use CLI already installed"
         return 0
     fi
 
     log_info "Installing Browser Use CLI (default browser backend)..."
-    # UV_TOOL_BIN_DIR keeps the binary inside Hermes' managed bin dir, where
+    # UV_TOOL_BIN_DIR keeps the binary inside Lemon AI' managed bin dir, where
     # the browser tool resolves it — no reliance on the user's PATH.
-    if run_with_timeout 600 env UV_NO_CONFIG=1 UV_TOOL_BIN_DIR="$HERMES_HOME/bin" \
+    if run_with_timeout 600 env UV_NO_CONFIG=1 UV_TOOL_BIN_DIR="$LEMON_HOME/bin" \
         "$UV_CMD" tool install browser-use >/dev/null 2>&1; then
         log_success "Browser Use CLI installed"
     else
         log_warn "Browser Use CLI install failed — browser automation falls back to built-in tools."
-        log_info "Install later with: $UV_CMD tool install browser-use  (or via 'hermes tools')"
+        log_info "Install later with: $UV_CMD tool install browser-use  (or via 'lemon tools')"
     fi
 }
 
@@ -3330,9 +3317,9 @@ cua_driver_runtime_compatible() {
 install_computer_use_driver() {
     # cua-driver powers the computer_use toolset (background desktop control).
     # Provision it at install time so enabling the tool later — via
-    # `hermes tools`, the dashboard, or the desktop app — is a config flip,
+    # `lemon tools`, the dashboard, or the desktop app — is a config flip,
     # not a surprise multi-minute binary fetch (the confusion this fixes:
-    # users had to discover `hermes computer-use install` on their own).
+    # users had to discover `lemon computer-use install` on their own).
     # Best-effort and non-fatal: the enable paths still lazy-install via
     # install_cua_driver() when this step was skipped or failed.
     if [ "$SKIP_COMPUTER_USE" = true ]; then
@@ -3359,20 +3346,20 @@ install_computer_use_driver() {
     fi
 
     log_info "Installing Computer Use driver (cua-driver)..."
-    # Same upstream installer `hermes computer-use install` runs; time-boxed
-    # so a stalled GitHub download can't hang the Hermes install. The
+    # Same upstream installer `lemon computer-use install` runs; time-boxed
+    # so a stalled GitHub download can't hang the Lemon AI install. The
     # upstream installer serializes with its own lock (600s stale window),
-    # so give it a ceiling above that — matching Hermes'
+    # so give it a ceiling above that — matching Lemon AI'
     # _CUA_INSTALLER_TIMEOUT (660s).
     local cua_log
     cua_log="$(mktemp)"
     if run_with_timeout 660 /bin/bash -c \
         'curl -fsSL https://raw.githubusercontent.com/trycua/cua/main/libs/cua-driver/scripts/install.sh | /bin/bash' \
         >"$cua_log" 2>&1; then
-        log_success "Computer Use driver installed (enable via 'hermes tools' → Computer Use)"
+        log_success "Computer Use driver installed (enable via 'lemon tools' → Computer Use)"
     else
         log_warn "Computer Use driver install failed — it will install on demand when you enable the tool."
-        log_info "Install later with: hermes computer-use install"
+        log_info "Install later with: lemon computer-use install"
         tail -n 5 "$cua_log" >&2 || true
     fi
     rm -f "$cua_log"
@@ -3393,7 +3380,7 @@ run_setup_wizard() {
     # but opening fails with ENXIO, so the wizard would proceed and
     # then crash on `< /dev/tty` below.
     if ! (: </dev/tty) 2>/dev/null; then
-        log_info "Setup wizard skipped (no terminal available). Run 'hermes setup' after install."
+        log_info "Setup wizard skipped (no terminal available). Run 'lemon setup' after install."
         return 0
     fi
 
@@ -3403,18 +3390,18 @@ run_setup_wizard() {
 
     cd "$INSTALL_DIR"
 
-    # Run hermes setup using the venv Python directly (no activation needed).
+    # Run lemon setup using the venv Python directly (no activation needed).
     # Redirect stdin from /dev/tty so interactive prompts work when piped from curl.
     if [ "$USE_VENV" = true ]; then
-        "$INSTALL_DIR/venv/bin/python" -m hermes_cli.main setup < /dev/tty
+        "$INSTALL_DIR/venv/bin/python" -m lemon_cli.main setup < /dev/tty
     else
-        python -m hermes_cli.main setup < /dev/tty
+        python -m lemon_cli.main setup < /dev/tty
     fi
 }
 
 maybe_start_gateway() {
     # Check if any messaging platform tokens were configured
-    ENV_FILE="$HERMES_HOME/.env"
+    ENV_FILE="$LEMON_HOME/.env"
     if [ ! -f "$ENV_FILE" ]; then
         return 0
     fi
@@ -3438,19 +3425,19 @@ maybe_start_gateway() {
 
     # If WhatsApp is enabled and no session exists yet, run foreground first for QR scan
     WHATSAPP_VAL=$(grep "^WHATSAPP_ENABLED=" "$ENV_FILE" 2>/dev/null | cut -d'=' -f2-)
-    WHATSAPP_SESSION="$HERMES_HOME/whatsapp/session/creds.json"
+    WHATSAPP_SESSION="$LEMON_HOME/whatsapp/session/creds.json"
     if [ "$WHATSAPP_VAL" = "true" ] && [ ! -f "$WHATSAPP_SESSION" ]; then
         if [ "$IS_INTERACTIVE" = true ]; then
             echo ""
             log_info "WhatsApp is enabled but not yet paired."
-            log_info "Running 'hermes whatsapp' to pair via QR code..."
+            log_info "Running 'lemon whatsapp' to pair via QR code..."
             echo ""
             if prompt_yes_no "Pair WhatsApp now?" "yes"; then
-                HERMES_CMD="$(get_hermes_command_path)"
-                $HERMES_CMD whatsapp || true
+                LEMON_CMD="$(get_lemon_command_path)"
+                $LEMON_CMD whatsapp || true
             fi
         else
-            log_info "WhatsApp pairing skipped (non-interactive). Run 'hermes whatsapp' to pair."
+            log_info "WhatsApp pairing skipped (non-interactive). Run 'lemon whatsapp' to pair."
         fi
     fi
 
@@ -3458,7 +3445,7 @@ maybe_start_gateway() {
     # in Docker builds where the device node is in the mount namespace
     # but opening fails with ENXIO. See #16746.
     if ! (: </dev/tty) 2>/dev/null; then
-        log_info "Gateway setup skipped (no terminal available). Run 'hermes gateway install' later."
+        log_info "Gateway setup skipped (no terminal available). Run 'lemon gateway install' later."
         return 0
     fi
 
@@ -3475,19 +3462,19 @@ maybe_start_gateway() {
     fi
 
     if [ "$should_install_gateway" = true ]; then
-        HERMES_CMD="$(get_hermes_command_path)"
+        LEMON_CMD="$(get_lemon_command_path)"
 
         if [ "$DISTRO" != "termux" ] && command -v systemctl &> /dev/null; then
             log_info "Installing systemd service..."
-            if $HERMES_CMD gateway install 2>/dev/null; then
+            if $LEMON_CMD gateway install 2>/dev/null; then
                 log_success "Gateway service installed"
-                if $HERMES_CMD gateway start 2>/dev/null; then
+                if $LEMON_CMD gateway start 2>/dev/null; then
                     log_success "Gateway started! Your bot is now online."
                 else
-                    log_warn "Service installed but failed to start. Try: hermes gateway start"
+                    log_warn "Service installed but failed to start. Try: lemon gateway start"
                 fi
             else
-                log_warn "Systemd install failed. You can start manually: hermes gateway"
+                log_warn "Systemd install failed. You can start manually: lemon gateway"
             fi
         else
             if [ "$DISTRO" = "termux" ]; then
@@ -3495,22 +3482,22 @@ maybe_start_gateway() {
             else
                 log_info "systemd not available — starting gateway in background..."
             fi
-            nohup $HERMES_CMD gateway > "$HERMES_HOME/logs/gateway.log" 2>&1 &
+            nohup $LEMON_CMD gateway > "$LEMON_HOME/logs/gateway.log" 2>&1 &
             GATEWAY_PID=$!
-            log_success "Gateway started (PID $GATEWAY_PID). Logs: $HERMES_HOME/logs/gateway.log"
+            log_success "Gateway started (PID $GATEWAY_PID). Logs: $LEMON_HOME/logs/gateway.log"
             log_info "To stop: kill $GATEWAY_PID"
-            log_info "To restart later: hermes gateway"
+            log_info "To restart later: lemon gateway"
             if [ "$DISTRO" = "termux" ]; then
                 log_warn "Android may stop background processes when Termux is suspended or the system reclaims resources."
             fi
         fi
     else
-        log_info "Skipped. Start the gateway later with: hermes gateway"
+        log_info "Skipped. Start the gateway later with: lemon gateway"
     fi
 }
 
 write_bootstrap_marker() {
-    # Writes $INSTALL_DIR/.hermes-bootstrap-complete, which tells the Hermes
+    # Writes $INSTALL_DIR/.lemon-ai-bootstrap-complete, which tells the Lemon AI
     # desktop app (apps/desktop/electron/main.ts) and the macOS launcher fast
     # path (apps/bootstrap-installer) "a real install finished here -- don't
     # re-run first-run bootstrap."
@@ -3539,13 +3526,13 @@ write_bootstrap_marker() {
         return 0
     fi
 
-    local default_marker_name=".hermes-bootstrap-complete"
+    local default_marker_name=".lemon-ai-bootstrap-complete"
     if [ "$INTERNAL_DESKTOP_BUILD" = true ]; then
         default_marker_name=".lemon-ai-bootstrap-complete"
     fi
-    local marker_name="${HERMES_BOOTSTRAP_MARKER_NAME:-$default_marker_name}"
+    local marker_name="${LEMON_BOOTSTRAP_MARKER_NAME:-$default_marker_name}"
     if ! is_safe_file_name "$marker_name"; then
-        log_error "HERMES_BOOTSTRAP_MARKER_NAME must be a safe file name"
+        log_error "LEMON_BOOTSTRAP_MARKER_NAME must be a safe file name"
         return 1
     fi
     # Keep the safety fallback aligned with the selected product identity.
@@ -3578,9 +3565,9 @@ print_success() {
     local cmd_config_edit="Open config in editor"
     local cmd_gateway="Install gateway service (messaging + cron)"
     local cmd_update="Update to latest version"
-    local termux_ready="'hermes' was linked into $(get_command_link_display_dir), which is already on PATH in Termux."
-    local fhs_ready="'hermes' was linked into /usr/local/bin and is ready to use — no shell reload needed."
-    local reload_hint="Reload your shell to use 'hermes' command:"
+    local termux_ready="'lemon' was linked into $(get_command_link_display_dir), which is already on PATH in Termux."
+    local fhs_ready="'lemon' was linked into /usr/local/bin and is ready to use — no shell reload needed."
+    local reload_hint="Reload your shell to use 'lemon' command:"
 
     if [ "$INTERNAL_DESKTOP_BUILD" = true ]; then
         done_title="✓ Cài đặt Lemon AI hoàn tất!"
@@ -3596,9 +3583,9 @@ print_success() {
         cmd_config_edit="Mở cấu hình bằng editor"
         cmd_gateway="Cài gateway cho messaging và cron"
         cmd_update="Cập nhật phiên bản mới nhất"
-        termux_ready="Lệnh kỹ thuật 'hermes' đã được liên kết vào $(get_command_link_display_dir), Termux dùng được ngay."
-        fhs_ready="Lệnh kỹ thuật 'hermes' đã được liên kết vào /usr/local/bin và dùng được ngay."
-        reload_hint="Reload shell để dùng lệnh kỹ thuật 'hermes':"
+        termux_ready="Lệnh kỹ thuật 'lemon' đã được liên kết vào $(get_command_link_display_dir), Termux dùng được ngay."
+        fhs_ready="Lệnh kỹ thuật 'lemon' đã được liên kết vào /usr/local/bin và dùng được ngay."
+        reload_hint="Reload shell để dùng lệnh kỹ thuật 'lemon':"
     fi
 
     echo ""
@@ -3612,9 +3599,9 @@ print_success() {
     # Show file locations
     echo -e "${CYAN}${BOLD}$files_title${NC}"
     echo ""
-    echo -e "   ${YELLOW}$config_label${NC}    $HERMES_HOME/config.yaml"
-    echo -e "   ${YELLOW}$api_label${NC}  $HERMES_HOME/.env"
-    echo -e "   ${YELLOW}$data_label${NC}      $HERMES_HOME/cron/, sessions/, logs/"
+    echo -e "   ${YELLOW}$config_label${NC}    $LEMON_HOME/config.yaml"
+    echo -e "   ${YELLOW}$api_label${NC}  $LEMON_HOME/.env"
+    echo -e "   ${YELLOW}$data_label${NC}      $LEMON_HOME/cron/, sessions/, logs/"
     echo -e "   ${YELLOW}$code_label${NC}      $INSTALL_DIR"
     echo ""
 
@@ -3622,12 +3609,12 @@ print_success() {
     echo ""
     echo -e "${CYAN}${BOLD}$commands_title${NC}"
     echo ""
-    echo -e "   ${GREEN}hermes${NC}              $cmd_chat"
-    echo -e "   ${GREEN}hermes setup${NC}        $cmd_setup"
-    echo -e "   ${GREEN}hermes config${NC}       $cmd_config"
-    echo -e "   ${GREEN}hermes config edit${NC}  $cmd_config_edit"
-    echo -e "   ${GREEN}hermes gateway install${NC} $cmd_gateway"
-    echo -e "   ${GREEN}hermes update${NC}       $cmd_update"
+    echo -e "   ${GREEN}lemon${NC}              $cmd_chat"
+    echo -e "   ${GREEN}lemon setup${NC}        $cmd_setup"
+    echo -e "   ${GREEN}lemon config${NC}       $cmd_config"
+    echo -e "   ${GREEN}lemon config edit${NC}  $cmd_config_edit"
+    echo -e "   ${GREEN}lemon gateway install${NC} $cmd_gateway"
+    echo -e "   ${GREEN}lemon update${NC}       $cmd_update"
     echo ""
 
     echo -e "${CYAN}─────────────────────────────────────────────────────────${NC}"
@@ -3683,9 +3670,9 @@ print_success() {
 
 ensure_browser() {
     if ! command -v node >/dev/null 2>&1; then
-        local node_bin="$HERMES_HOME/node/bin/node"
+        local node_bin="$LEMON_HOME/node/bin/node"
         if [ -x "$node_bin" ]; then
-            export PATH="$HERMES_HOME/node/bin:$PATH"
+            export PATH="$LEMON_HOME/node/bin:$PATH"
         else
             log_error "Node.js not found. Run with --ensure node first."
             return 1
@@ -3693,7 +3680,7 @@ ensure_browser() {
     fi
 
     local npm_bin
-    npm_bin="$(command -v npm 2>/dev/null || echo "$HERMES_HOME/node/bin/npm")"
+    npm_bin="$(command -v npm 2>/dev/null || echo "$LEMON_HOME/node/bin/npm")"
     if [ ! -x "$npm_bin" ]; then
         log_error "npm not found"
         return 1
@@ -3701,7 +3688,7 @@ ensure_browser() {
 
     # agent-browser itself is intentionally NOT installed here (#43564 /
     # PR #44772 review): it resolves lazily via `npx agent-browser` instead,
-    # which every consumer (tools/browser_tool.py, `hermes update`'s npx
+    # which every consumer (tools/browser_tool.py, `lemon update`'s npx
     # cache warm) already goes through. Eagerly npm-installing a second,
     # separately version-pinned copy here -- only reachable via this
     # explicit --ensure browser fallback in the first place -- was redundant
@@ -3712,7 +3699,7 @@ ensure_browser() {
     log_file="$(mktemp)"
     # Time-boxed (#39219): a stalled npm registry fetch here would otherwise
     # hang the installer with no progress, same class as the desktop build.
-    if ! run_with_timeout "$NODE_DEPS_TIMEOUT" "$npm_bin" install -g --prefix "$HERMES_HOME/node" --silent --ignore-scripts \
+    if ! run_with_timeout "$NODE_DEPS_TIMEOUT" "$npm_bin" install -g --prefix "$LEMON_HOME/node" --silent --ignore-scripts \
         "@askjo/camofox-browser@^1.5.2" \
         >"$log_file" 2>&1; then
         log_error "npm install failed or timed out:"
@@ -3721,7 +3708,7 @@ ensure_browser() {
         return 1
     fi
     rm -f "$log_file"
-    export PATH="$HERMES_HOME/node/bin:$PATH"
+    export PATH="$LEMON_HOME/node/bin:$PATH"
 
     strip_snap_browser_override
     local sys_browser
@@ -3776,10 +3763,10 @@ ensure_mode() {
 # next `npm run pack` re-downloads and re-stages from scratch. A corrupt zip in
 # the per-user Electron download cache - most often a partial/resumed download
 # that leaves concatenated junk - makes electron-builder's `unpack-electron`
-# extract a tree MISSING the electron binary, so the `electron`->`Hermes` rename
+# extract a tree MISSING the electron binary, so the `electron`->`Lemon AI` rename
 # dies with ENOENT and every re-run repeats the broken extraction forever. This
 # is the bash sibling of install.ps1's Clear-ElectronBuildCache and the Python
-# _purge_electron_build_cache() used by `hermes desktop`; install.sh was the only
+# _purge_electron_build_cache() used by `lemon desktop`; install.sh was the only
 # build path lacking it. Echoes the removed paths (one per line); best-effort.
 clear_electron_build_cache() {
     local desktop_dir="$1"
@@ -3995,7 +3982,7 @@ install_desktop() {
     # with no app and a confusing "couldn't find a built desktop" at launch.
     # Always re-resolve Node here. Stages run in separate processes, so we can't
     # trust an earlier check; more importantly check_node now enforces the
-    # supported Node lines and prepends the Hermes-managed Node to PATH, so
+    # supported Node lines and prepends the Lemon AI-managed Node to PATH, so
     # the build never runs on a too-old system Node — the cause of the opaque
     # "Build desktop app … exit code 1" failure (Vite crashes on old Node).
     check_node
@@ -4065,7 +4052,7 @@ install_desktop() {
     #    Electron download self-heals instead of failing the whole install:
     #      a) plain `npm run pack` (downloads Electron from GitHub),
     #      b) on failure, purge a corrupt cached zip + stale unpacked dir and
-    #         retry (matches install.ps1 / `hermes desktop`),
+    #         retry (matches install.ps1 / `lemon desktop`),
     #      c) on still-failing, fall back to a public Electron mirror — this is
     #         the GitHub-blocked/throttled case (the repeating "retrying" log).
     log_info "Building desktop app (this takes 1-3 minutes)..."
@@ -4117,17 +4104,19 @@ install_desktop() {
             app="$desktop_dir/release/linux-unpacked/Lemon AI"
         elif [ "$INTERNAL_DESKTOP_BUILD" = true ] && [ -x "$desktop_dir/release/linux-unpacked/lemon-ai" ]; then
             app="$desktop_dir/release/linux-unpacked/lemon-ai"
-        elif [ "$INTERNAL_DESKTOP_BUILD" != true ] && [ -x "$desktop_dir/release/linux-unpacked/Hermes" ]; then
+        elif [ -x "$desktop_dir/release/linux-unpacked/Lemon AI" ]; then
+            app="$desktop_dir/release/linux-unpacked/Lemon AI"
+        elif [ -x "$desktop_dir/release/linux-unpacked/lemon" ]; then
+            app="$desktop_dir/release/linux-unpacked/lemon"
+        elif [ -x "$desktop_dir/release/linux-unpacked/Hermes" ]; then
             app="$desktop_dir/release/linux-unpacked/Hermes"
-        elif [ "$INTERNAL_DESKTOP_BUILD" != true ] && [ -x "$desktop_dir/release/linux-unpacked/hermes" ]; then
+        elif [ -x "$desktop_dir/release/linux-unpacked/hermes" ]; then
             app="$desktop_dir/release/linux-unpacked/hermes"
         fi
-    elif [ "$INTERNAL_DESKTOP_BUILD" = true ]; then
-        app="$(select_newest_macos_app \
-            "$desktop_dir/release/mac-arm64/Lemon AI.app" \
-            "$desktop_dir/release/mac/Lemon AI.app")"
     else
         app="$(select_newest_macos_app \
+            "$desktop_dir/release/mac-arm64/Lemon AI.app" \
+            "$desktop_dir/release/mac/Lemon AI.app" \
             "$desktop_dir/release/mac-arm64/Hermes.app" \
             "$desktop_dir/release/mac/Hermes.app")"
     fi
@@ -4166,14 +4155,14 @@ install_desktop() {
     fi
 
     # macOS: route through the same config-aware signing fixup as
-    # `hermes desktop`, so install/repair and self-update agree about the app's
+    # `lemon desktop`, so install/repair and self-update agree about the app's
     # identity. The fixup preserves the Electron entitlement plists and signs
     # with a stable Designated Requirement (configured keychain identity, else
     # identifier-pinned ad-hoc), so macOS TCC grants — Full Disk Access,
     # Desktop/Downloads/Documents, Accessibility, microphone — survive the
     # rebuild instead of resetting on every update. The shell's
     # publisher-signing decision governed the build and is passed explicitly so
-    # importing Python cannot reverse it by loading HERMES_HOME/.env. If the
+    # importing Python cannot reverse it by loading LEMON_HOME/.env. If the
     # helper is unavailable or fails, branch into the historical quarantine
     # strip + deep ad-hoc repair so a broken venv never leaves the bundle
     # unsigned/unlaunchable.
@@ -4181,10 +4170,10 @@ install_desktop() {
         local config_python="$INSTALL_DIR/venv/bin/python"
         local fixup_ok=""
         if [ -x "$config_python" ]; then
-            if HERMES_HOME="$HERMES_HOME" "$config_python" - "$desktop_dir" <<'PYEOF'
+            if LEMON_HOME="$LEMON_HOME" "$config_python" - "$desktop_dir" <<'PYEOF'
 import sys
 from pathlib import Path
-from hermes_cli.main import _desktop_macos_relaunchable_fixup
+from lemon_cli.main import _desktop_macos_relaunchable_fixup
 ok = _desktop_macos_relaunchable_fixup(
     Path(sys.argv[1]), publisher_signing_configured=False
 )
@@ -4203,7 +4192,7 @@ PYEOF
     fi
 
     # `npm install` + `npm run pack` rewrite lockfiles; restore them so the
-    # checkout stays clean for the next `hermes update`.
+    # checkout stays clean for the next `lemon update`.
     restore_dirty_lockfiles "$INSTALL_DIR"
 }
 
@@ -4298,8 +4287,8 @@ run_stage_body() {
             detect_os
             resolve_install_layout
             require_install_dir
-            # Each stage runs in its own process, so the Hermes-managed Node
-            # provisioned during prerequisites/node-deps (at $HERMES_HOME/node/bin)
+            # Each stage runs in its own process, so the Lemon AI-managed Node
+            # provisioned during prerequisites/node-deps (at $LEMON_HOME/node/bin)
             # isn't on PATH here. check_node re-adds it (or installs if missing)
             # so install_desktop can find npm instead of silently skipping.
             check_node
@@ -4312,10 +4301,10 @@ run_stage_body() {
             print_success
             write_bootstrap_marker
             # Code-scoped stamp: write next to the install tree, not into
-            # $HERMES_HOME. $HERMES_HOME is a shared data dir (it can be
+            # $LEMON_HOME. $LEMON_HOME is a shared data dir (it can be
             # bind-mounted into a Docker gateway too), so a stamp there gets
             # clobbered by the container's 'docker' stamp and wrongly blocks
-            # 'hermes update' on this host install. See detect_install_method().
+            # 'lemon update' on this host install. See detect_install_method().
             echo "git" > "$INSTALL_DIR/.install_method"
             ;;
         *)
@@ -4406,10 +4395,10 @@ main() {
 
     write_bootstrap_marker
 
-    # Code-scoped stamp: write next to the install tree, not into $HERMES_HOME.
-    # $HERMES_HOME is a shared data dir (it can be bind-mounted into a Docker
+    # Code-scoped stamp: write next to the install tree, not into $LEMON_HOME.
+    # $LEMON_HOME is a shared data dir (it can be bind-mounted into a Docker
     # gateway too), so a stamp there gets clobbered by the container's 'docker'
-    # stamp and wrongly blocks 'hermes update' on this host install.
+    # stamp and wrongly blocks 'lemon update' on this host install.
     # See detect_install_method().
     echo "git" > "$INSTALL_DIR/.install_method"
 }

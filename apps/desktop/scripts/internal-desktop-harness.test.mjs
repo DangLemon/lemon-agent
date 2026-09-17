@@ -75,7 +75,7 @@ test('validateHarnessResource permits credentialRequirements metadata and enviro
 test('validateHarnessResource accepts real nonsecret deployment identifiers in private build input', () => {
   const resource = {
     ...validResource,
-    sourceRepository: 'DangLemon/hermes-agent',
+    sourceRepository: 'DangLemon/lemon-agent',
     managedConfig: {
       mcp_servers: { company_search: { url: 'https://mcp.company.example/sse', headers: { 'X-Company-Auth': '${MCP_COMPANY_AUTH}' } } }
     },
@@ -89,16 +89,16 @@ test('validateHarnessResource accepts real nonsecret deployment identifiers in p
   }
 
   assert.equal(validateHarnessResource(resource).initialProvider.id, 'lemon-ai-company')
-  assert.equal(validateHarnessResource(resource).sourceRepository, 'DangLemon/hermes-agent')
+  assert.equal(validateHarnessResource(resource).sourceRepository, 'DangLemon/lemon-agent')
 })
 
 test('validateHarnessResource rejects unsafe source repositories and literal model api keys', () => {
   assert.throws(
-    () => validateHarnessResource({ ...validResource, sourceRepository: 'https://github.com/DangLemon/hermes-agent' }),
+    () => validateHarnessResource({ ...validResource, sourceRepository: 'https://github.com/DangLemon/lemon-agent' }),
     /sourceRepository/i
   )
   assert.throws(
-    () => validateHarnessResource({ ...validResource, sourceRepository: '../hermes-agent' }),
+    () => validateHarnessResource({ ...validResource, sourceRepository: '../lemon-agent' }),
     /sourceRepository/i
   )
   assert.throws(
@@ -109,9 +109,9 @@ test('validateHarnessResource rejects unsafe source repositories and literal mod
 
 test('configured internal manifest pins approved repo, model, and MCP env refs', () => {
   const manifestPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', 'lemon-ai-desktop.config.json')
-  const resource = loadHarnessConfigInput({ HERMES_DESKTOP_HARNESS_CONFIG: manifestPath })
+  const resource = loadHarnessConfigInput({ LEMON_DESKTOP_HARNESS_CONFIG: manifestPath })
 
-  assert.equal(resource.sourceRepository, 'DangLemon/hermes-agent')
+  assert.equal(resource.sourceRepository, 'DangLemon/lemon-agent')
   assert.deepEqual(resource.ui, {
     agents: false,
     cron: true,
@@ -151,13 +151,12 @@ test('validateHarnessResource rejects secret-shaped keys and values anywhere', (
 })
 
 test('loadHarnessConfigInput reads only the explicit selector', () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-harness-input-'))
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-harness-input-'))
   try {
     const input = path.join(tempRoot, 'input.json')
     fs.writeFileSync(input, JSON.stringify(validResource), 'utf8')
 
-    assert.equal(loadHarnessConfigInput({ LEMON_AI_DESKTOP_HARNESS_CONFIG: input })?.profile, 'internal')
-    assert.equal(loadHarnessConfigInput({ HERMES_DESKTOP_HARNESS_CONFIG: input })?.profile, 'internal')
+    assert.equal(loadHarnessConfigInput({ LEMON_DESKTOP_HARNESS_CONFIG: input })?.profile, 'internal')
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true })
   }
@@ -166,37 +165,37 @@ test('loadHarnessConfigInput reads only the explicit selector', () => {
 test('loadHarnessConfigInput stays ordinary when no selector is set', () => {
   assert.equal(selectedHarnessConfigInputPath({}), '')
   assert.equal(loadHarnessConfigInput({}), null)
-  assert.equal(selectedHarnessConfigInputPath({ LEMON_AI_DESKTOP_HARNESS_CONFIG: '  ' }), '')
-  assert.throws(() => loadHarnessConfigInput({ LEMON_AI_DESKTOP_HARNESS_CONFIG: '/missing/lemon.json' }), /ENOENT/)
+  assert.equal(selectedHarnessConfigInputPath({ LEMON_DESKTOP_HARNESS_CONFIG: '  ' }), '')
+  assert.throws(() => loadHarnessConfigInput({ LEMON_DESKTOP_HARNESS_CONFIG: '/missing/lemon.json' }), /ENOENT/)
 })
 
-test('Hermes installer brand suppresses inherited Lemon selectors', () => {
+test('Lemon selector remains active for Lemon installer builds', () => {
+  const selected = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', 'lemon-ai-desktop.config.json')
   assert.equal(
     selectedHarnessConfigInputPath({
-      HERMES_INSTALLER_BRAND: 'hermes',
-      LEMON_AI_DESKTOP_HARNESS_CONFIG: path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', 'lemon-ai-desktop.config.json'),
-      HERMES_DESKTOP_HARNESS_CONFIG: '/also/not-selected.json'
+      LEMON_INSTALLER_BRAND: 'lemon',
+      LEMON_DESKTOP_HARNESS_CONFIG: selected
     }),
-    ''
+    selected
   )
   assert.equal(
     loadHarnessConfigInput({
-      HERMES_INSTALLER_BRAND: 'hermes',
-      LEMON_AI_DESKTOP_HARNESS_CONFIG: path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', 'lemon-ai-desktop.config.json')
-    }),
-    null
+      LEMON_INSTALLER_BRAND: 'lemon',
+      LEMON_DESKTOP_HARNESS_CONFIG: selected
+    })?.profile,
+    'internal'
   )
 })
 
 test('generateInternalDesktopHarnessResource writes selected input and removes stale output when absent or invalid', () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-harness-generate-'))
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-harness-generate-'))
   try {
     const buildDir = path.join(tempRoot, 'build')
     const input = path.join(tempRoot, 'input.json')
     fs.writeFileSync(input, JSON.stringify(validResource), 'utf8')
 
     const written = generateInternalDesktopHarnessResource({
-      env: { LEMON_AI_DESKTOP_HARNESS_CONFIG: input },
+      env: { LEMON_DESKTOP_HARNESS_CONFIG: input },
       buildDir
     })
     assert.equal(written.resourcePath, path.join(buildDir, HARNESS_RESOURCE_FILENAME))
@@ -212,7 +211,7 @@ test('generateInternalDesktopHarnessResource writes selected input and removes s
     const invalidInput = path.join(tempRoot, 'invalid.json')
     fs.writeFileSync(invalidInput, JSON.stringify({ ...validResource, schemaVersion: 2 }), 'utf8')
     assert.throws(
-      () => generateInternalDesktopHarnessResource({ env: { LEMON_AI_DESKTOP_HARNESS_CONFIG: invalidInput }, buildDir }),
+      () => generateInternalDesktopHarnessResource({ env: { LEMON_DESKTOP_HARNESS_CONFIG: invalidInput }, buildDir }),
       /schemaVersion/
     )
     assert.equal(fs.existsSync(path.join(buildDir, HARNESS_RESOURCE_FILENAME)), false)
@@ -223,18 +222,18 @@ test('generateInternalDesktopHarnessResource writes selected input and removes s
 })
 
 test('resolveHarnessViteDefines emits internal flags only for a valid selected input', () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-harness-vite-'))
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-harness-vite-'))
   try {
     const input = path.join(tempRoot, 'input.json')
     fs.writeFileSync(input, JSON.stringify(validResource), 'utf8')
 
-    assert.deepEqual(resolveHarnessViteDefines({ LEMON_AI_DESKTOP_HARNESS_CONFIG: input }), {
-      'import.meta.env.VITE_HERMES_DESKTOP_HARNESS': JSON.stringify('internal'),
-      'import.meta.env.VITE_HERMES_HARNESS_SHOW_AGENTS': JSON.stringify('false'),
-      'import.meta.env.VITE_HERMES_HARNESS_SHOW_CRON': JSON.stringify('true'),
-      'import.meta.env.VITE_HERMES_HARNESS_SHOW_MESSAGING': JSON.stringify('false'),
-      'import.meta.env.VITE_HERMES_HARNESS_SHOW_TERMINAL': JSON.stringify('true'),
-      'import.meta.env.VITE_HERMES_HARNESS_SHOW_WEBHOOKS': JSON.stringify('false')
+    assert.deepEqual(resolveHarnessViteDefines({ LEMON_DESKTOP_HARNESS_CONFIG: input }), {
+      'import.meta.env.VITE_LEMON_DESKTOP_HARNESS': JSON.stringify('internal'),
+      'import.meta.env.VITE_LEMON_HARNESS_SHOW_AGENTS': JSON.stringify('false'),
+      'import.meta.env.VITE_LEMON_HARNESS_SHOW_CRON': JSON.stringify('true'),
+      'import.meta.env.VITE_LEMON_HARNESS_SHOW_MESSAGING': JSON.stringify('false'),
+      'import.meta.env.VITE_LEMON_HARNESS_SHOW_TERMINAL': JSON.stringify('true'),
+      'import.meta.env.VITE_LEMON_HARNESS_SHOW_WEBHOOKS': JSON.stringify('false')
     })
     assert.deepEqual(resolveHarnessViteDefines({}), {})
   } finally {

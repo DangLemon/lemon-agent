@@ -11,17 +11,17 @@ fn main() {
     // The COMMIT pin is opt-in. By default a dev build pins ONLY the branch,
     // so the produced installer follows that branch's HEAD at install time
     // (tolerant of fast-forwards/new commits, and never references a SHA the
-    // local checkout hasn't pushed). Set HERMES_BUILD_PIN_COMMIT to bake an
+    // local checkout hasn't pushed). Set LEMON_BUILD_PIN_COMMIT to bake an
     // immutable commit pin for reproducible/release installers.
     //
     // Commit pin resolution:
-    //   - HERMES_BUILD_PIN_COMMIT, if set and non-empty. Accepts a SHA, tag,
+    //   - LEMON_BUILD_PIN_COMMIT, if set and non-empty. Accepts a SHA, tag,
     //     or branch name; resolved to an immutable SHA via `git rev-parse`
     //     when possible, else used verbatim if it already looks like a SHA.
     //   - Otherwise: NO commit pin (branch-follow is the default).
     //
     // Branch pin resolution:
-    //   1. HERMES_BUILD_PIN_BRANCH, if set and non-empty.
+    //   1. LEMON_BUILD_PIN_BRANCH, if set and non-empty.
     //   2. `git rev-parse --abbrev-ref HEAD` of the checkout this build.rs
     //      lives in — the current branch. (None on a detached HEAD.)
     //   3. Last-resort fallback handled below: if neither commit nor branch
@@ -33,24 +33,23 @@ fn main() {
 
     let commit = resolve_commit_pin();
     let branch = resolve_branch_pin();
-    let installer_brand =
-        normalized_installer_brand(std::env::var("HERMES_INSTALLER_BRAND").ok().as_deref());
-    println!("cargo:rustc-env=HERMES_INSTALLER_BRAND={installer_brand}");
+    let installer_brand = "lemon";
+    println!("cargo:rustc-env=LEMON_INSTALLER_BRAND={installer_brand}");
 
     if let Some(c) = &commit {
         println!("cargo:rustc-env=BUILD_PIN_COMMIT={c}");
         println!(
-            "cargo:warning=hermes-bootstrap: pinning to commit {}",
+            "cargo:warning=lemon-bootstrap: pinning to commit {}",
             short(c)
         );
     }
     if let Some(b) = &branch {
         println!("cargo:rustc-env=BUILD_PIN_BRANCH={b}");
         match &commit {
-            Some(_) => println!("cargo:warning=hermes-bootstrap: pinning to branch {b}"),
+            Some(_) => println!("cargo:warning=lemon-bootstrap: pinning to branch {b}"),
             None => println!(
-                "cargo:warning=hermes-bootstrap: following branch {b} HEAD (no commit pin; \
-                 set HERMES_BUILD_PIN_COMMIT for an immutable pin)"
+                "cargo:warning=lemon-bootstrap: following branch {b} HEAD (no commit pin; \
+                 set LEMON_BUILD_PIN_COMMIT for an immutable pin)"
             ),
         }
     }
@@ -60,14 +59,14 @@ fn main() {
         // can't resolve a pin almost certainly indicates a misconfigured
         // build environment.
         println!(
-            "cargo:warning=hermes-bootstrap: no pin resolved at build time; binary will fail at runtime without HERMES_SETUP_DEV_REPO_ROOT or runtime args"
+            "cargo:warning=lemon-bootstrap: no pin resolved at build time; binary will fail at runtime without LEMON_SETUP_DEV_REPO_ROOT or runtime args"
         );
     }
 
     // Rerun build.rs when HEAD moves. With branch-follow as the default the
     // baked commit no longer changes per-commit, but a branch *switch* changes
     // the detected branch name, so we still re-trigger. When an explicit
-    // HERMES_BUILD_PIN_COMMIT resolves a moving ref (tag/branch) to a SHA, a
+    // LEMON_BUILD_PIN_COMMIT resolves a moving ref (tag/branch) to a SHA, a
     // HEAD move can also change that resolution. .git/HEAD changes on every
     // commit / branch switch / rebase.
     let git_dir = locate_git_dir();
@@ -82,14 +81,12 @@ fn main() {
             }
         }
     }
-    println!("cargo:rerun-if-env-changed=HERMES_BUILD_PIN_COMMIT");
-    println!("cargo:rerun-if-env-changed=HERMES_BUILD_PIN_BRANCH");
-    println!("cargo:rerun-if-env-changed=HERMES_INSTALLER_BRAND");
+    println!("cargo:rerun-if-env-changed=LEMON_BUILD_PIN_COMMIT");
+    println!("cargo:rerun-if-env-changed=LEMON_BUILD_PIN_BRANCH");
+    println!("cargo:rerun-if-env-changed=LEMON_INSTALLER_BRAND");
 
-    // -----------------------------------------------------------------
-    // Tauri windows manifest. See hermes-setup.manifest for rationale —
-    // declares level="asInvoker" so Windows's installer-detection
-    // heuristic doesn't refuse to launch us without UAC elevation.
+    // Tauri Windows manifest declares level="asInvoker" so Windows's
+    // installer-detection heuristic does not demand elevation.
     // -----------------------------------------------------------------
     #[cfg(target_os = "windows")]
     let attrs = {
@@ -104,28 +101,16 @@ fn main() {
     tauri_build::try_build(attrs).expect("failed to run tauri-build");
 }
 
-fn normalized_installer_brand(brand: Option<&str>) -> &'static str {
-    if matches!(brand, Some(value) if value.trim().eq_ignore_ascii_case("lemon")) {
-        "lemon"
-    } else {
-        "hermes"
-    }
-}
-
 #[cfg(target_os = "windows")]
-fn windows_manifest_for_brand(brand: Option<&str>) -> &'static str {
-    if normalized_installer_brand(brand) == "lemon" {
-        include_str!("lemon-ai-setup.manifest")
-    } else {
-        include_str!("hermes-setup.manifest")
-    }
+fn windows_manifest_for_brand(_brand: Option<&str>) -> &'static str {
+    include_str!("lemon-ai-setup.manifest")
 }
 
 fn resolve_commit_pin() -> Option<String> {
     // Commit pinning is OPT-IN. Only bake a commit when the caller explicitly
-    // asks for one via HERMES_BUILD_PIN_COMMIT. With no env var, we return
+    // asks for one via LEMON_BUILD_PIN_COMMIT. With no env var, we return
     // None and the installer follows the branch HEAD at install time.
-    let requested = std::env::var("HERMES_BUILD_PIN_COMMIT").ok()?;
+    let requested = std::env::var("LEMON_BUILD_PIN_COMMIT").ok()?;
     let requested = requested.trim();
     if requested.is_empty() {
         return None;
@@ -153,7 +138,7 @@ fn resolve_commit_pin() -> Option<String> {
         return Some(requested.to_string());
     }
     panic!(
-        "HERMES_BUILD_PIN_COMMIT={requested:?} could not be resolved to a commit \
+        "LEMON_BUILD_PIN_COMMIT={requested:?} could not be resolved to a commit \
          (git rev-parse failed and it is not a valid SHA)"
     );
 }
@@ -165,7 +150,7 @@ fn is_sha(s: &str) -> bool {
 }
 
 fn resolve_branch_pin() -> Option<String> {
-    if let Ok(v) = std::env::var("HERMES_BUILD_PIN_BRANCH") {
+    if let Ok(v) = std::env::var("LEMON_BUILD_PIN_BRANCH") {
         if !v.trim().is_empty() {
             return Some(v.trim().to_string());
         }

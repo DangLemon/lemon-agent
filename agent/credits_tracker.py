@@ -122,7 +122,7 @@ def is_free_tier_model(model: str, base_url: str = "") -> bool:
     """True when *model* is a Nous free-tier model, using ONLY local data: (1) ``:free`` suffix — canonical
     Nous free SKU marker; (2) ``stealth/`` prefix — stealth-preview SKUs are free without the suffix
     (naming-convention trust: a PAID ``stealth/`` model would wrongly suppress the banner); (3) a PEEK into
-    ``hermes_cli.models``' pricing cache (filled by the model picker; a miss never fetches). Fail-open to
+    ``lemon_cli.models``' pricing cache (filled by the model picker; a miss never fetches). Fail-open to
     False (depleted notice still shows): a wrong warning is recoverable noise; hiding it masks a real block."""
     if not model:
         return False
@@ -131,8 +131,8 @@ def is_free_tier_model(model: str, base_url: str = "") -> bool:
     if not base_url:
         return False
     try:
-        from hermes_cli.models import _is_model_free
-        from hermes_cli.models_pricing import peek_cached_pricing
+        from lemon_cli.models import _is_model_free
+        from lemon_cli.models_pricing import peek_cached_pricing
 
         pricing = peek_cached_pricing(base_url)  # owns the /v1-suffix and auth-state key details
         return bool(pricing) and _is_model_free(model, pricing)
@@ -268,7 +268,7 @@ def parse_credits_headers(headers: Mapping[str, str], provider: str = "") -> Opt
         if version_val != 1:
             if version_val > 1 and not _version_warning_emitted:
                 _version_warning_emitted = True
-                logger.warning("credits header version %d unsupported, ignoring — update Hermes", version_val)
+                logger.warning("credits header version %d unsupported, ignoring — update Lemon AI", version_val)
             return None
         fields: dict[str, Any] = {
             name: _parse_field(kind, lowered.get(_header_name(name)), *default) for name, kind, *default in _HEADER_FIELDS
@@ -289,7 +289,7 @@ def parse_credits_headers(headers: Mapping[str, str], provider: str = "") -> Opt
         return None
 
 
-# ── Dev fixtures (HERMES_DEV_CREDITS_FIXTURE): throwaway scaffolding to trigger any notice state
+# ── Dev fixtures (LEMON_DEV_CREDITS_FIXTURE): throwaway scaffolding to trigger any notice state
 # without real spend. Value is a state NAME or a FILE PATH whose contents are a name (re-read every
 # turn → `echo depleted > /tmp/cf` flips live). Drives per-turn notices, the cold-start seed, and /usage.
 def _fixture(remaining: str, subscription: str, limit: Optional[str] = None, purchased: Optional[str] = None,
@@ -320,10 +320,10 @@ _DEV_FIXTURES: dict[str, dict] = {
 
 
 def dev_fixture_credits_state() -> Optional[CreditsState]:
-    """Fixture CreditsState for HERMES_DEV_CREDITS_FIXTURE, or None (unknown name / unset). Prod-leak guard:
-    applies ONLY when HERMES_DEV_CREDITS is also on, so a stray fixture env var never surfaces fabricated balances."""
-    name = os.environ.get("HERMES_DEV_CREDITS_FIXTURE", "").strip()
-    if not name or not is_truthy_value(os.environ.get("HERMES_DEV_CREDITS")):
+    """Fixture CreditsState for LEMON_DEV_CREDITS_FIXTURE, or None (unknown name / unset). Prod-leak guard:
+    applies ONLY when LEMON_DEV_CREDITS is also on, so a stray fixture env var never surfaces fabricated balances."""
+    name = os.environ.get("LEMON_DEV_CREDITS_FIXTURE", "").strip()
+    if not name or not is_truthy_value(os.environ.get("LEMON_DEV_CREDITS")):
         return None
     if os.path.sep in name or "/" in name:  # looks like a path → read the name from the file
         try:
@@ -394,7 +394,7 @@ def seed_credits_at_session_start(agent) -> bool:
 
         def _bg_seed() -> None:  # FIRE-AND-FORGET: a slow portal must never delay "ready"
             try:
-                from hermes_cli.nous_account import get_nous_portal_account_info
+                from lemon_cli.nous_account import get_nous_portal_account_info
                 info = get_nous_portal_account_info(force_fresh=True)
                 if getattr(agent, "_credits_state", None) is not None:
                     return  # a live inference header beat us — don't clobber it

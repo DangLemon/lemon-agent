@@ -9,7 +9,7 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Any
 
-from hermes_cli.config import get_hermes_home
+from lemon_cli.config import get_lemon_home
 
 from .config import Platform, GatewayConfig, PlatformConfig
 from .session import SessionSource
@@ -151,7 +151,7 @@ class DeliveryRouter:
                  dead_targets: Optional[DeadTargetRegistry] = None):  # profile-local registry when omitted
         self.config = config
         self.adapters = adapters or {}
-        self.output_dir = get_hermes_home() / "cron" / "output"
+        self.output_dir = get_lemon_home() / "cron" / "output"
         self.dead_targets = dead_targets or DeadTargetRegistry()
 
     async def deliver(self, content: str, targets: List[DeliveryTarget], job_id: Optional[str] = None,
@@ -202,14 +202,14 @@ class DeliveryRouter:
     def _save_full_output(self, content: str, job_id: str) -> Path:
         """Save full cron output to disk and return the file path."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        path = get_hermes_home() / "cron" / "output" / f"{job_id}_{timestamp}.txt"
+        path = get_lemon_home() / "cron" / "output" / f"{job_id}_{timestamp}.txt"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
         return path
 
     def _filter_silence_narration_enabled(self) -> bool:
-        """``HERMES_FILTER_SILENCE_NARRATION`` env overrides the ``gateway.filter_silence_narration`` flag."""
-        env = os.getenv("HERMES_FILTER_SILENCE_NARRATION")
+        """``LEMON_FILTER_SILENCE_NARRATION`` env overrides the ``gateway.filter_silence_narration`` flag."""
+        env = os.getenv("LEMON_FILTER_SILENCE_NARRATION")
         return (bool(getattr(self.config, "filter_silence_narration", True)) if env is None
                 else env.strip().lower() in ("1", "true", "yes", "on"))
 

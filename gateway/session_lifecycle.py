@@ -48,7 +48,7 @@ _AUTO_CONTINUE_FRESHNESS_SECS_DEFAULT = 60 * 60
 def auto_continue_freshness_window() -> float:
     """Auto-continue freshness window in seconds (one source of truth for the resume scheduler and
     the routing-time zombie gate); env var, default when unset/malformed; non-positive disables."""
-    raw = os.environ.get("HERMES_AUTO_CONTINUE_FRESHNESS")
+    raw = os.environ.get("LEMON_AUTO_CONTINUE_FRESHNESS")
     try:
         return float(raw) if raw else float(_AUTO_CONTINUE_FRESHNESS_SECS_DEFAULT)
     except (TypeError, ValueError):

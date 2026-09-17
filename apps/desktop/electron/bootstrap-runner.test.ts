@@ -24,7 +24,7 @@ const SCRIPT_NAME = process.platform === 'win32' ? 'install.ps1' : 'install.sh'
 const ZERO_COMMIT = '0000000000000000000000000000000000000000'
 
 function mkTmpHome() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-bootstrap-test-'))
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-bootstrap-test-'))
 }
 
 test('runBootstrap bails immediately when the signal is already aborted', async () => {
@@ -35,10 +35,10 @@ test('runBootstrap bails immediately when the signal is already aborted', async 
 
   const result = await runBootstrap({
     installStamp: null,
-    activeRoot: '/tmp/hermes-runner-test',
+    activeRoot: '/tmp/lemon-runner-test',
     sourceRepoRoot: null,
-    hermesHome: '/tmp/hermes-runner-test',
-    logRoot: '/tmp/hermes-runner-test',
+    lemonHome: '/tmp/lemon-runner-test',
+    logRoot: '/tmp/lemon-runner-test',
     onEvent: ev => events.push(ev),
     abortSignal: controller.signal
   })
@@ -57,7 +57,7 @@ test('installedAgentInstallScript resolves the installer in the agent checkout',
   try {
     assert.equal(installedAgentInstallScript(home), null, 'absent before the checkout exists')
 
-    const scriptsDir = path.join(home, 'hermes-agent', 'scripts')
+    const scriptsDir = path.join(home, 'lemon-agent', 'scripts')
     fs.mkdirSync(scriptsDir, { recursive: true })
     const scriptPath = path.join(scriptsDir, SCRIPT_NAME)
     fs.writeFileSync(scriptPath, '#!/bin/sh\necho hi\n')
@@ -73,7 +73,7 @@ test('existing checkout detection requires git metadata', () => {
   const home = mkTmpHome()
 
   try {
-    const activeRoot = path.join(home, 'hermes-agent')
+    const activeRoot = path.join(home, 'lemon-agent')
     assert.equal(hasExistingGitCheckout(activeRoot), false)
 
     fs.mkdirSync(path.join(activeRoot, '.git'), { recursive: true })
@@ -90,19 +90,19 @@ test('fresh bootstrap args include the packaged commit pin', () => {
   assert.deepEqual(
     buildPosixPinArgs({
       installStamp,
-      activeRoot: '/tmp/hermes-agent',
-      hermesHome: '/tmp/hermes'
+      activeRoot: '/tmp/lemon-agent',
+      lemonHome: '/tmp/lemon'
     }),
-    ['--dir', '/tmp/hermes-agent', '--hermes-home', '/tmp/hermes', '--branch', 'main', '--commit', installStamp.commit]
+    ['--dir', '/tmp/lemon-agent', '--lemon-home', '/tmp/lemon', '--branch', 'main', '--commit', installStamp.commit]
   )
 })
 
-test('internal bootstrap args include a validated source repository', () => {
+test('non-default bootstrap args include a validated source repository', () => {
   const installStamp = { commit: 'a'.repeat(40), branch: 'main' }
 
-  assert.deepEqual(buildPinArgs(installStamp, { sourceRepository: 'DangLemon/hermes-agent' }), [
+  assert.deepEqual(buildPinArgs(installStamp, { sourceRepository: 'ExampleOrg/internal-agent' }), [
     '-Repository',
-    'DangLemon/hermes-agent',
+    'ExampleOrg/internal-agent',
     '-Commit',
     installStamp.commit,
     '-Branch',
@@ -111,17 +111,17 @@ test('internal bootstrap args include a validated source repository', () => {
   assert.deepEqual(
     buildPosixPinArgs({
       installStamp,
-      activeRoot: '/tmp/hermes-agent',
-      hermesHome: '/tmp/hermes',
-      sourceRepository: 'DangLemon/hermes-agent'
+      activeRoot: '/tmp/lemon-agent',
+      lemonHome: '/tmp/lemon',
+      sourceRepository: 'ExampleOrg/internal-agent'
     }),
     [
       '--dir',
-      '/tmp/hermes-agent',
-      '--hermes-home',
-      '/tmp/hermes',
+      '/tmp/lemon-agent',
+      '--lemon-home',
+      '/tmp/lemon',
       '--repo',
-      'DangLemon/hermes-agent',
+      'ExampleOrg/internal-agent',
       '--branch',
       'main',
       '--commit',
@@ -137,11 +137,11 @@ test('existing-checkout bootstrap args keep branch but skip the packaged commit 
   assert.deepEqual(
     buildPosixPinArgs({
       installStamp,
-      activeRoot: '/tmp/hermes-agent',
-      hermesHome: '/tmp/hermes',
+      activeRoot: '/tmp/lemon-agent',
+      lemonHome: '/tmp/lemon',
       pinCommit: false
     }),
-    ['--dir', '/tmp/hermes-agent', '--hermes-home', '/tmp/hermes', '--branch', 'main']
+    ['--dir', '/tmp/lemon-agent', '--lemon-home', '/tmp/lemon', '--branch', 'main']
   )
 })
 
@@ -159,10 +159,10 @@ test('fallback install stamps use an unpinned branch ref', () => {
   assert.deepEqual(
     buildPosixPinArgs({
       installStamp: stamp,
-      activeRoot: '/tmp/hermes',
-      hermesHome: '/tmp/home'
+      activeRoot: '/tmp/lemon',
+      lemonHome: '/tmp/home'
     }),
-    ['--dir', '/tmp/hermes', '--hermes-home', '/tmp/home', '--branch', 'main']
+    ['--dir', '/tmp/lemon', '--lemon-home', '/tmp/home', '--branch', 'main']
   )
 })
 
@@ -199,7 +199,7 @@ test('resolveInstallScript downloads fallback stamps by branch instead of zero c
     const result = await resolveInstallScript({
       installStamp: { commit: ZERO_COMMIT, branch: 'main' },
       sourceRepoRoot: null,
-      hermesHome: home,
+      lemonHome: home,
       emit: ev => logs.push(ev),
       _download: async (ref, destPath) => {
         refs.push(ref)
@@ -233,8 +233,8 @@ test('resolveInstallScript downloads internal scripts from the harness repositor
     const result = await resolveInstallScript({
       installStamp: { commit, branch: 'main' },
       sourceRepoRoot: null,
-      hermesHome: home,
-      sourceRepository: 'DangLemon/hermes-agent',
+      lemonHome: home,
+      sourceRepository: 'ExampleOrg/internal-agent',
       emit: () => {},
       _download: async (ref, destPath, sourceRepository) => {
         calls.push({ ref, destPath, sourceRepository })
@@ -246,33 +246,33 @@ test('resolveInstallScript downloads internal scripts from the harness repositor
     })
 
     assert.deepEqual(calls.map(call => ({ ref: call.ref, sourceRepository: call.sourceRepository })), [
-      { ref: commit, sourceRepository: 'DangLemon/hermes-agent' }
+      { ref: commit, sourceRepository: 'ExampleOrg/internal-agent' }
     ])
     assert.equal(result.source, 'download')
-    assert.equal(result.path, cachedScriptPath(home, commit, 'DangLemon/hermes-agent'))
-    assert.ok(result.path.includes('DangLemon__hermes-agent'))
+    assert.equal(result.path, cachedScriptPath(home, commit, 'ExampleOrg/internal-agent'))
+    assert.ok(result.path.includes('ExampleOrg__internal-agent'))
   } finally {
     fs.rmSync(home, { recursive: true, force: true })
   }
 })
 
 test('resolveBootstrapSourceRepository reads packaged harness sourceRepository and rejects unsafe identities', () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-source-repo-'))
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-source-repo-'))
 
   try {
     const resourcesPath = path.join(tempRoot, 'resources')
     fs.mkdirSync(resourcesPath, { recursive: true })
     fs.writeFileSync(
       path.join(resourcesPath, 'lemon-ai-harness.json'),
-      JSON.stringify({ schemaVersion: 1, profile: 'internal', sourceRepository: 'DangLemon/hermes-agent', ui: { agents: false, cron: true, messaging: false, terminal: true, webhooks: false } }),
+      JSON.stringify({ schemaVersion: 1, profile: 'internal', sourceRepository: 'DangLemon/lemon-agent', ui: { agents: false, cron: true, messaging: false, terminal: true, webhooks: false } }),
       'utf8'
     )
 
-    assert.equal(resolveBootstrapSourceRepository({ resourcesPath, env: {} }), 'DangLemon/hermes-agent')
+    assert.equal(resolveBootstrapSourceRepository({ resourcesPath, env: {} }), 'DangLemon/lemon-agent')
 
     fs.writeFileSync(
       path.join(resourcesPath, 'lemon-ai-harness.json'),
-      JSON.stringify({ schemaVersion: 1, profile: 'internal', sourceRepository: 'https://github.com/DangLemon/hermes-agent', ui: { agents: false, cron: true, messaging: false, terminal: true, webhooks: false } }),
+      JSON.stringify({ schemaVersion: 1, profile: 'internal', sourceRepository: 'https://github.com/DangLemon/lemon-agent', ui: { agents: false, cron: true, messaging: false, terminal: true, webhooks: false } }),
       'utf8'
     )
     assert.throws(() => resolveBootstrapSourceRepository({ resourcesPath, env: {} }), /sourceRepository/)
@@ -285,14 +285,14 @@ test('resolveBootstrapSourceRepository honors explicit update repository without
   assert.equal(
     resolveBootstrapSourceRepository({
       resourcesPath: null,
-      env: { HERMES_UPDATE_REPOSITORY: 'ExampleOrg/runtime-agent' }
+      env: { LEMON_UPDATE_REPOSITORY: 'ExampleOrg/runtime-agent' }
     }),
     'ExampleOrg/runtime-agent'
   )
   assert.equal(
     resolveBootstrapSourceRepository({
       resourcesPath: null,
-      env: { HERMES_INSTALL_REPOSITORY: 'InstallOrg/install-agent' }
+      env: { LEMON_INSTALL_REPOSITORY: 'InstallOrg/install-agent' }
     }),
     'InstallOrg/install-agent'
   )
@@ -300,8 +300,8 @@ test('resolveBootstrapSourceRepository honors explicit update repository without
     resolveBootstrapSourceRepository({
       resourcesPath: null,
       env: {
-        HERMES_UPDATE_REPOSITORY: 'UpdateOrg/update-agent',
-        HERMES_INSTALL_REPOSITORY: 'InstallOrg/install-agent'
+        LEMON_UPDATE_REPOSITORY: 'UpdateOrg/update-agent',
+        LEMON_INSTALL_REPOSITORY: 'InstallOrg/install-agent'
       }
     }),
     'UpdateOrg/update-agent'
@@ -310,30 +310,30 @@ test('resolveBootstrapSourceRepository honors explicit update repository without
     () =>
       resolveBootstrapSourceRepository({
         resourcesPath: null,
-        env: { HERMES_UPDATE_REPOSITORY: 'https://github.com/DangLemon/hermes-agent' }
+        env: { LEMON_UPDATE_REPOSITORY: 'https://github.com/DangLemon/lemon-agent' }
       }),
     /sourceRepository/
   )
 })
 
 test('resolveBootstrapSourceRepository lets packaged harness beat explicit environment repository', () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-source-repo-packaged-precedence-'))
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-source-repo-packaged-precedence-'))
 
   try {
     const resourcesPath = path.join(tempRoot, 'resources')
     fs.mkdirSync(resourcesPath, { recursive: true })
     fs.writeFileSync(
       path.join(resourcesPath, 'lemon-ai-harness.json'),
-      JSON.stringify({ schemaVersion: 1, profile: 'internal', sourceRepository: 'DangLemon/hermes-agent', ui: { agents: false, cron: true, messaging: false, terminal: true, webhooks: false } }),
+      JSON.stringify({ schemaVersion: 1, profile: 'internal', sourceRepository: 'DangLemon/lemon-agent', ui: { agents: false, cron: true, messaging: false, terminal: true, webhooks: false } }),
       'utf8'
     )
 
     assert.equal(
       resolveBootstrapSourceRepository({
         resourcesPath,
-        env: { HERMES_UPDATE_REPOSITORY: 'ExampleOrg/runtime-agent' }
+        env: { LEMON_UPDATE_REPOSITORY: 'ExampleOrg/runtime-agent' }
       }),
-      'DangLemon/hermes-agent'
+      'DangLemon/lemon-agent'
     )
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true })
@@ -356,7 +356,7 @@ test('resolveBootstrapSourceRepository defaults an internal harness to the Lemon
       'utf8'
     )
 
-    assert.equal(resolveBootstrapSourceRepository({ resourcesPath, env: {} }), 'DangLemon/hermes-agent')
+    assert.equal(resolveBootstrapSourceRepository({ resourcesPath, env: {} }), 'DangLemon/lemon-agent')
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true })
   }
@@ -366,85 +366,23 @@ test('resolveBootstrapSourceRepository keeps an internal package on Lemon when i
   assert.equal(
     resolveBootstrapSourceRepository({
       resourcesPath: null,
-      env: { HERMES_DESKTOP_INTERNAL_PACKAGE: '1' }
+      env: { LEMON_DESKTOP_INTERNAL_PACKAGE: '1' }
     }),
-    'DangLemon/hermes-agent'
+    'DangLemon/lemon-agent'
   )
   assert.equal(
     resolveBootstrapSourceRepository({
       resourcesPath: null,
-      env: { LEMON_AI_DESKTOP_INTERNAL: '1' }
+      env: { LEMON_DESKTOP_INTERNAL: '1' }
     }),
-    'DangLemon/hermes-agent'
+    'DangLemon/lemon-agent'
   )
   assert.equal(
     resolveBootstrapSourceRepository({ resourcesPath: null, env: {} }),
-    'NousResearch/hermes-agent'
+    'DangLemon/lemon-agent'
   )
 })
 
-test('resolveBootstrapSourceRepository falls back to the legacy selector when the Lemon selector is blank', () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-source-repo-env-'))
-
-  try {
-    const legacyHarness = path.join(tempRoot, 'legacy-harness.json')
-    fs.writeFileSync(
-      legacyHarness,
-      JSON.stringify({ schemaVersion: 1, profile: 'internal', sourceRepository: 'ExampleOrg/legacy-agent' }),
-      'utf8'
-    )
-
-    assert.equal(
-      resolveBootstrapSourceRepository({
-        resourcesPath: null,
-        env: {
-          LEMON_AI_DESKTOP_HARNESS_CONFIG: ' \t ',
-          HERMES_DESKTOP_HARNESS_CONFIG: legacyHarness
-        }
-      }),
-      'ExampleOrg/legacy-agent'
-    )
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true })
-  }
-})
-
-test('resolveBootstrapSourceRepository does not fall back when a nonblank Lemon selector is invalid', () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-source-repo-precedence-'))
-
-  try {
-    const lemonHarness = path.join(tempRoot, 'lemon-harness.json')
-    const legacyHarness = path.join(tempRoot, 'legacy-harness.json')
-    fs.writeFileSync(
-      lemonHarness,
-      JSON.stringify({
-        schemaVersion: 1,
-        profile: 'internal',
-        sourceRepository: 'https://github.com/DangLemon/hermes-agent'
-      }),
-      'utf8'
-    )
-    fs.writeFileSync(
-      legacyHarness,
-      JSON.stringify({ schemaVersion: 1, profile: 'internal', sourceRepository: 'ExampleOrg/legacy-agent' }),
-      'utf8'
-    )
-
-    assert.throws(
-      () =>
-        resolveBootstrapSourceRepository({
-          resourcesPath: null,
-          env: {
-            LEMON_AI_DESKTOP_HARNESS_CONFIG: lemonHarness,
-            HERMES_DESKTOP_HARNESS_CONFIG: legacyHarness
-          }
-        }),
-      /sourceRepository/
-    )
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true })
-  }
-})
 
 test('resolveInstallScript prefers a cached script without touching the network', async () => {
   const home = mkTmpHome()
@@ -460,7 +398,7 @@ test('resolveInstallScript prefers a cached script without touching the network'
     const result = await resolveInstallScript({
       installStamp: { commit },
       sourceRepoRoot: null,
-      hermesHome: home,
+      lemonHome: home,
       emit: ev => logs.push(ev)
     })
 
@@ -477,7 +415,7 @@ test('resolveInstallScript falls back to the installed agent checkout on a 404',
   try {
     const commit = 'a'.repeat(40)
     // Seed the installed agent checkout so the fallback has something to resolve.
-    const scriptsDir = path.join(home, 'hermes-agent', 'scripts')
+    const scriptsDir = path.join(home, 'lemon-agent', 'scripts')
     fs.mkdirSync(scriptsDir, { recursive: true })
     const installed = path.join(scriptsDir, SCRIPT_NAME)
     fs.writeFileSync(installed, '#!/bin/sh\necho fallback\n')
@@ -487,7 +425,7 @@ test('resolveInstallScript falls back to the installed agent checkout on a 404',
     const result = await resolveInstallScript({
       installStamp: { commit },
       sourceRepoRoot: null,
-      hermesHome: home,
+      lemonHome: home,
       emit: ev => logs.push(ev),
       // Simulate GitHub returning a 404 for the pinned commit.
       _download: async () => {
@@ -518,7 +456,7 @@ test('resolveInstallScript rethrows when the 404 fallback is unavailable', async
       resolveInstallScript({
         installStamp: { commit },
         sourceRepoRoot: null,
-        hermesHome: home,
+        lemonHome: home,
         emit: () => {},
         _download: async () => {
           throw new Error('Failed to download install.sh: HTTP 404')
@@ -533,16 +471,16 @@ test('resolveInstallScript rethrows when the 404 fallback is unavailable', async
 
 test('installerRuntimeEnv carries Lemon home and runtime overrides to child scripts', () => {
   const env = installerRuntimeEnv({
-    hermesHome: '/Users/dang/.lemon-ai',
+    lemonHome: '/Users/dang/.lemon-ai',
     desktopHarnessConfigPath: '/app/resources/internal-desktop-harness.json',
     bootstrapMarkerName: '.lemon-ai-bootstrap-complete',
     desktopInternal: true,
     runtimeDirName: 'lemon-agent'
   })
 
-  assert.equal(env.HERMES_HOME, '/Users/dang/.lemon-ai')
-  assert.equal(env.HERMES_DESKTOP_HOME_OVERRIDE, '/Users/dang/.lemon-ai')
-  assert.equal(env.HERMES_DESKTOP_RUNTIME_DIR_NAME, 'lemon-agent')
-  assert.equal(env.HERMES_DESKTOP_INTERNAL, '1')
-  assert.equal(env.HERMES_DESKTOP_HARNESS_CONFIG, '/app/resources/internal-desktop-harness.json')
+  assert.equal(env.LEMON_HOME, '/Users/dang/.lemon-ai')
+  assert.equal(env.LEMON_DESKTOP_HOME_OVERRIDE, '/Users/dang/.lemon-ai')
+  assert.equal(env.LEMON_DESKTOP_RUNTIME_DIR_NAME, 'lemon-agent')
+  assert.equal(env.LEMON_DESKTOP_INTERNAL, '1')
+  assert.equal(env.LEMON_DESKTOP_HARNESS_CONFIG, '/app/resources/internal-desktop-harness.json')
 })

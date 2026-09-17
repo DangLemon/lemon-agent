@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { HermesConfigRecord } from '@/hermes'
+import type { LemonConfigRecord } from '@/lemon'
 
 import { type I18nConfigClient, I18nProvider, useI18n } from './context'
 import type { Locale } from './types'
@@ -46,7 +46,7 @@ describe('I18nProvider', () => {
 
     expect(screen.getByTestId('locale').textContent).toBe('en')
     expect(screen.getByTestId('label').textContent).toBe('Language')
-    expect(screen.getByTestId('install-title').textContent).toBe('Set up Hermes Desktop')
+    expect(screen.getByTestId('install-title').textContent).toBe('Set up Lemon AI')
   })
 
   it('normalizes an initial locale alias and switches translations', async () => {
@@ -63,7 +63,7 @@ describe('I18nProvider', () => {
 
     await waitFor(() => expect(screen.getByTestId('locale').textContent).toBe('en'))
     expect(screen.getByTestId('label').textContent).toBe('Language')
-    expect(screen.getByTestId('install-title').textContent).toBe('Set up Hermes Desktop')
+    expect(screen.getByTestId('install-title').textContent).toBe('Set up Lemon AI')
   })
 
   it('loads the initial locale from display.language config', async () => {
@@ -101,7 +101,7 @@ describe('I18nProvider', () => {
 
     expect(screen.getByTestId('locale').textContent).toBe('en')
     expect(screen.getByTestId('label').textContent).toBe('Language')
-    expect(screen.getByTestId('install-title').textContent).toBe('Set up Hermes Desktop')
+    expect(screen.getByTestId('install-title').textContent).toBe('Set up Lemon AI')
     expect(configClient.saveConfig).not.toHaveBeenCalled()
   })
 
@@ -144,7 +144,7 @@ describe('I18nProvider', () => {
   })
 
   it('defaults the internal workspace to Vietnamese when no language is configured', async () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
 
     const configClient: I18nConfigClient = {
       getConfig: vi.fn().mockResolvedValue({}),
@@ -165,12 +165,12 @@ describe('I18nProvider', () => {
     expect(screen.getByTestId('install-one-time').textContent).toBe('Lemon AI cần cài đặt lần đầu')
     expect(screen.getByTestId('onboarding-title').textContent).toBe('Thiết lập Lemon AI')
     expect(screen.getByTestId('approval-desc').textContent).toContain('~/.lemon-ai/config.yaml')
-    expect(screen.getByTestId('approval-desc').textContent).not.toContain('Hermes')
+    expect(screen.getByTestId('approval-desc').textContent).not.toContain('Lemon AI')
     expect(configClient.saveConfig).not.toHaveBeenCalled()
   })
 
   it('defaults the internal workspace to Vietnamese when only the backend default supplies English', async () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
 
     const configClient: I18nConfigClient = {
       getConfig: vi.fn().mockResolvedValue({ display: { language: 'en' } }),
@@ -192,7 +192,7 @@ describe('I18nProvider', () => {
   })
 
   it('keeps explicit English in the internal workspace', async () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
 
     const configClient: I18nConfigClient = {
       getConfig: vi.fn().mockResolvedValue({ display: { language: 'en' } }),
@@ -216,7 +216,7 @@ describe('I18nProvider', () => {
   })
 
   it('keeps an explicit supported language in the internal workspace', async () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
 
     const configClient: I18nConfigClient = {
       getConfig: vi.fn().mockResolvedValue({ display: { language: 'ja-JP' } }),
@@ -238,7 +238,7 @@ describe('I18nProvider', () => {
   })
 
   it('keeps explicit Vietnamese in the internal workspace', async () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
 
     const configClient: I18nConfigClient = {
       getConfig: vi.fn().mockResolvedValue({ display: { language: 'vi-VN' } }),
@@ -280,7 +280,7 @@ describe('I18nProvider', () => {
   })
 
   it('keeps supported effective config when raw config metadata cannot be read', async () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
 
     const configClient: I18nConfigClient = {
       getConfig: vi.fn().mockResolvedValue({ display: { language: 'en' } }),
@@ -318,14 +318,14 @@ describe('I18nProvider', () => {
 
     expect(screen.getByTestId('locale').textContent).toBe('en')
     expect(screen.getByTestId('label').textContent).toBe('Language')
-    expect(screen.getByTestId('install-title').textContent).toBe('Set up Hermes Desktop')
+    expect(screen.getByTestId('install-title').textContent).toBe('Set up Lemon AI')
     expect(configClient.saveConfig).not.toHaveBeenCalled()
   })
 
   it('reads latest config before saving language and preserves unrelated values', async () => {
     const saveConfig = vi.fn().mockResolvedValue({ ok: true })
 
-    const latestConfig: HermesConfigRecord = {
+    const latestConfig: LemonConfigRecord = {
       display: { language: 'en', skin: 'slate' },
       terminal: { cwd: '/new' }
     }
@@ -416,6 +416,6 @@ describe('I18nProvider', () => {
 
     expect(screen.getByTestId('locale').textContent).toBe('en')
     expect(screen.getByTestId('label').textContent).toBe('Language')
-    expect(screen.getByTestId('install-title').textContent).toBe('Set up Hermes Desktop')
+    expect(screen.getByTestId('install-title').textContent).toBe('Set up Lemon AI')
   })
 })

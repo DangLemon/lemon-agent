@@ -7,25 +7,25 @@ import { expandWindowsEnvRefs, parseRegQueryValue, readWindowsUserEnvVar } from 
 // ── parseRegQueryValue ─────────────────────────────────────────────────────
 
 test('parseRegQueryValue extracts a REG_SZ value', () => {
-  const out = ['', 'HKEY_CURRENT_USER\\Environment', '    HERMES_HOME    REG_SZ    F:\\Hermes\\data', ''].join('\r\n')
-  assert.equal(parseRegQueryValue(out, 'HERMES_HOME'), 'F:\\Hermes\\data')
+  const out = ['', 'HKEY_CURRENT_USER\\Environment', '    LEMON_HOME    REG_SZ    F:\\Lemon AI\\data', ''].join('\r\n')
+  assert.equal(parseRegQueryValue(out, 'LEMON_HOME'), 'F:\\Lemon AI\\data')
 })
 
 test('parseRegQueryValue matches the name case-insensitively', () => {
-  const out = 'HKEY_CURRENT_USER\\Environment\r\n    Hermes_Home    REG_EXPAND_SZ    %USERPROFILE%\\h\r\n'
-  assert.equal(parseRegQueryValue(out, 'HERMES_HOME'), '%USERPROFILE%\\h')
+  const out = 'HKEY_CURRENT_USER\\Environment\r\n    Lemon_Home    REG_EXPAND_SZ    %USERPROFILE%\\h\r\n'
+  assert.equal(parseRegQueryValue(out, 'LEMON_HOME'), '%USERPROFILE%\\h')
 })
 
 test('parseRegQueryValue preserves spaces inside the value', () => {
-  const out = '    HERMES_HOME    REG_SZ    C:\\Program Files\\Hermes\r\n'
-  assert.equal(parseRegQueryValue(out, 'HERMES_HOME'), 'C:\\Program Files\\Hermes')
+  const out = '    LEMON_HOME    REG_SZ    C:\\Program Files\\Lemon AI\r\n'
+  assert.equal(parseRegQueryValue(out, 'LEMON_HOME'), 'C:\\Program Files\\Lemon AI')
 })
 
 test('parseRegQueryValue returns null when the value line is absent', () => {
   const out = 'HKEY_CURRENT_USER\\Environment\r\n    Path    REG_SZ    C:\\x\r\n'
-  assert.equal(parseRegQueryValue(out, 'HERMES_HOME'), null)
-  assert.equal(parseRegQueryValue('', 'HERMES_HOME'), null)
-  assert.equal(parseRegQueryValue('garbage', 'HERMES_HOME'), null)
+  assert.equal(parseRegQueryValue(out, 'LEMON_HOME'), null)
+  assert.equal(parseRegQueryValue('', 'LEMON_HOME'), null)
+  assert.equal(parseRegQueryValue('garbage', 'LEMON_HOME'), null)
 })
 
 // ── expandWindowsEnvRefs ───────────────────────────────────────────────────
@@ -35,7 +35,7 @@ test('expandWindowsEnvRefs expands %VAR% case-insensitively', () => {
 })
 
 test('expandWindowsEnvRefs leaves literal paths and unknown refs intact', () => {
-  assert.equal(expandWindowsEnvRefs('F:\\Hermes\\data', {}), 'F:\\Hermes\\data')
+  assert.equal(expandWindowsEnvRefs('F:\\Lemon AI\\data', {}), 'F:\\Lemon AI\\data')
   assert.equal(expandWindowsEnvRefs('%NOPE%\\x', {}), '%NOPE%\\x')
 })
 
@@ -50,7 +50,7 @@ test('readWindowsUserEnvVar returns null off Windows without spawning', () => {
     return ''
   }
 
-  assert.equal(readWindowsUserEnvVar('HERMES_HOME', { platform: 'linux', exec }), null)
+  assert.equal(readWindowsUserEnvVar('LEMON_HOME', { platform: 'linux', exec }), null)
   assert.equal(spawned, false)
 })
 
@@ -60,17 +60,17 @@ test('readWindowsUserEnvVar queries HKCU\\Environment and expands the value', ()
   const exec = (cmd, args) => {
     calls.push([cmd, args])
 
-    return 'HKEY_CURRENT_USER\\Environment\r\n    HERMES_HOME    REG_EXPAND_SZ    %DRIVE%\\Hermes\r\n'
+    return 'HKEY_CURRENT_USER\\Environment\r\n    LEMON_HOME    REG_EXPAND_SZ    %DRIVE%\\Lemon AI\r\n'
   }
 
-  const value = readWindowsUserEnvVar('HERMES_HOME', {
+  const value = readWindowsUserEnvVar('LEMON_HOME', {
     platform: 'win32',
     env: { DRIVE: 'F:' },
     exec
   })
 
-  assert.equal(value, 'F:\\Hermes')
-  assert.deepEqual(calls, [['reg', ['query', 'HKCU\\Environment', '/v', 'HERMES_HOME']]])
+  assert.equal(value, 'F:\\Lemon AI')
+  assert.deepEqual(calls, [['reg', ['query', 'HKCU\\Environment', '/v', 'LEMON_HOME']]])
 })
 
 test('readWindowsUserEnvVar can query the Lemon AI home alias from HKCU\\Environment', () => {
@@ -79,16 +79,16 @@ test('readWindowsUserEnvVar can query the Lemon AI home alias from HKCU\\Environ
   const exec = (cmd, args) => {
     calls.push([cmd, args])
 
-    return 'HKEY_CURRENT_USER\\Environment\r\n    LEMON_AI_HOME    REG_SZ    D:\\Lemon AI\\data\r\n'
+    return 'HKEY_CURRENT_USER\\Environment\r\n    LEMON_HOME    REG_SZ    D:\\Lemon AI\\data\r\n'
   }
 
-  const value = readWindowsUserEnvVar('LEMON_AI_HOME', {
+  const value = readWindowsUserEnvVar('LEMON_HOME', {
     platform: 'win32',
     exec
   })
 
   assert.equal(value, 'D:\\Lemon AI\\data')
-  assert.deepEqual(calls, [['reg', ['query', 'HKCU\\Environment', '/v', 'LEMON_AI_HOME']]])
+  assert.deepEqual(calls, [['reg', ['query', 'HKCU\\Environment', '/v', 'LEMON_HOME']]])
 })
 
 test('readWindowsUserEnvVar returns null when reg exits non-zero (value missing)', () => {
@@ -96,10 +96,10 @@ test('readWindowsUserEnvVar returns null when reg exits non-zero (value missing)
     throw new Error('reg exited 1')
   }
 
-  assert.equal(readWindowsUserEnvVar('HERMES_HOME', { platform: 'win32', exec }), null)
+  assert.equal(readWindowsUserEnvVar('LEMON_HOME', { platform: 'win32', exec }), null)
 })
 
 test('readWindowsUserEnvVar returns null for an empty value', () => {
-  const exec = () => '    HERMES_HOME    REG_SZ    \r\n'
-  assert.equal(readWindowsUserEnvVar('HERMES_HOME', { platform: 'win32', exec }), null)
+  const exec = () => '    LEMON_HOME    REG_SZ    \r\n'
+  assert.equal(readWindowsUserEnvVar('LEMON_HOME', { platform: 'win32', exec }), null)
 })

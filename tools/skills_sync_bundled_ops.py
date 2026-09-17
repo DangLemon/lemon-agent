@@ -8,7 +8,7 @@ from tools.skills_sync_optional import _skill_file_list, _ss
 
 
 def _is_tracked_user_modification(origin_hash: str, user_hash: str) -> bool:
-    """User modification ``hermes update`` keeps: a recorded origin hash (un-baselined v1 entries
+    """User modification ``lemon update`` keeps: a recorded origin hash (un-baselined v1 entries
     don't count) AND differing content. Shared by the sync loop and list-modified (no drift)."""
     return bool(origin_hash) and user_hash != origin_hash
 
@@ -35,7 +35,7 @@ def reset_bundled_skill(name: str, restore: bool = False) -> dict:
 
     if not in_manifest and not is_bundled:
         return _fail("not_in_manifest", f"'{name}' is not a tracked bundled skill. Nothing to reset. "
-                     f"(Hub-installed skills use `hermes skills uninstall`.)")
+                     f"(Hub-installed skills use `lemon skills uninstall`.)")
     # Step 1 (optional): delete the user's copy so next sync re-copies bundled. Must happen BEFORE manifest
     # deletion so that a failed rmtree does not leave the skill in a manifest-less limbo state (see #34972).
     deleted_user_copy = False
@@ -55,7 +55,7 @@ def reset_bundled_skill(name: str, restore: bool = False) -> dict:
         ss._write_manifest(manifest)
     synced = ss.sync_skills(quiet=True)
     if not restore:
-        action, message = "manifest_cleared", (f"Cleared manifest entry for '{name}'. Future `hermes update` runs "
+        action, message = "manifest_cleared", (f"Cleared manifest entry for '{name}'. Future `lemon update` runs "
                                                f"will re-baseline against your current copy and accept upstream changes.")
     else:
         action = "restored"
@@ -65,7 +65,7 @@ def reset_bundled_skill(name: str, restore: bool = False) -> dict:
 
 
 def list_user_modified_bundled_skills() -> List[dict]:
-    """Bundled skills ``hermes update`` keeps because the user edited them (same test the sync
+    """Bundled skills ``lemon update`` keeps because the user edited them (same test the sync
     loop uses). Name-sorted ``{"name", "dest", "bundled_src"}`` dicts."""
     ss = _ss()
     if not (manifest := ss._read_manifest()):
@@ -104,7 +104,7 @@ def diff_bundled_skill(name: str) -> dict:
 
     if (bundled_src := bundled_by_name.get(name)) is None:
         return _fail(False, f"'{name}' is not a tracked bundled skill (no stock version to "
-                     f"diff against). Hub-installed skills use `hermes skills inspect`.")
+                     f"diff against). Hub-installed skills use `lemon skills inspect`.")
     dest = ss._compute_relative_dest(bundled_src, bundled_dir)
     if not dest.exists():
         return _fail(True, f"No local copy of '{name}' found at {dest}.")
@@ -136,22 +136,22 @@ def diff_bundled_skill(name: str) -> dict:
 _OPT_OUT_MESSAGES = {  # (enabled, changed) -> message
     (True, True): "Opted out of bundled skills. Future install / update / sync runs will not seed bundled skills into this profile.",
     (True, False): "Already opted out — marker was already present.",
-    (False, True): "Opted back in. The next `hermes update` (or `hermes skills opt-in --sync`) will re-seed bundled skills.",
+    (False, True): "Opted back in. The next `lemon update` (or `lemon skills opt-in --sync`) will re-seed bundled skills.",
     (False, False): "Not opted out — no marker to remove."}
 
 
 def set_bundled_skills_opt_out(enabled: bool) -> dict:
-    """Toggle the .no-bundled-skills marker (on-disk half of ``hermes skills opt-out`` / ``opt-in``;
+    """Toggle the .no-bundled-skills marker (on-disk half of ``lemon skills opt-out`` / ``opt-in``;
     removing present skills is ``remove_pristine_bundled_skills``)."""
     ss = _ss()
-    marker = ss._hermes_home() / ss.NO_BUNDLED_SKILLS_MARKER
+    marker = ss._lemon_home() / ss.NO_BUNDLED_SKILLS_MARKER
     existed = marker.exists()
     try:
         if enabled:
-            ss._hermes_home().mkdir(parents=True, exist_ok=True)
+            ss._lemon_home().mkdir(parents=True, exist_ok=True)
             marker.write_text(
-                "This profile opted out of bundled-skill seeding (`hermes skills opt-out`).\n"
-                "Delete this file to re-enable sync on the next `hermes update`.\n",
+                "This profile opted out of bundled-skill seeding (`lemon skills opt-out`).\n"
+                "Delete this file to re-enable sync on the next `lemon update`.\n",
                 encoding="utf-8")
         elif existed:
             marker.unlink()

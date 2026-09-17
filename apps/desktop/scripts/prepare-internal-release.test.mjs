@@ -10,7 +10,7 @@ import { prepareInternalRelease, receiptNameForInstaller } from './prepare-inter
 const VALID_SHA = '18ae041373f413f4270057de1120e54f61ea2970'
 const VALID_REF = 'lemon-v0.17.0'
 const VERSION = '0.17.0'
-const REPOSITORY = 'DangLemon/hermes-agent'
+const REPOSITORY = 'DangLemon/lemon-agent'
 
 const TARGETS = [
   {
@@ -36,7 +36,7 @@ const TARGETS = [
 ]
 
 async function withTempDir(fn) {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-release-prepare-'))
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-release-prepare-'))
   try {
     return await fn(tempRoot)
   } finally {
@@ -182,7 +182,7 @@ test('rejects a receipt from the wrong source repository fork', async () => {
     const assetsRoot = await createReleaseAssets(root, ({ fixtures }) => {
       const fixture = fixtures[1]
       const receiptPath = path.join(fixture.dir, receiptNameForInstaller(fixture.installer))
-      writeJson(receiptPath, { ...fixture.receipt, sourceRepository: 'NousResearch/hermes-agent' })
+      writeJson(receiptPath, { ...fixture.receipt, sourceRepository: 'DangLemon/lemon-agent' })
     })
 
     assert.throws(() => runPrepare(root, assetsRoot), /sourceRepository/)

@@ -6,8 +6,8 @@ import sqlite3
 
 import pytest
 
-from hermes_state import SessionDB
-from hermes_state_common import FTS_TRIGRAM_SQL, SCHEMA_VERSION
+from lemon_state import SessionDB
+from lemon_state_common import FTS_TRIGRAM_SQL, SCHEMA_VERSION
 
 
 @pytest.fixture

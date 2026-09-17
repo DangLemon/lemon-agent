@@ -1,4 +1,4 @@
-function Test-HermesUpdateShouldRetry {
+function Test-LemonUpdateShouldRetry {
     param(
         [int]$ExitCode,
         [string]$InstallRoot

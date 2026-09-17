@@ -1,5 +1,5 @@
 import { translateNow } from '@/i18n'
-import { appBrand, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { appBrand, replaceLemonBrandTerms } from '@/lib/app-brand'
 import { textPart } from '@/lib/chat-messages'
 import { coerceGatewayText } from '@/lib/chat-runtime'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
@@ -19,7 +19,7 @@ import { clearActiveSessionTodos } from '@/store/todos'
 import type { GatewayEventContext } from './types'
 
 function brandCopy(value: string): string {
-  return replaceHermesBrandTerms(value, appBrand())
+  return replaceLemonBrandTerms(value, appBrand())
 }
 
 /** status.update / review.summary / notification.show / notification.clear /
@@ -144,7 +144,7 @@ export function handleStatusEvent(ctx: GatewayEventContext): boolean {
     showAgentNotice(notice)
 
     // The urgent pair (access paused / restored) also breaks through as a
-    // native OS notification when Hermes is backgrounded; dispatch is gated
+    // native OS notification when Lemon AI is backgrounded; dispatch is gated
     // by the user's notification prefs + backgrounded check.
     const native = nativeNoticeInput(notice, translateNow('notifications.native.creditsTitle'))
 
@@ -173,7 +173,7 @@ export function handleStatusEvent(ctx: GatewayEventContext): boolean {
 
   if (event.type === 'error') {
     const rawErrorMessage = coerceGatewayText(payload?.message).trim()
-    const errorMessage = rawErrorMessage || brandCopy('Hermes reported an error')
+    const errorMessage = rawErrorMessage || brandCopy('Lemon AI reported an error')
     const looksLikeProviderSetup = isProviderSetupErrorMessage(errorMessage)
 
     // A turn that errors out has also ended — drop any open blocking prompt
@@ -211,7 +211,7 @@ export function handleStatusEvent(ctx: GatewayEventContext): boolean {
       notify({
         id: `gateway-error:${errorMessage}`,
         kind: 'error',
-        title: 'Hermes error',
+        title: 'Lemon AI error',
         message: errorMessage
       })
     }

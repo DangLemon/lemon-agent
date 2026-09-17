@@ -1,7 +1,7 @@
 //! Resolves and downloads `scripts/install.ps1` (and `install.sh`).
 //!
 //! Resolution order:
-//!   1. Dev shortcut: a sibling repo checkout via $HERMES_SETUP_DEV_REPO_ROOT
+//!   1. Dev shortcut: a sibling repo checkout via $LEMON_SETUP_DEV_REPO_ROOT
 //!      env var. Lets devs iterate without re-publishing the script.
 //!   2. Bundled fallback: if the installer was bundled with a script (e.g.
 //!      tauri's `resource` mechanism), serve from there. Not used today.
@@ -10,7 +10,7 @@
 //!
 //! Mirrors `apps/desktop/electron/bootstrap-runner.ts`'s `resolveInstallScript`,
 //! but the dev-checkout resolution is driven by an env var rather than the
-//! Electron app's APP_ROOT/../.. trick, because Hermes-Setup.exe is meant
+//! Electron app's APP_ROOT/../.. trick, because Lemon AI-Setup.exe is meant
 //! to live OUTSIDE any repo checkout.
 
 use anyhow::{anyhow, Context, Result};
@@ -19,8 +19,7 @@ use tokio::io::AsyncWriteExt;
 
 use crate::paths;
 
-const HERMES_SOURCE_REPOSITORY: &str = "NousResearch/hermes-agent";
-const LEMON_SOURCE_REPOSITORY: &str = "DangLemon/hermes-agent";
+const LEMON_SOURCE_REPOSITORY: &str = "DangLemon/lemon-agent";
 
 /// Identity of the install.ps1 we'll execute. Used by both the manifest
 /// fetch and the per-stage runs.
@@ -98,7 +97,7 @@ pub(crate) fn cache_plan(immutable: bool, cached_exists: bool) -> CachePlan {
 
 /// Resolves the install script to use for this run.
 ///
-/// `pin` is the commit-or-branch from either Hermes-Setup's build-time
+/// `pin` is the commit-or-branch from either Lemon AI-Setup's build-time
 /// constant (compiled into the installer) or a runtime override.
 pub async fn resolve(
     kind: ScriptKind,
@@ -106,7 +105,7 @@ pub async fn resolve(
     emit_log: &impl Fn(&str),
 ) -> Result<ResolvedScript> {
     // 1. Dev shortcut.
-    if let Ok(repo_root) = std::env::var("HERMES_SETUP_DEV_REPO_ROOT") {
+    if let Ok(repo_root) = std::env::var("LEMON_SETUP_DEV_REPO_ROOT") {
         let candidate = PathBuf::from(repo_root)
             .join("scripts")
             .join(kind.filename());
@@ -215,7 +214,7 @@ pub struct Pin {
 
 fn cached_path(kind: ScriptKind, commit_or_ref: &str, repository: &str) -> PathBuf {
     let safe = sanitize_ref(commit_or_ref);
-    let prefix = if repository == HERMES_SOURCE_REPOSITORY {
+    let prefix = if repository == LEMON_SOURCE_REPOSITORY {
         String::new()
     } else {
         format!("{}-", repository.replace('/', "__"))
@@ -356,7 +355,7 @@ async fn download(
         .build()
         .context("building download client")?
         .get(&url)
-        .header("User-Agent", "hermes-setup/0.0.1")
+        .header("User-Agent", "lemon-setup/0.0.1")
         .send()
         .await
         .with_context(|| format!("GET {url}"))?;
@@ -392,12 +391,8 @@ async fn download(
     Ok(())
 }
 
-fn source_repository(internal: bool) -> &'static str {
-    if internal {
-        LEMON_SOURCE_REPOSITORY
-    } else {
-        HERMES_SOURCE_REPOSITORY
-    }
+fn source_repository(_internal: bool) -> &'static str {
+    LEMON_SOURCE_REPOSITORY
 }
 
 fn install_script_url(kind: ScriptKind, commit_or_ref: &str, repository: &str) -> String {
@@ -429,22 +424,22 @@ mod tests {
 
     #[test]
     fn install_script_urls_follow_the_installer_identity() {
-        assert_eq!(source_repository(false), HERMES_SOURCE_REPOSITORY);
+        assert_eq!(source_repository(false), LEMON_SOURCE_REPOSITORY);
         assert_eq!(source_repository(true), LEMON_SOURCE_REPOSITORY);
         assert_eq!(
             install_script_url(ScriptKind::Ps1, "main", source_repository(false)),
-            "https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.ps1"
+            "https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1"
         );
         assert_eq!(
             install_script_url(ScriptKind::Sh, "abc1234", source_repository(true)),
-            "https://raw.githubusercontent.com/DangLemon/hermes-agent/abc1234/scripts/install.sh"
+            "https://raw.githubusercontent.com/DangLemon/lemon-agent/abc1234/scripts/install.sh"
         );
-        assert!(
+        assert_eq!(
             cached_path(ScriptKind::Sh, "abc1234", source_repository(true))
                 .file_name()
                 .unwrap()
-                .to_string_lossy()
-                .starts_with("DangLemon__hermes-agent-")
+                .to_string_lossy(),
+            "install-abc1234.sh"
         );
     }
 
@@ -509,7 +504,7 @@ mod tests {
     fn upgrade_cached_script_adds_bom_to_legacy_ps1() {
         // A .ps1 cached by a pre-#67193 installer has no BOM; the Reuse path
         // must upgrade it in place instead of serving the broken bytes forever.
-        let dir = std::env::temp_dir().join(format!("hermes-bom-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("lemon-bom-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let cached = dir.join("install-abc1234.ps1");
         std::fs::write(&cached, b"Write-Host legacy\n").unwrap();
@@ -529,7 +524,7 @@ mod tests {
 
     #[test]
     fn upgrade_cached_script_leaves_sh_untouched() {
-        let dir = std::env::temp_dir().join(format!("hermes-bom-sh-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("lemon-bom-sh-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let cached = dir.join("install-main.sh");
         std::fs::write(&cached, b"#!/bin/bash\n").unwrap();

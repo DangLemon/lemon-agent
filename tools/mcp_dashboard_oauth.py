@@ -34,7 +34,7 @@ class DashboardOAuthFlow:
     flow_id: str
     server_name: str
     profile: str | None
-    hermes_home: str
+    lemon_home: str
     redirect_uri: str
     reconnect_live: bool = False
     callback_transport: str = "backend"

@@ -1,4 +1,4 @@
-"""Hermes Gateway - multi-platform messaging integration (sessions, context
+"""Lemon AI Gateway - multi-platform messaging integration (sessions, context
 injection, delivery routing, platform-specific toolsets)."""
 
 from .config import GatewayConfig, PlatformConfig, HomeChannel, SessionResetPolicy, load_gateway_config

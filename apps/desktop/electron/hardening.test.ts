@@ -34,7 +34,7 @@ import {
  * from a POSIX run.
  */
 function withTempDir(run: (dir: string) => void) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-secret-file-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-secret-file-'))
 
   try {
     run(dir)
@@ -90,7 +90,7 @@ test('attachment upload cap is bounded above the preview default', () => {
 })
 
 test('attachment data URL helper reads bytes above the preview default without changing that limit', async () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-desktop-large-attachment-'))
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-desktop-large-attachment-'))
   const source = path.join(tempDir, 'large.bin')
   const previewLimit = dataUrlReadMaxBytesFromMb(DATA_URL_READ_DEFAULT_MAX_MB)
   const content = Buffer.alloc(previewLimit + 1024, 0x5a)
@@ -149,8 +149,8 @@ test('encryptDesktopSecret uses the active app name in secure-storage guidance',
     (error: unknown) => {
       assert.ok(error instanceof Error)
       assert.match(error.message, /Lemon AI cannot save remote gateway tokens/)
-      assert.doesNotMatch(error.message, /Hermes Desktop cannot save/)
-      assert.match(error.message, /HERMES_DESKTOP_REMOTE_URL/)
+      assert.doesNotMatch(error.message, /Lemon AI cannot save/)
+      assert.match(error.message, /LEMON_DESKTOP_REMOTE_URL/)
 
       return true
     }
@@ -723,7 +723,7 @@ test('path helpers reject blank non-string NUL and Windows device syntax', async
 })
 
 test('resolveRequestedPathForIpc resolves relative paths from the trimmed base directory', () => {
-  const baseDir = path.join(os.tmpdir(), 'hermes-desktop-base')
+  const baseDir = path.join(os.tmpdir(), 'lemon-desktop-base')
 
   assert.equal(
     resolveRequestedPathForIpc('notes.txt', {
@@ -748,7 +748,7 @@ test('resolveRequestedPathForIpc expands ~ to the home directory', () => {
 })
 
 test('resolveReadableFileForIpc validates existence type size and sensitivity', async () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-desktop-hardening-'))
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-desktop-hardening-'))
 
   try {
     const textPath = path.join(tempDir, 'notes.txt')
@@ -828,7 +828,7 @@ test('resolveReadableFileForIpc validates existence type size and sensitivity', 
 })
 
 test('resolveReadableFileForIpc blocks common sensitive files', async () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-desktop-sensitive-'))
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-desktop-sensitive-'))
 
   try {
     const sshDir = path.join(tempDir, '.ssh')
@@ -857,7 +857,7 @@ test('resolveReadableFileForIpc blocks common sensitive files', async () => {
 })
 
 test('resolveReadableFileForIpc blocks symlinks whose realpath is sensitive', async () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-desktop-realpath-'))
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-desktop-realpath-'))
 
   try {
     const envPath = path.join(tempDir, '.env')
@@ -882,7 +882,7 @@ test('resolveReadableFileForIpc blocks symlinks whose realpath is sensitive', as
 })
 
 test('resolveDirectoryForIpc accepts directories and rejects invalid directory targets', async () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-desktop-dir-'))
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-desktop-dir-'))
 
   try {
     const directory = path.join(tempDir, 'project')
@@ -903,7 +903,7 @@ test('resolveDirectoryForIpc accepts directories and rejects invalid directory t
 })
 
 test('resolveDirectoryForIpc accepts directory symlinks or junctions', async () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-desktop-dir-link-'))
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-desktop-dir-link-'))
 
   try {
     const directory = path.join(tempDir, 'actual-project')
@@ -931,7 +931,7 @@ test('resolveDirectoryForIpc accepts directory symlinks or junctions', async () 
 
 // main.ts has no module.exports, so the wiring of the extracted keyring-less
 // helpers into the main process follows the repo's source-assertion pattern
-// (see windows-hermes-resolution.test.ts). These pin the propagation the PR
+// (see windows-lemon-resolution.test.ts). These pin the propagation the PR
 // reviewer flagged as untested: the connection-config IPC path forwarding
 // allowPlainTextToken through resolvePersistedRemoteToken, and the whenReady
 // --password-store=basic startup branch.
@@ -987,7 +987,7 @@ test('coerceDesktopConnectionConfig routes token persistence through resolvePers
 test('connection-config save and apply IPC handlers route payloads through coerceDesktopConnectionConfig', () => {
   const source = readMain()
 
-  for (const channel of ['hermes:connection-config:save', 'hermes:connection-config:apply']) {
+  for (const channel of ['lemon:connection-config:save', 'lemon:connection-config:apply']) {
     const handlerStart = source.indexOf(`ipcMain.handle('${channel}'`)
     assert.notEqual(handlerStart, -1, `${channel} handler must exist`)
     const handlerBody = source.slice(handlerStart, handlerStart + 400)

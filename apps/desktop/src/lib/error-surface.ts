@@ -1,4 +1,4 @@
-import { appBrand, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { appBrand, replaceLemonBrandTerms } from '@/lib/app-brand'
 
 // Structured turn-error descriptor forwarded by the gateway (see
 // agent/error_surface.py). Names WHICH layer of the stack failed so the error
@@ -71,7 +71,7 @@ export function formatErrorDiagnostics(input: {
   const model = input.surface?.model || input.model
 
   const lines = [
-    replaceHermesBrandTerms('── Hermes error details ──', brand),
+    replaceLemonBrandTerms('── Lemon AI error details ──', brand),
     `time: ${new Date().toISOString()}`,
     input.surface ? `layer: ${input.surface.layer}` : null,
     input.surface ? `code: ${input.surface.code}` : null,

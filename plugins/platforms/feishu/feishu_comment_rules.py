@@ -1,6 +1,6 @@
 """Feishu document comment access-control rules: exact doc > wildcard "*" > top-level > code defaults, each field
-(enabled/policy/allow_from) falling back independently. Config ~/.hermes/feishu_comment_rules.json (mtime-cached,
-hot-reload); pairing store ~/.hermes/feishu_comment_pairing.json."""
+(enabled/policy/allow_from) falling back independently. Config ~/.lemon-ai/feishu_comment_rules.json (mtime-cached,
+hot-reload); pairing store ~/.lemon-ai/feishu_comment_pairing.json."""
 
 from __future__ import annotations
 
@@ -12,14 +12,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from hermes_constants import get_hermes_home
+from lemon_constants import get_lemon_home
 
 logger = logging.getLogger(__name__)
 
 # Resolved at import time: this module is lazy-imported by the comment event handler,
-# long after profile/HERMES_HOME overrides have been applied, so freezing is safe.
-RULES_FILE = get_hermes_home() / "feishu_comment_rules.json"
-PAIRING_FILE = get_hermes_home() / "feishu_comment_pairing.json"
+# long after profile/LEMON_HOME overrides have been applied, so freezing is safe.
+RULES_FILE = get_lemon_home() / "feishu_comment_rules.json"
+PAIRING_FILE = get_lemon_home() / "feishu_comment_pairing.json"
 
 _VALID_POLICIES = ("allowlist", "pairing")
 
@@ -230,7 +230,7 @@ def _pairing_cmd(args: list) -> int:
 
 def _main() -> int:
     try:
-        __import__("hermes_cli.env_loader", fromlist=["load_hermes_dotenv"]).load_hermes_dotenv()
+        __import__("lemon_cli.env_loader", fromlist=["load_lemon_dotenv"]).load_lemon_dotenv()
     except Exception:
         pass
     usage = f"""Usage: python -m gateway.platforms.feishu_comment_rules <command> [args]

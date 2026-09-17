@@ -8,8 +8,8 @@ import time
 
 import pytest
 
-from hermes_state import SessionDB
-from hermes_state_common import SCHEMA_VERSION
+from lemon_state import SessionDB
+from lemon_state_common import SCHEMA_VERSION
 
 
 @pytest.fixture()
@@ -26,7 +26,7 @@ def _prompt_count(db: SessionDB) -> int:
 
 
 def test_prompt_snapshots_are_deduplicated_and_hydrated_for_readers(db):
-    prompt = "You are Hermes.\n" + ("Follow the profile policy.\n" * 5)
+    prompt = "You are Lemon AI.\n" + ("Follow the profile policy.\n" * 5)
     db.create_session(
         "s1",
         "telegram",
@@ -63,7 +63,7 @@ def test_prompt_replacement_and_route_changes_collect_only_orphans(db):
     shared_prompt = "Model: x-ai/grok-4.5\nProvider: nous"
     db.create_session(
         "s1",
-        "hermes_browser",
+        "lemon_browser",
         model="x-ai/grok-4.5",
         model_config={"_branched_from": "parent"},
         system_prompt=shared_prompt,

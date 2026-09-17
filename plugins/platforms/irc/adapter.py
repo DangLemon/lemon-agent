@@ -1,6 +1,6 @@
-"""IRC Platform Adapter for Hermes Agent — stdlib asyncio only, zero external dependencies.
+"""IRC Platform Adapter for Lemon AI — stdlib asyncio only, zero external dependencies.
 
-config.yaml ``gateway.platforms.irc.extra`` keys: server, port (6697), nickname (hermes-bot), channel,
+config.yaml ``gateway.platforms.irc.extra`` keys: server, port (6697), nickname (lemon-bot), channel,
 use_tls (true), server_password, nickserv_password, allowed_users ([] = allow all), max_message_length (450).
 Env vars override config.yaml: IRC_SERVER, IRC_PORT, IRC_NICKNAME, IRC_CHANNEL, IRC_USE_TLS,
 IRC_SERVER_PASSWORD, IRC_NICKSERV_PASSWORD.
@@ -121,7 +121,7 @@ class IRCAdapter(BasePlatformAdapter):
         extra = getattr(config, "extra", {}) or {}
         self.server = _env_or_extra(extra, "IRC_SERVER", "server")
         self.port = coerce_port(_env_or_extra(extra, "IRC_PORT", "port", 6697), 6697)
-        self.nickname = _env_or_extra(extra, "IRC_NICKNAME", "nickname", "hermes-bot")
+        self.nickname = _env_or_extra(extra, "IRC_NICKNAME", "nickname", "lemon-bot")
         self.channel = _env_or_extra(extra, "IRC_CHANNEL", "channel")
         _use_tls_raw = _get_scoped_secret("IRC_USE_TLS")
         self.use_tls = _use_tls_raw.lower() in _TRUTHY if _use_tls_raw else extra.get("use_tls", True)
@@ -175,7 +175,7 @@ class IRCAdapter(BasePlatformAdapter):
         if self.server_password:
             await self._send_raw(f"PASS {self.server_password}")
         await self._send_raw(f"NICK {self.nickname}")
-        await self._send_raw(f"USER {self.nickname} 0 * :Hermes Agent")
+        await self._send_raw(f"USER {self.nickname} 0 * :Lemon AI")
         self._recv_task = asyncio.create_task(self._receive_loop())
         try:  # wait for registration (001 RPL_WELCOME)
             await asyncio.wait_for(self._registration_event.wait(), timeout=30.0)
@@ -201,7 +201,7 @@ class IRCAdapter(BasePlatformAdapter):
         self._mark_disconnected()
         if self._writer and not self._writer.is_closing():
             with contextlib.suppress(Exception):
-                await self._send_raw("QUIT :Hermes Agent shutting down")
+                await self._send_raw("QUIT :Lemon AI shutting down")
                 await asyncio.sleep(0.5)
             with contextlib.suppress(Exception):
                 self._writer.close()
@@ -287,7 +287,7 @@ class IRCAdapter(BasePlatformAdapter):
             self._registration_event.set()
             if params:
                 self._current_nick = params[0]  # server may confirm our nick
-        elif command == "433":  # ERR_NICKNAMEINUSE — retry: hermes_, hermes_1, hermes_2...
+        elif command == "433":  # ERR_NICKNAMEINUSE — retry: lemon_, lemon_1, lemon_2...
             if suffix_match := re.search(r"_(\d+)$", self._current_nick):
                 self._current_nick = f"{self.nickname.rstrip('_0123456789')}_{int(suffix_match.group(1)) + 1}"
             else:
@@ -345,8 +345,8 @@ def validate_config(config) -> bool:
 
 
 def interactive_setup() -> None:
-    """`hermes gateway setup` flow (lazy hermes_cli imports keep the plugin importable outside the CLI)."""
-    from hermes_cli.setup import (
+    """`lemon gateway setup` flow (lazy lemon_cli imports keep the plugin importable outside the CLI)."""
+    from lemon_cli.setup import (
         prompt, prompt_yes_no, save_env_value, get_env_value, print_header, print_info, print_warning, print_success)
 
     def info(*lines: str) -> None:
@@ -366,7 +366,7 @@ def interactive_setup() -> None:
         print_info(f"IRC: already configured (server: {existing_server})")
         if not prompt_yes_no("Reconfigure IRC?", False):
             return
-    info("Connect Hermes to an IRC network. Uses Python stdlib — no extra packages needed.",
+    info("Connect Lemon AI to an IRC network. Uses Python stdlib — no extra packages needed.",
          "   Works with Libera.Chat, OFTC, your own ZNC/InspIRCd, etc.")
     print()
     if not _required("IRC server hostname (e.g. irc.libera.chat)", "IRC_SERVER", existing_server or "", "Server"):
@@ -382,8 +382,8 @@ def interactive_setup() -> None:
             print_warning(f"Invalid port — using default {default_port}")
     elif get_env_value("IRC_PORT"):
         save_env_value("IRC_PORT", "")  # user cleared the prompt; drop the override
-    for label, env, what in (("Bot nickname (e.g. hermes-bot)", "IRC_NICKNAME", "Nickname"),
-                             ("Channel to join (e.g. #hermes — comma-separate for multiple)", "IRC_CHANNEL", "Channel")):
+    for label, env, what in (("Bot nickname (e.g. lemon-bot)", "IRC_NICKNAME", "Nickname"),
+                             ("Channel to join (e.g. #lemon — comma-separate for multiple)", "IRC_CHANNEL", "Channel")):
         if not _required(label, env, get_env_value(env) or "", what):
             return
     print()
@@ -413,8 +413,8 @@ def interactive_setup() -> None:
             save_env_value("IRC_ALLOWED_USERS", "")
             print_info("No nicks allowed — the bot will ignore all messages until you add nicks.")
     print()
-    print_success("IRC configuration saved to ~/.hermes/.env")
-    print_info("Restart the gateway for changes to take effect: hermes gateway restart")
+    print_success("IRC configuration saved to ~/.lemon-ai/.env")
+    print_info("Restart the gateway for changes to take effect: lemon gateway restart")
 
 
 def is_connected(config) -> bool:
@@ -512,7 +512,7 @@ async def _sa_register(conn: _StandaloneConn, nick_base: str, server_password: s
     if server_password:
         await conn.raw(f"PASS {_strip_irc_control_chars(server_password)}")
     await conn.raw(f"NICK {standalone_nick}")
-    await conn.raw(f"USER {standalone_nick} 0 * :Hermes Agent (cron)")
+    await conn.raw(f"USER {standalone_nick} 0 * :Lemon AI (cron)")
     registered = await conn.pump(15.0, _on_registration)
     if registered is None:
         return _sa_error("registration timeout (no RPL_WELCOME)")
@@ -554,7 +554,7 @@ async def _standalone_send(pconfig, chat_id: str, message: str, *, thread_id: Op
     if any(ch in target for ch in ("\r", "\n", "\x00", " ")):
         return _sa_error("chat_id contains illegal IRC characters")
     # Cap the base to 24 chars so collision retries stay within the 30-char NICKLEN most networks enforce.
-    nick_base = _env_or_extra(extra, "IRC_NICKNAME", "nickname", "hermes-bot").rstrip("_0123456789-")[:24] or "hermes-bot"
+    nick_base = _env_or_extra(extra, "IRC_NICKNAME", "nickname", "lemon-bot").rstrip("_0123456789-")[:24] or "lemon-bot"
     plain = IRCAdapter._strip_markdown(message)
     try:
         reader, writer = await asyncio.wait_for(
@@ -596,7 +596,7 @@ async def _standalone_send(pconfig, chat_id: str, message: str, *, thread_id: Op
 
 
 def register(ctx):
-    """Plugin entry point: called by the Hermes plugin system."""
+    """Plugin entry point: called by the Lemon AI plugin system."""
     ctx.register_platform(
         name="irc",
         label="IRC",

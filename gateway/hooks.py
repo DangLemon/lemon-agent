@@ -1,6 +1,6 @@
 """Event hook system: fires handlers at gateway lifecycle points.
 
-Hooks live in ~/.hermes/hooks/<name>/ with HOOK.yaml (name, description, events) and
+Hooks live in ~/.lemon-ai/hooks/<name>/ with HOOK.yaml (name, description, events) and
 handler.py (``def handle(event_type, context)``, sync or async); errors never block
 the pipeline.  Events: gateway:startup, session:start/end/reset, agent:start,
 agent:step (each tool-loop turn), agent:end, command:* (wildcard).  agent:* context:
@@ -17,10 +17,10 @@ from typing import Any, Callable, Dict, List, Optional
 
 import yaml
 
-from hermes_cli.config import get_hermes_home
+from lemon_cli.config import get_lemon_home
 
 
-HOOKS_DIR = get_hermes_home() / "hooks"
+HOOKS_DIR = get_lemon_home() / "hooks"
 
 
 def _skip(name: str, reason: str) -> None:
@@ -42,7 +42,7 @@ def _load_hook_dir(hook_dir: Path) -> Optional[tuple]:
     # Register in sys.modules BEFORE exec_module so Pydantic/dataclass forward references
     # (``from __future__ import annotations``) resolve; otherwise a handler declaring a
     # BaseModel fails at first dispatch with "TypeAdapter ... is not fully defined".
-    module_name = f"hermes_hook_{hook_name}"
+    module_name = f"lemon_hook_{hook_name}"
     spec = importlib.util.spec_from_file_location(module_name, handler_path)
     if spec is None or spec.loader is None:
         return _skip(hook_name, "could not load handler.py")

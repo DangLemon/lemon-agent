@@ -159,7 +159,7 @@ class MCPServerRunMixin:
         self._sampling = (_sampling.SamplingHandler(self.name, sampling_config)
                           if sampling_config.get("enabled", True) and _core._MCP_SAMPLING_TYPES else None)
         # elicitation/create lets a server ask for structured input mid-call; the handler
-        # routes it through Hermes' approval system.
+        # routes it through Lemon AI' approval system.
         elicitation_config = config.get("elicitation", {})
         self._elicitation = (_sampling.ElicitationHandler(self.name, elicitation_config, owner=self)
                              if elicitation_config.get("enabled", True) and _core._MCP_ELICITATION_TYPES else None)
@@ -209,7 +209,7 @@ class MCPServerRunMixin:
                 # Task was cancelled (shutdown, gateway restart, explicit task.cancel()). Don't treat this
                 # as a connection failure — CancelledError inherits from BaseException (not Exception) in
                 # Python 3.11+, so the broad ``except Exception`` below would NOT catch it; we'd silently
-                # exit the reconnect loop and the MCP server would stay dead until Hermes is fully
+                # exit the reconnect loop and the MCP server would stay dead until Lemon AI is fully
                 # restarted. See #9930.
                 self.session = None
                 raise
@@ -330,7 +330,7 @@ class MCPServerRunMixin:
             # Deterministic failure (bad command, non-MCP URL, 401/403): park at once; auth
             # failures park (not return) so the task can pick up fresh tokens later.
             detail = (f"authentication, parking until credentials change; re-authenticate with "
-                      f"`hermes mcp login {self.name}`" if _errors._is_auth_error(root)
+                      f"`lemon mcp login {self.name}`" if _errors._is_auth_error(root)
                       else "connection with a permanent error, parking without retries")
             logger.warning("MCP server '%s' failed initial %s (state: connecting → parked): %s: %s",
                            self.name, detail, type(root).__name__, root)

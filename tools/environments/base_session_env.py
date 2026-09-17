@@ -11,33 +11,33 @@ from typing import Iterable
 
 # Bridged per-session vars (gateway.session_context._VAR_MAP) are injected fresh onto every
 # command's process env and must NEVER persist in the shared bash snapshot: one long-lived
-# backend serves many sessions, so a snapshot carrying the FIRST session's HERMES_SESSION_ID
+# backend serves many sessions, so a snapshot carrying the FIRST session's LEMON_SESSION_ID
 # would make every LATER session source a foreign identity. Every bridged name starts with
-# one of these prefixes (or is HERMES_UI_SESSION_ID); unit tests use this regex as the
+# one of these prefixes (or is LEMON_UI_SESSION_ID); unit tests use this regex as the
 # Python-side contract for the exclusion set.
 # Per-session variables that the gateway bridges freshly onto every command's process environment (via
 # tools/environments/local._inject_session_context_env, reading gateway.session_context._VAR_MAP). They must
 # NEVER be persisted into the shared bash session snapshot: a single long-lived backend serves many
 # concurrent sessions (the messaging gateway, TUI, desktop/web dashboard all collapse the terminal to one
-# "default" environment), so ``export -p`` dumping the FIRST session's HERMES_SESSION_ID into the snapshot
+# "default" environment), so ``export -p`` dumping the FIRST session's LEMON_SESSION_ID into the snapshot
 # makes every LATER session ``source`` that stale value and see a FOREIGN session's identity — overriding
-# the correct per-command Popen env (issue: cross-session HERMES_SESSION_ID leak via the shared snapshot).
+# the correct per-command Popen env (issue: cross-session LEMON_SESSION_ID leak via the shared snapshot).
 # Stripping them from the snapshot is safe because they are re-injected on every command; a snapshot should
-# only carry the user's own shell state (PATH, functions, exports they set), not Hermes' per-turn session
+# only carry the user's own shell state (PATH, functions, exports they set), not Lemon AI' per-turn session
 # identity. Used by unit tests as the Python-side contract for the exclusion set; the dump path unsets by
 # name/prefix instead of grepping declare lines (see below / issue #71296).
 _SNAPSHOT_EXCLUDED_ENV_REGEX = (
-    "^declare -x (HERMES_SESSION_|HERMES_UI_SESSION_ID|HERMES_CRON_AUTO_DELIVER_|"
-    "HERMES_CRON_SESSION|HERMES_BROWSER_CONTROL_)")
+    "^declare -x (LEMON_SESSION_|LEMON_UI_SESSION_ID|LEMON_CRON_AUTO_DELIVER_|"
+    "LEMON_CRON_SESSION|LEMON_BROWSER_CONTROL_)")
 _SHELL_ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 # mktemp template suffix + the shell variable holding the allocated temp path.
 _SNAP_TMP_SUFFIX = ".tmp.XXXXXXXXXX"
-_SNAP_TMP = '"$__hermes_snap_tmp"'
+_SNAP_TMP = '"$__lemon_snap_tmp"'
 
 
 def _cwd_marker(session_id: str) -> str:
-    return f"__HERMES_CWD_{session_id}__"
+    return f"__LEMON_CWD_{session_id}__"
 
 
 def _cwd_marker_printf(marker: str) -> str:
@@ -56,7 +56,7 @@ def _export_dump_excluding_session_vars(tmp_path: str, excluded_names: Iterable[
     shell-variable expansion, and a redirect on a pipeline segment would expand it inside that
     segment's subshell, inconsistently with the parent that expands the follow-up ``mv``.
 
-    ``curl … | bash #`` smuggled into a Matrix room/display name via ``HERMES_SESSION_CHAT_NAME``) land in
+    ``curl … | bash #`` smuggled into a Matrix room/display name via ``LEMON_SESSION_CHAT_NAME``) land in
     the snapshot and execute on the next ``source`` (issue #71296). Unsetting first means ``export -p``
     never emits those vars — including any continuation lines.
     """
@@ -64,10 +64,10 @@ def _export_dump_excluding_session_vars(tmp_path: str, excluded_names: Iterable[
     # under 2>/dev/null. Caller names are quoted so malformed config can never
     # become shell syntax (valid names stay unquoted by shlex.quote()).
     internal_names = {
-        "__hermes_ec",
-        "__hermes_expand_aliases",
-        "__hermes_fns",
-        "__hermes_snap_tmp",
+        "__lemon_ec",
+        "__lemon_expand_aliases",
+        "__lemon_fns",
+        "__lemon_snap_tmp",
     }
     safe_names = {
         name
@@ -76,13 +76,13 @@ def _export_dump_excluding_session_vars(tmp_path: str, excluded_names: Iterable[
     }
     extra_unset = "".join(f" {shlex.quote(name)}" for name in sorted(safe_names))
     return (
-        "{ ( unset ${!HERMES_SESSION_*} ${!HERMES_CRON_AUTO_DELIVER_*} "
-        "${!HERMES_BROWSER_CONTROL_*} "
-        # AI_AGENT / HERMES_AGENT are per-command attribution markers re-exported
+        "{ ( unset ${!LEMON_SESSION_*} ${!LEMON_CRON_AUTO_DELIVER_*} "
+        "${!LEMON_BROWSER_CONTROL_*} "
+        # AI_AGENT / LEMON_AGENT are per-command attribution markers re-exported
         # by every wrapper with ${VAR:-default} semantics; persisting them would
         # let the FIRST command's value override a later outer-harness value.
-        "AI_AGENT HERMES_AGENT "
-        f"HERMES_UI_SESSION_ID{extra_unset} 2>/dev/null; "
+        "AI_AGENT LEMON_AGENT "
+        f"LEMON_UI_SESSION_ID{extra_unset} 2>/dev/null; "
         "export -p; ) || true; } "
         f"> {tmp_path}")
 
@@ -91,10 +91,10 @@ def _snapshot_dump_script(tmp_path: str, excluded_names: Iterable[str] = ()) -> 
     """Dump exports, functions, aliases, and shell options to a snapshot temp file."""
     return (
         f"{_export_dump_excluding_session_vars(tmp_path, excluded_names)} &&\n"
-        "{ __hermes_fns=$(declare -F | awk '{print $3}' | grep -vE '^_[^_]') || true;\n"
-        f"if [ -n \"$__hermes_fns\" ]; then declare -f $__hermes_fns >> {tmp_path}; fi; }} &&\n"
+        "{ __lemon_fns=$(declare -F | awk '{print $3}' | grep -vE '^_[^_]') || true;\n"
+        f"if [ -n \"$__lemon_fns\" ]; then declare -f $__lemon_fns >> {tmp_path}; fi; }} &&\n"
         f"alias -p >> {tmp_path} &&\n"
-        "if [ \"${__hermes_expand_aliases:-0}\" = 1 ]; then "
+        "if [ \"${__lemon_expand_aliases:-0}\" = 1 ]; then "
         f"echo 'shopt -s expand_aliases' >> {tmp_path}; else "
         f"echo 'shopt -u expand_aliases' >> {tmp_path}; fi &&\n"
         # Snapshot sourcing must not turn startup strict-mode flags into a
@@ -116,8 +116,8 @@ def _snapshot_bootstrap_script(
     ``cd ~``) so ``pwd -P`` reports terminal.cwd, not the profile's directory."""
     return (
         "umask 077\n"
-        f"__hermes_snap_tmp=$(mktemp {snap_tmp_template}) || exit 1\n"
-        "__hermes_expand_aliases=1\n"
+        f"__lemon_snap_tmp=$(mktemp {snap_tmp_template}) || exit 1\n"
+        "__lemon_expand_aliases=1\n"
         f"{{ {_snapshot_dump_script(_SNAP_TMP, excluded_names)} &&\n"
         # Publish only if assembly succeeded; otherwise drop the partial temp.
         f"mv -f {_SNAP_TMP} {quoted_snap}; }} || {{ rm -f {_SNAP_TMP}; exit 1; }}\n"
@@ -132,7 +132,7 @@ def _passthrough_save_restore(names: Iterable[str]) -> tuple[list[str], list[str
     save: list[str] = []
     restore: list[str] = []
     for name in names:
-        marker = f"_HERMES_RUNTIME_PASSTHROUGH_{name}"
+        marker = f"_LEMON_RUNTIME_PASSTHROUGH_{name}"
         present, value = f"{marker}_PRESENT", f"{marker}_VALUE"
         save += [f"{present}=${{{name}+x}}", f"{value}=${{{name}-}}"]
         restore += [
@@ -146,7 +146,7 @@ def _wrap_command_script(
     passthrough_names: Iterable[str], snapshot_ready: bool, cwd_marker: str) -> str:
     """Per-command bash script: source snapshot, cd, run, re-dump env, emit CWD marker.
     ``source`` stdout goes to /dev/null because macOS bash 3.2 / some Homebrew builds echo
-    ``declare -x`` lines when sourcing. AI_AGENT/HERMES_AGENT advertise the harness to remote
+    ``declare -x`` lines when sourcing. AI_AGENT/LEMON_AGENT advertise the harness to remote
     backends (whose env is not inherited); ``${VAR:-default}`` never clobbers an outer harness.
     GIT_PAGER/PAGER=cat stop pager-happy tools hanging a PTY-backed command. The env re-dump
     uses the same mktemp+mv atomic publish as the bootstrap and chains ``mv`` on the dump
@@ -161,24 +161,24 @@ def _wrap_command_script(
         parts.append(f"source {quoted_snap} >/dev/null 2>&1 || true")
     parts += restore
     parts += [
-        'export AI_AGENT="${AI_AGENT:-hermes-agent}" HERMES_AGENT="${HERMES_AGENT:-true}"',
+        'export AI_AGENT="${AI_AGENT:-lemon-agent}" LEMON_AGENT="${LEMON_AGENT:-true}"',
         'export GIT_PAGER="${GIT_PAGER:-cat}" PAGER="${PAGER:-cat}"',
         # ``--`` keeps hyphen-prefixed directory names from being parsed as options.
         f"builtin cd -- {quoted_cwd} || exit 126",
         f"eval '{escaped}'",
-        "__hermes_ec=$?",
-        "__hermes_expand_aliases=0",
-        "shopt -q expand_aliases && __hermes_expand_aliases=1",
+        "__lemon_ec=$?",
+        "__lemon_expand_aliases=0",
+        "shopt -q expand_aliases && __lemon_expand_aliases=1",
         "set +e",
         "set +u",
         "umask 077"]
     if snapshot_ready:
         parts.append(
-            f"__hermes_snap_tmp=$(mktemp {snap_tmp_template}) && "
+            f"__lemon_snap_tmp=$(mktemp {snap_tmp_template}) && "
             f"{{ {_snapshot_dump_script(_SNAP_TMP, passthrough_names)} "
             f"&& mv -f {_SNAP_TMP} {quoted_snap}; }} "
             f"2>/dev/null || rm -f {_SNAP_TMP} 2>/dev/null || true")
-    parts += [_cwd_marker_printf(cwd_marker), "exit $__hermes_ec"]
+    parts += [_cwd_marker_printf(cwd_marker), "exit $__lemon_ec"]
     return "\n".join(parts)
 
 

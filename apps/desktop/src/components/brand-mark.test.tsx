@@ -27,7 +27,7 @@ describe('BrandMark', () => {
   })
 
   it('uses the transparent Lemon mark for the internal harness', async () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
     const { BrandMark } = await loadBrandMark()
 
     render(<BrandMark aria-label="brand mark" />)
@@ -42,7 +42,7 @@ describe('BrandMark', () => {
   })
 
   it('restores the white tile when the Lemon asset falls back upstream', async () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
     const { BrandMark } = await loadBrandMark()
 
     render(<BrandMark aria-label="brand mark" />)

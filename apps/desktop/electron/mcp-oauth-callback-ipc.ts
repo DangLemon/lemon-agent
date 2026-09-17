@@ -20,7 +20,7 @@
  *   - the listener only ever RECEIVES `code`/`state` query params and
  *     forwards them to the renderer; no tokens are exchanged here — the
  *     gateway verifies `state` (constant-time) before redeeming anything;
- *   - the browser sees only a minimal "return to Hermes" page.
+ *   - the browser sees only a minimal "return to Lemon AI" page.
  */
 
 import http from 'node:http'
@@ -45,8 +45,8 @@ function escapeHtml(value: string): string {
   })
 }
 
-export function mcpOauthDoneHtml(appName = 'Hermes'): string {
-  const safeAppName = escapeHtml(appName.trim() || 'Hermes')
+export function mcpOauthDoneHtml(appName = 'Lemon AI'): string {
+  const safeAppName = escapeHtml(appName.trim() || 'Lemon AI')
 
   return (
     '<!doctype html><meta charset="utf-8"><title>Authorization received</title>' +
@@ -168,11 +168,11 @@ function dispose(id: string) {
   pending.delete(id)
 }
 
-export function registerMcpOauthCallbackIpc({ appName = 'Hermes' }: { appName?: string } = {}) {
+export function registerMcpOauthCallbackIpc({ appName = 'Lemon AI' }: { appName?: string } = {}) {
   const doneHtml = mcpOauthDoneHtml(appName)
 
   // Bind a one-shot loopback listener; resolves { id, redirectUri }.
-  ipcMain.handle('hermes:mcp-oauth:listen', async (_event, options?: ListenOptions) => {
+  ipcMain.handle('lemon:mcp-oauth:listen', async (_event, options?: ListenOptions) => {
     if (pending.size >= MAX_PENDING_LISTENERS) {
       throw new Error('Too many MCP OAuth listeners are already pending')
     }
@@ -261,7 +261,7 @@ export function registerMcpOauthCallbackIpc({ appName = 'Hermes' }: { appName?: 
   })
 
   // Resolve when the redirect arrives (or timeout). Safe to call once per id.
-  ipcMain.handle('hermes:mcp-oauth:wait', async (_event, id, timeoutMs) => {
+  ipcMain.handle('lemon:mcp-oauth:wait', async (_event, id, timeoutMs) => {
     const entry = pending.get(String(id || ''))
 
     if (!entry) {
@@ -295,7 +295,7 @@ export function registerMcpOauthCallbackIpc({ appName = 'Hermes' }: { appName?: 
   })
 
   // Tear a listener down without waiting (user cancelled, flow errored).
-  ipcMain.handle('hermes:mcp-oauth:cancel', (_event, id) => {
+  ipcMain.handle('lemon:mcp-oauth:cancel', (_event, id) => {
     dispose(String(id || ''))
 
     return true

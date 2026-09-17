@@ -1,6 +1,6 @@
 """Turn-end guard for kanban workers, which must end with ``kanban_complete`` or
 ``kanban_block``. Some models narrate the next step and stop with no tool calls;
-Hermes treats that as a clean exit → ``rc=0`` → dispatcher ``protocol_violation``.
+Lemon AI treats that as a clean exit → ``rc=0`` → dispatcher ``protocol_violation``.
 Policy-only: return a bounded synthetic nudge so the loop continues instead of exiting.
 """
 
@@ -16,10 +16,10 @@ _DEFAULT_MAX_ATTEMPTS = 2
 
 
 def kanban_stop_nudge_enabled() -> bool:
-    """On when ``HERMES_KANBAN_TASK`` is set, unless ``HERMES_KANBAN_STOP_NUDGE`` disables it."""
-    if (os.environ.get("HERMES_KANBAN_STOP_NUDGE") or "").strip().lower() in {"0", "false", "no", "off"}:
+    """On when ``LEMON_KANBAN_TASK`` is set, unless ``LEMON_KANBAN_STOP_NUDGE`` disables it."""
+    if (os.environ.get("LEMON_KANBAN_STOP_NUDGE") or "").strip().lower() in {"0", "false", "no", "off"}:
         return False
-    return bool((os.environ.get("HERMES_KANBAN_TASK") or "").strip())
+    return bool((os.environ.get("LEMON_KANBAN_TASK") or "").strip())
 
 
 def _tool_call_name(tc: Any) -> str:
@@ -60,9 +60,9 @@ def build_kanban_stop_nudge(
     ):
         return None
 
-    tid = (task_id or os.environ.get("HERMES_KANBAN_TASK") or "").strip() or "this task"
+    tid = (task_id or os.environ.get("LEMON_KANBAN_TASK") or "").strip() or "this task"
     return (
-        "[System: You are a Hermes kanban worker. A plain-text reply is NOT a "
+        "[System: You are a Lemon AI kanban worker. A plain-text reply is NOT a "
         "terminal state for the board.\n\n"
         f"Task `{tid}` is still `running`. Ending now without a board tool "
         "causes a protocol violation (clean exit with no "

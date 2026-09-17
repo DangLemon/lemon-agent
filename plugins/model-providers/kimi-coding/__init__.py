@@ -5,14 +5,14 @@ from typing import Any
 from urllib.parse import urlparse
 
 from agent.reasoning_effort import KIMI_K3_EFFORTS, KIMI_K3_OVERRIDES, clamp_effort, requested_effort
-from hermes_cli import __version__ as _HERMES_VERSION
+from lemon_cli import __version__ as _LEMON_VERSION
 from providers import register_provider
 from providers.base import OMIT_TEMPERATURE, ProviderProfile
 
 _HEADERS = {
-    "HTTP-Referer": "https://hermes-agent.nousresearch.com",
-    "X-Title": "Hermes Agent",
-    "User-Agent": f"HermesAgent/{_HERMES_VERSION}",
+    "HTTP-Referer": "https://github.com/DangLemon/lemon-agent",
+    "X-Title": "Lemon AI",
+    "User-Agent": f"LemonAgent/{_LEMON_VERSION}",
 }
 
 

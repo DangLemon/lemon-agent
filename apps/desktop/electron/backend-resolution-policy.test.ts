@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest'
 import { shouldAllowExternalRuntime } from './backend-resolution-policy'
 
 describe('shouldAllowExternalRuntime', () => {
-  it('keeps ordinary Hermes desktop builds compatible with existing runtimes', () => {
+  it('keeps ordinary Lemon AI desktop builds compatible with existing runtimes', () => {
     expect(shouldAllowExternalRuntime({ internalHarnessActive: false })).toBe(true)
   })
 
-  it('does not let an internal Lemon AI build inherit a PATH Hermes runtime', () => {
+  it('does not let an internal Lemon AI build inherit a PATH Lemon AI runtime', () => {
     expect(shouldAllowExternalRuntime({ internalHarnessActive: true })).toBe(false)
   })
 

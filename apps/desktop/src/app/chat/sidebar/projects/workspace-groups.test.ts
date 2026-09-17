@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import type { HermesGitWorktree } from '@/global'
+import type { LemonGitWorktree } from '@/global'
 import { makeCwdSession } from '@/test/session-info'
-import type { ProjectInfo, SessionInfo } from '@/types/hermes'
+import type { ProjectInfo, SessionInfo } from '@/types/lemon'
 
 import {
   baseName,
@@ -32,7 +32,7 @@ const lane = (over: Partial<SidebarSessionGroup> & Pick<SidebarSessionGroup, 'id
 
 describe('baseName', () => {
   it('returns the final path segment, ignoring trailing slashes and separators', () => {
-    expect(baseName('/www/hermes-agent/')).toBe('hermes-agent')
+    expect(baseName('/www/lemon-agent/')).toBe('lemon-agent')
     expect(baseName('C:\\repos\\app')).toBe('app')
     expect(baseName('')).toBeUndefined()
   })
@@ -93,7 +93,7 @@ describe('mergeRepoWorktreeGroups (visual enhancer)', () => {
       groups: [lane({ id: '/repo::branch::main', label: 'main', isMain: true, path: '/repo' })]
     }
 
-    const discovered: HermesGitWorktree[] = [
+    const discovered: LemonGitWorktree[] = [
       { branch: 'feature', detached: false, isMain: false, locked: false, path: '/repo-wt-feature' }
     ]
 
@@ -111,7 +111,7 @@ describe('mergeRepoWorktreeGroups (visual enhancer)', () => {
       groups: [lane({ id: '/repo::branch::main', label: 'main', isMain: true, path: '/repo' })]
     }
 
-    const discovered: HermesGitWorktree[] = [
+    const discovered: LemonGitWorktree[] = [
       { branch: 'wt/t_aaaaaaaa', detached: false, isMain: false, locked: false, path: '/repo/.worktrees/t_aaaaaaaa' },
       { branch: 'wt/t_bbbbbbbb', detached: false, isMain: false, locked: false, path: '/repo/.worktrees/t_bbbbbbbb' }
     ]
@@ -134,7 +134,7 @@ describe('mergeRepoWorktreeGroups (visual enhancer)', () => {
       ]
     }
 
-    const discovered: HermesGitWorktree[] = [
+    const discovered: LemonGitWorktree[] = [
       { branch: 'main', detached: false, isMain: true, locked: false, path: '/repo' }
     ]
 
@@ -164,7 +164,7 @@ describe('mergeRepoWorktreeGroups (visual enhancer)', () => {
       })
     ]
 
-    const discovered: HermesGitWorktree[] = [
+    const discovered: LemonGitWorktree[] = [
       { branch: 'main', detached: false, isMain: false, locked: false, path: '/repo/.worktrees/main-mirror' }
     ]
 
@@ -174,9 +174,9 @@ describe('mergeRepoWorktreeGroups (visual enhancer)', () => {
   })
 
   it('surfaces a user-named "New worktree" under .worktrees/ as its own lane', () => {
-    const discovered: HermesGitWorktree[] = [
+    const discovered: LemonGitWorktree[] = [
       {
-        branch: 'hermes/test-gui-stuff',
+        branch: 'lemon/test-gui-stuff',
         detached: false,
         isMain: false,
         locked: false,
@@ -186,11 +186,11 @@ describe('mergeRepoWorktreeGroups (visual enhancer)', () => {
 
     const merged = mergeRepoWorktreeGroups({ id: '/repo', path: '/repo', groups: [] }, discovered)
 
-    expect(merged.map(g => g.label)).toContain('hermes/test-gui-stuff')
+    expect(merged.map(g => g.label)).toContain('lemon/test-gui-stuff')
   })
 
   it('relabels a dir-named linked worktree lane to its live checked-out branch', () => {
-    // Backend labels the lane by the worktree dir (`hermes-agent-ci`); the live
+    // Backend labels the lane by the worktree dir (`lemon-agent-ci`); the live
     // `git worktree list` says HEAD there is `bb/ci-affected-only` → branch wins.
     const repo = {
       id: '/repo',
@@ -205,7 +205,7 @@ describe('mergeRepoWorktreeGroups (visual enhancer)', () => {
         }),
         lane({
           id: '/repo-ci',
-          label: 'hermes-agent-ci',
+          label: 'lemon-agent-ci',
           isMain: false,
           path: '/repo-ci',
           sessions: [makeCwdSession('/repo-ci')]
@@ -213,7 +213,7 @@ describe('mergeRepoWorktreeGroups (visual enhancer)', () => {
       ]
     }
 
-    const discovered: HermesGitWorktree[] = [
+    const discovered: LemonGitWorktree[] = [
       { branch: 'main', detached: false, isMain: true, locked: false, path: '/repo' },
       { branch: 'bb/ci-affected-only', detached: false, isMain: false, locked: false, path: '/repo-ci' }
     ]
@@ -247,7 +247,7 @@ describe('mergeRepoWorktreeGroups (visual enhancer)', () => {
     }
 
     // git now has `bb/attempts` at a sibling dir, not the stale `.worktrees` one.
-    const discovered: HermesGitWorktree[] = [
+    const discovered: LemonGitWorktree[] = [
       { branch: 'bb/attempts', detached: false, isMain: false, locked: false, path: '/repo-pr-attempts' }
     ]
 
@@ -281,7 +281,7 @@ describe('mergeRepoWorktreeGroups (visual enhancer)', () => {
       ]
     }
 
-    const discovered: HermesGitWorktree[] = [
+    const discovered: LemonGitWorktree[] = [
       { branch: 'bb/feature', detached: false, isMain: false, locked: false, path: '/repo-feature' }
     ]
 
@@ -308,7 +308,7 @@ describe('mergeRepoWorktreeGroups (visual enhancer)', () => {
       ]
     }
 
-    const discovered: HermesGitWorktree[] = [
+    const discovered: LemonGitWorktree[] = [
       { branch: null, detached: true, isMain: false, locked: false, path: '/repo-ci' }
     ]
 
@@ -333,7 +333,7 @@ describe('mergeRepoWorktreeGroups (visual enhancer)', () => {
     // The repo root is switched to a feature branch. The historical "main"
     // sessions fold into ONE home lane labeled by the live branch — no stale
     // "main" lane lingering beside it.
-    const discovered: HermesGitWorktree[] = [
+    const discovered: LemonGitWorktree[] = [
       { branch: 'some-feature', detached: false, isMain: true, locked: false, path: '/repo' }
     ]
 
@@ -362,7 +362,7 @@ describe('mergeRepoWorktreeGroups (visual enhancer)', () => {
       ]
     }
 
-    const discovered: HermesGitWorktree[] = [
+    const discovered: LemonGitWorktree[] = [
       { branch: 'main', detached: false, isMain: true, locked: false, path: '/repo' }
     ]
 
@@ -394,7 +394,7 @@ describe('mergeRepoWorktreeGroups (visual enhancer)', () => {
       ]
     }
 
-    const discovered: HermesGitWorktree[] = [
+    const discovered: LemonGitWorktree[] = [
       { branch: 'bb/live', detached: false, isMain: true, locked: false, path: '/repo' }
     ]
 
@@ -801,7 +801,7 @@ describe('overlayLiveLanes', () => {
     // place under `::branch::main` / label "main", miss that lane by id+label,
     // and CREATE a second main lane with the same sessions — dual lanes in the
     // project drill-in (e.g. main + codex-research-guardian).
-    const root = '/home/hermes/hermes-workspace/codex-research-guardian'
+    const root = '/home/lemon/lemon-workspace/codex-research-guardian'
     const a = makeCwdSession(root, { id: 's1' }) // empty git_branch / git_repo_root
     const b = makeCwdSession(root, { id: 's2' })
 
@@ -946,7 +946,7 @@ describe('overlayLiveLanes', () => {
   })
 
   it('places a session into an out-of-tree (sibling) worktree lane by its path', () => {
-    // `hermes-agent-ci` is a linked worktree living BESIDE the repo, not under
+    // `lemon-agent-ci` is a linked worktree living BESIDE the repo, not under
     // it — repo-root nesting fails, but the existing lane carries its real path.
     const existing = makeCwdSession('/www/app-ci', { id: 'old' })
 

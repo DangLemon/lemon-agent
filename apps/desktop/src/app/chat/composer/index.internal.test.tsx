@@ -96,7 +96,7 @@ vi.mock('./hooks/use-composer-esc-cancel', () => ({ useComposerEscCancel: vi.fn(
 vi.mock('./hooks/use-composer-metrics', () => ({
   useComposerMetrics: () => ({ compactPill: false, foldVoice: false, minimal: false, stacked: false, tight: false })
 }))
-vi.mock('./hooks/use-composer-placeholder', () => ({ useComposerPlaceholder: () => 'Message Hermes...' }))
+vi.mock('./hooks/use-composer-placeholder', () => ({ useComposerPlaceholder: () => 'Message Lemon AI...' }))
 vi.mock('./hooks/use-composer-popout', () => ({
   useComposerPopout: () => ({
     dockProximity: null,

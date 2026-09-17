@@ -22,7 +22,7 @@ import {
   getLogs,
   getMcpCatalog,
   getUsageAnalytics,
-  type HermesGateway,
+  type LemonGateway,
   installMcpCatalogEntry,
   type McpCatalogEntry,
   type McpTestResult,
@@ -30,7 +30,7 @@ import {
   profileScopeKey,
   saveMcpServers,
   testMcpServer
-} from '@/hermes'
+} from '@/lemon'
 import { type Translations, useI18n } from '@/i18n'
 import { compactNumber } from '@/lib/format'
 import { brandFor } from '@/lib/mcp-brands'
@@ -46,7 +46,7 @@ import { notify, notifyError } from '@/store/notifications'
 import { $activeGatewayProfile, normalizeProfileKey } from '@/store/profile'
 import { $activeSessionId } from '@/store/session'
 
-import { hermesConfigCacheWriter, useHermesConfigRecord } from '../hooks/use-config-record'
+import { lemonConfigCacheWriter, useLemonConfigRecord } from '../hooks/use-config-record'
 import { useOnProfileSwitch } from '../hooks/use-on-profile-switch'
 import { DetailPane, ICON_BUTTON, MASTER_DETAIL_WIDE_COLS } from '../master-detail'
 import { PanelAddButton, PanelEmpty } from '../overlays/panel'
@@ -84,7 +84,7 @@ function parseServersDoc(raw: string): McpServers {
   return Object.fromEntries(Object.entries(map).map(([name, entry]) => [name, normalizeEntry(entry)]))
 }
 
-// The runtime gate is `enabled: false` — the same flag `hermes mcp` and the
+// The runtime gate is `enabled: false` — the same flag `lemon mcp` and the
 // agent's MCP loader read.
 const serverEnabled = (server: Record<string, unknown>) => server.enabled !== false
 
@@ -352,7 +352,7 @@ export function McpTab({
   profile,
   readOnly = false
 }: {
-  gateway: HermesGateway | null
+  gateway: LemonGateway | null
   profile?: ProfileScope
   readOnly?: boolean
 }) {
@@ -381,9 +381,9 @@ export function McpTab({
     refetch: refetchConfig,
     dataUpdatedAt: configUpdatedAt,
     errorUpdatedAt: configErroredAt
-  } = useHermesConfigRecord(profile)
+  } = useLemonConfigRecord(profile)
 
-  const setConfig = hermesConfigCacheWriter(profile)
+  const setConfig = lemonConfigCacheWriter(profile)
 
   // True from a profile switch until the config query resettles for the new
   // profile. Until then `config` (and thus `servers`) still holds profile A's
@@ -630,7 +630,7 @@ export function McpTab({
         cancelled: () => profileEpoch.current !== epoch || !oauthScopeGuard(),
         cancel: oauthClient.cancel,
         relayCallback: oauthClient.relayCallback,
-        openExternal: url => window.hermesDesktop.openExternal(url)
+        openExternal: url => window.lemonDesktop.openExternal(url)
       })
 
       const result: McpTestResult = { ok: true, tools: flow.tools ?? [] }
@@ -745,7 +745,7 @@ export function McpTab({
     }
   }
 
-  // Whole-map replace (NOT saveHermesConfig, which deep-merges and so can never
+  // Whole-map replace (NOT saveLemonConfig, which deep-merges and so can never
   // delete a server, drop `enabled: false`, or remove a nested field). Only
   // after the replace lands do we write the cache through + reload live sessions.
   // Returns false when the profile switched mid-save: the write hit profile A's

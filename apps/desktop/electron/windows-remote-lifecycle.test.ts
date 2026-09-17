@@ -23,13 +23,13 @@ const ownershipId = '0123456789abcdef0123456789abcdef'
 
 test('Windows spawn holds the update mutex across marker check and helper spawn', () => {
   const command = atomicWindowsSpawnCommand({
-    hermesHome: 'C:\\Users\\andre\\.hermes',
-    python: 'C:\\Users\\andre\\.hermes\\python.exe'
+    lemonHome: 'C:\\Users\\andre\\.lemon-ai',
+    python: 'C:\\Users\\andre\\.lemon-ai\\python.exe'
   })
 
   const encoded = command.match(/-EncodedCommand\s+([^\s]+)$/)?.[1]
   const script = encoded ? Buffer.from(encoded, 'base64').toString('utf16le') : ''
-  assert.match(script, /\.hermes-update-in-progress/)
+  assert.match(script, /\.lemon-ai-update-in-progress/)
   assert.match(script, /\$mutexPath=\$marker\+"\.mutex"/)
   assert.match(script, /\.Lock\(0,1\)/)
   assert.match(script, /windows_ssh_runtime.*spawn/)
@@ -39,15 +39,15 @@ test('Windows spawn holds the update mutex across marker check and helper spawn'
 test('Windows spawn publishes the initial ownership record before releasing the mutex', () => {
   const command = atomicWindowsSpawnCommand(
     {
-      hermesHome: 'C:\\Users\\andre\\.hermes',
-      python: 'C:\\Users\\andre\\.hermes\\python.exe'
+      lemonHome: 'C:\\Users\\andre\\.lemon-ai',
+      python: 'C:\\Users\\andre\\.lemon-ai\\python.exe'
     },
     {
       ownershipId,
       spawnNonce: '0123456789abcdef',
       profile: 'default',
-      hermesPath: 'C:\\Hermes\\hermes.exe',
-      hermesHome: 'C:\\Users\\andre\\.hermes',
+      lemonPath: 'C:\\Lemon AI\\lemon.exe',
+      lemonHome: 'C:\\Users\\andre\\.lemon-ai',
       tokenFingerprint: 'a'.repeat(32),
       startedAt: '2026-07-14T00:00:00.000Z'
     }
@@ -79,17 +79,17 @@ test('Windows relaunch gate refuses live and uncertain markers before executing 
       const script = Buffer.from(command.split(' ').at(-1) || '', 'base64').toString('utf16le')
       scripts.push(script)
 
-      if (script.includes('Get-Command hermes.exe')) {
+      if (script.includes('Get-Command lemon.exe')) {
         return JSON.stringify({
           os: 'Windows',
           arch: 'AMD64',
-          hermesHome: 'C:\\Users\\alice\\.hermes',
-          hermesPath: 'C:\\Hermes\\hermes.exe',
-          python: 'C:\\Hermes\\python.exe'
+          lemonHome: 'C:\\Users\\alice\\.lemon-ai',
+          lemonPath: 'C:\\Lemon AI\\lemon.exe',
+          python: 'C:\\Lemon AI\\python.exe'
         })
       }
 
-      if (script.includes('.hermes-update-in-progress')) {
+      if (script.includes('.lemon-ai-update-in-progress')) {
         return observation
       }
 
@@ -104,13 +104,13 @@ test('Windows relaunch gate refuses live and uncertain markers before executing 
           pickLocalPort: async () => 50000,
           forward: async () => {},
           cancelForward: async () => {},
-          waitForHermes: async () => {},
+          waitForLemon: async () => {},
           probeReuseProof: async () => 'authenticated-ok'
         }),
       (error: any) => error.kind === 'update-in-progress'
     )
     assert.equal(
-      scripts.some(script => script.includes('hermes_cli.windows_ssh_runtime')),
+      scripts.some(script => script.includes('lemon_cli.windows_ssh_runtime')),
       false
     )
   }
@@ -125,8 +125,8 @@ test('Windows relaunch gate uses strict install-wide marker parsing and fail-clo
     return 'CLEAR'
   })
 
-  await assertWindowsRemoteInstallUpdateClear(ssh, 'C:\\Users\\alice\\.hermes\\profiles\\research')
-  assert.match(script, /\.hermes-update-in-progress/)
+  await assertWindowsRemoteInstallUpdateClear(ssh, 'C:\\Users\\alice\\.lemon-ai\\profiles\\research')
+  assert.match(script, /\.lemon-ai-update-in-progress/)
   assert.match(script, /Split-Path -Leaf \$parent.*profiles/)
   assert.match(script, /UTF8Encoding.*true/)
   assert.match(script, /\\A\(\[1-9\]/)
@@ -134,7 +134,7 @@ test('Windows relaunch gate uses strict install-wide marker parsing and fail-clo
   assert.doesNotMatch(script, /ErrorAction SilentlyContinue/)
 })
 
-test('Windows probe validates Hermes and Python topology before selection', async () => {
+test('Windows probe validates Lemon AI and Python topology before selection', async () => {
   let script = ''
   await probeWindowsRemote(
     sshWith(async command => {
@@ -143,17 +143,17 @@ test('Windows probe validates Hermes and Python topology before selection', asyn
       return JSON.stringify({
         os: 'Windows',
         arch: 'AMD64',
-        hermesHome: 'C:\\\\h',
-        hermesPath: 'C:\\\\h\\\\hermes.exe',
+        lemonHome: 'C:\\\\h',
+        lemonPath: 'C:\\\\h\\\\lemon.exe',
         python: 'C:\\\\h\\\\python.exe'
       })
     }),
-    'C:\\\\h\\\\hermes.exe'
+    'C:\\\\h\\\\lemon.exe'
   )
 
   const explicitCheck = script.indexOf('if($explicit){Assert-NoReparse $explicit $false;')
   const explicitPythonCheck = script.indexOf('Assert-NoReparse $explicitPython $false')
-  const fallbackJoin = script.indexOf('Join-Path $hermesHome')
+  const fallbackJoin = script.indexOf('Join-Path $lemonHome')
   const candidatePythonCheck = script.indexOf('Assert-NoReparse $candidatePython $true')
   const candidateSelection = script.indexOf('Get-Item -LiteralPath $candidate')
   const pythonJoin = script.indexOf('$python=[IO.Path]::Combine')
@@ -185,8 +185,8 @@ test('platform detection preserves POSIX and falls back to Windows PowerShell', 
       return JSON.stringify({
         os: 'Windows',
         arch: 'ARM64',
-        hermesHome: 'C:\\h',
-        hermesPath: 'C:\\h\\hermes.exe',
+        lemonHome: 'C:\\h',
+        lemonPath: 'C:\\h\\lemon.exe',
         python: 'C:\\h\\python.exe'
       })
     })
@@ -218,14 +218,14 @@ test('platform detection surfaces transport failures as themselves, not unsuppor
           throw new Error('not recognized')
         }
 
-        throw new Error('Hermes is not installed on the remote Windows host.')
+        throw new Error('Lemon AI is not installed on the remote Windows host.')
       })
     ),
-    (err: any) => err.kind === 'unsupported-platform' && /Hermes is not installed/.test(err.message)
+    (err: any) => err.kind === 'unsupported-platform' && /Lemon AI is not installed/.test(err.message)
   )
 })
 
-test('platform detection uses the Lemon host label while preserving the hermes.exe probe contract', async () => {
+test('platform detection uses the Lemon host label while preserving the lemon.exe probe contract', async () => {
   const calls: string[] = []
 
   await assert.rejects(
@@ -246,7 +246,7 @@ test('platform detection uses the Lemon host label while preserving the hermes.e
       assert.equal(err.kind, 'unsupported-platform')
       assert.match(err.message, /Lemon AI Desktop SSH/)
       assert.match(err.message, /Lemon AI is not installed/)
-      assert.doesNotMatch(err.message, /Hermes is not installed/)
+      assert.doesNotMatch(err.message, /Lemon AI is not installed/)
 
       return true
     }
@@ -254,19 +254,19 @@ test('platform detection uses the Lemon host label while preserving the hermes.e
 
   const windowsProbe = calls.find(command => command.includes('-EncodedCommand')) || ''
   const script = Buffer.from(windowsProbe.split(' ').pop() || '', 'base64').toString('utf16le')
-  assert.match(script, /Get-Command hermes\.exe/)
+  assert.match(script, /Get-Command lemon\.exe/)
 })
 
 test('helper command uses the fixed remote Python entry point and quotes path data', () => {
-  const command = helperCommand({ python: "C:\\Program Files\\Hermes's\\python.exe" }, 'inspect', [
-    'C:\\x y\\hermes.exe'
+  const command = helperCommand({ python: "C:\\Program Files\\Lemon AI's\\python.exe" }, 'inspect', [
+    'C:\\x y\\lemon.exe'
   ])
 
   const encoded = command.split(' ').pop()!
   const script = Buffer.from(encoded, 'base64').toString('utf16le')
-  assert.match(script, /-m' 'hermes_cli\.windows_ssh_runtime' 'inspect'/)
-  assert.match(script, /Hermes''s/)
-  assert.match(script, /C:\\x y\\hermes\.exe/)
+  assert.match(script, /-m' 'lemon_cli\.windows_ssh_runtime' 'inspect'/)
+  assert.match(script, /Lemon AI''s/)
+  assert.match(script, /C:\\x y\\lemon\.exe/)
 })
 
 test('Windows lock validation is scoped and exact', () => {
@@ -279,8 +279,8 @@ test('Windows lock validation is scoped and exact', () => {
     creationTimeNs: '1784219690452757504',
     port: 1234,
     tokenFingerprint: 'a'.repeat(32),
-    hermesPath: 'C:\\h\\hermes.exe',
-    hermesHome: 'C:\\h'
+    lemonPath: 'C:\\h\\lemon.exe',
+    lemonHome: 'C:\\h'
   }
 
   assert.equal(validLock(lock, ownershipId), true)
@@ -305,12 +305,12 @@ test('Windows SSH reuse requires the requested remote profile to match the lock'
     port: 1234,
     profile: 'default',
     tokenFingerprint: crypto.createHash('sha256').update(token).digest('hex').slice(0, 32),
-    hermesPath: 'C:\\h\\hermes.exe',
-    hermesHome: 'C:\\h'
+    lemonPath: 'C:\\h\\lemon.exe',
+    lemonHome: 'C:\\h'
   }
 
   const state = { alive: true, owned: true }
-  const runtime = { hermesPath: lock.hermesPath, hermesHome: lock.hermesHome }
+  const runtime = { lemonPath: lock.lemonPath, lemonHome: lock.lemonHome }
 
   assert.equal(reusableWindowsLock(lock, state, 'default', token, runtime), true)
   assert.equal(reusableWindowsLock(lock, state, 'desktop-work', token, runtime), false)
@@ -328,14 +328,14 @@ test('Windows integrated terminal uses the Lemon host label when requested', () 
   const command = buildWindowsInteractiveCommand('', 'Lemon AI')
   const script = Buffer.from(command.split(' ').pop()!, 'base64').toString('utf16le')
   assert.match(script, /WindowTitle='Lemon AI SSH'/)
-  assert.doesNotMatch(script, /Hermes SSH/)
+  assert.doesNotMatch(script, /Lemon AI SSH/)
 })
 
 test('Windows update marker errors use the Lemon host label', async () => {
   const ssh = sshWith(async () => 'LIVE:4242')
 
   await assert.rejects(
-    () => assertWindowsRemoteInstallUpdateClear(ssh, 'C:\\Users\\alice\\.hermes', 'Lemon AI'),
+    () => assertWindowsRemoteInstallUpdateClear(ssh, 'C:\\Users\\alice\\.lemon-ai', 'Lemon AI'),
     /Remote Lemon AI update process 4242 is still running/
   )
 })
@@ -351,8 +351,8 @@ test('managed update drain preserves a Windows owner when creation time does not
     port: 1234,
     profile: 'default',
     tokenFingerprint: 'a'.repeat(32),
-    hermesPath: 'C:\\h\\hermes.exe',
-    hermesHome: 'C:\\h'
+    lemonPath: 'C:\\h\\lemon.exe',
+    lemonHome: 'C:\\h'
   }
 
   const operations: string[] = []
@@ -393,8 +393,8 @@ test('managed update drain rechecks Windows PID/create-time ownership before exa
     port: 1234,
     profile: 'default',
     tokenFingerprint: 'a'.repeat(32),
-    hermesPath: 'C:\\h\\hermes.exe',
-    hermesHome: 'C:\\h'
+    lemonPath: 'C:\\h\\lemon.exe',
+    lemonHome: 'C:\\h'
   }
 
   const operations: string[] = []

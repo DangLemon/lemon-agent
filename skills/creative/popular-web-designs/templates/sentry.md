@@ -1,7 +1,7 @@
 # Design System: Sentry
 
 
-> **Hermes Agent — Implementation Notes**
+> **Lemon AI — Implementation Notes**
 >
 > The original site uses proprietary fonts. For self-contained HTML output, use these CDN substitutes:
 > - **Primary:** `Rubik` | **Mono:** `JetBrains Mono`

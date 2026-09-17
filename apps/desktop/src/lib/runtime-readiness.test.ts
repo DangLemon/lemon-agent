@@ -43,7 +43,7 @@ describe('interpretRuntimeReadiness', () => {
 
   it('preserves auth.py setup guidance from runtime_check for the Lemon renderer', () => {
     const source =
-      "No inference provider configured. Run 'hermes model' to choose a provider and model, or set an API key (OPENROUTER_API_KEY, OPENAI_API_KEY, etc.) in ~/.hermes/.env for Hermes-4.5."
+      "No inference provider configured. Run 'lemon model' to choose a provider and model, or set an API key (OPENROUTER_API_KEY, OPENAI_API_KEY, etc.) in ~/.lemon-ai/.env for Hermes-4.5."
 
     const lemon = interpretRuntimeReadiness(
       {
@@ -56,7 +56,7 @@ describe('interpretRuntimeReadiness', () => {
     )
 
     expect(lemon.reason).toContain(source)
-    expect(lemon.reason).toContain('~/.hermes/.env')
+    expect(lemon.reason).toContain('~/.lemon-ai/.env')
     expect(lemon.reason).toContain('Hermes-4.5')
     expect(lemon.reason).not.toContain('~/.lemon-ai/.env')
   })
@@ -142,7 +142,7 @@ describe('runtimeReadinessForBrand', () => {
     const status = {
       checksDisagree: false,
       ready: false,
-      reason: 'Check ~/.hermes/.env before restarting Hermes-4.5 through the Hermes gateway.',
+      reason: 'Check ~/.lemon-ai/.env before restarting Hermes-4.5 through the Lemon AI gateway.',
       source: 'setup_status' as const
     }
 

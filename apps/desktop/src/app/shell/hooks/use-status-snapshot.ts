@@ -4,9 +4,9 @@ import {
   resetInternalCompanyCapabilities,
   updateInternalCompanyRuntimeReadiness
 } from '@/app/internal-company/store'
-import { getStatus } from '@/hermes'
+import { getStatus } from '@/lemon'
 import { evaluateRuntimeReadiness, type RuntimeReadinessResult } from '@/lib/runtime-readiness'
-import type { StatusResponse } from '@/types/hermes'
+import type { StatusResponse } from '@/types/lemon'
 
 // Statusbar health is ambient chrome, not live data — nothing the user acts on
 // within seconds. 60s + an actively-viewed check keeps traffic low; focus and

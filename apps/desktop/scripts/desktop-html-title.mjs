@@ -1,13 +1,13 @@
 import { loadHarnessConfigInput } from './internal-desktop-harness.mjs'
 
-const TITLE_PLACEHOLDER = '%HERMES_DESKTOP_APP_TITLE%'
-const ICON_PLACEHOLDER = '%HERMES_DESKTOP_APP_ICON%'
+const TITLE_PLACEHOLDER = '%LEMON_DESKTOP_APP_TITLE%'
+const ICON_PLACEHOLDER = '%LEMON_DESKTOP_APP_ICON%'
 
 export function desktopHtmlTitleForEnv(env = process.env) {
   try {
-    return loadHarnessConfigInput(env) ? 'Lemon AI' : 'Hermes'
+    return loadHarnessConfigInput(env) ? 'Lemon AI' : 'Lemon AI'
   } catch {
-    return 'Hermes'
+    return 'Lemon AI'
   }
 }
 
@@ -16,7 +16,7 @@ export function desktopHtmlTitlePlugin(env = process.env) {
   const icon = title === 'Lemon AI' ? 'lemon-apple-touch-icon.png' : 'apple-touch-icon.png'
 
   return {
-    name: 'hermes:desktop-html-title',
+    name: 'lemon:desktop-html-title',
     transformIndexHtml: {
       order: 'pre',
       handler(html) {

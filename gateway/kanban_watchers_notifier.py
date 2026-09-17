@@ -17,12 +17,12 @@ from gateway.kanban_watchers_common import _list_boards, _to_thread_process_serv
 
 
 def _kbc():
-    from hermes_cli import kanban_db_connect
+    from lemon_cli import kanban_db_connect
     return kanban_db_connect
 
 
 def _kbn():
-    from hermes_cli import kanban_db_notify
+    from lemon_cli import kanban_db_notify
     return kanban_db_notify
 
 # "status" covers dashboard drag-drop and `_set_status_direct()`.
@@ -124,7 +124,7 @@ class _Collector:
             logger.debug("kanban notifier: no connected adapters; skipping tick")
             return self.deliveries
         # Poll each resolved DB path once: several slugs can map to one DB when
-        # HERMES_KANBAN_DB pins the board path.
+        # LEMON_KANBAN_DB pins the board path.
         kb = self.kb
         seen_db_paths: set[str] = set()
         for board_meta in _list_boards(kb):

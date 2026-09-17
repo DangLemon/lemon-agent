@@ -5,7 +5,7 @@ export interface GitBinaryOptions {
   env: Record<string, string | undefined>
   fileExists: (filePath: string) => boolean
   findOnPath?: (command: string) => string | null
-  hermesHome?: string
+  lemonHome?: string
   localAppDataProductDirs?: string[]
 }
 
@@ -13,8 +13,8 @@ export interface GitBinaryOptions {
  * Locate git.exe for desktop update checks.
  *
  * Windows packaged installs may only have PortableGit under the selected
- * HERMES_HOME. Lemon AI uses %LOCALAPPDATA%\Lemon AI, while legacy Hermes used
- * %LOCALAPPDATA%\hermes, so probe the active home first and keep legacy homes as
+ * LEMON_HOME. Lemon AI uses %LOCALAPPDATA%\Lemon AI, while legacy Lemon AI used
+ * %LOCALAPPDATA%\Lemon AI, so probe the active home first and keep legacy homes as
  * migration fallbacks before system Git/PATH.
  */
 export function resolveGitBinaryPath(opts: GitBinaryOptions): string {
@@ -29,9 +29,9 @@ export function resolveGitBinaryPath(opts: GitBinaryOptions): string {
   const joinWin = path.win32.join
 
   const productHomes = [
-    opts.hermesHome,
+    opts.lemonHome,
     ...(localAppData
-      ? (opts.localAppDataProductDirs?.length ? opts.localAppDataProductDirs : ['hermes']).map(name =>
+      ? (opts.localAppDataProductDirs?.length ? opts.localAppDataProductDirs : ['lemon']).map(name =>
           joinWin(localAppData, name)
         )
       : [])

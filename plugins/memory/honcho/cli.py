@@ -1,4 +1,4 @@
-"""``hermes honcho`` subcommands: setup wizard, status, peers, sessions, identity, migrate."""
+"""``lemon honcho`` subcommands: setup wizard, status, peers, sessions, identity, migrate."""
 
 from __future__ import annotations
 
@@ -7,13 +7,13 @@ import os
 import sys
 from pathlib import Path
 
-from hermes_constants import get_hermes_home
+from lemon_constants import get_lemon_home
 from plugins.memory.honcho.client import _first_parsed, _host_block, profile_host_key, resolve_active_host, resolve_config_path, HOST
-from hermes_cli.config import cfg_get
+from lemon_cli.config import cfg_get
 
 RULE = "─" * 40
 REASONING_LEVELS = ("minimal", "low", "medium", "high", "max")
-_RETRY_HINT = "  Re-run 'hermes honcho setup' to retry, or choose an API key instead.\n"
+_RETRY_HINT = "  Re-run 'lemon honcho setup' to retry, or choose an API key instead.\n"
 
 # Settings a new profile host block inherits from the default block.
 _INHERITED_KEYS = (
@@ -61,7 +61,7 @@ def _config_path() -> Path:
 
 def _local_config_path() -> Path:
     """Instance-local write path; ~/.honcho/config.json is only a read fallback for cross-app interop."""
-    return get_hermes_home() / "honcho.json"
+    return get_lemon_home() / "honcho.json"
 
 
 def _read_config() -> dict:
@@ -79,7 +79,7 @@ def _write_config(cfg: dict, path: Path | None = None) -> None:
 
 
 def _label(host: str) -> str:
-    return f"[{host}] " if host != "hermes" else ""
+    return f"[{host}] " if host != "lemon" else ""
 
 
 def _mask(key: str) -> str:
@@ -140,7 +140,7 @@ def _prompt(label: str, default: str | None = None, secret: bool = False) -> str
     sys.stdout.write(f"  {label}{f' [{default}]' if default else ''}: ")
     sys.stdout.flush()
     if secret and sys.stdin.isatty():
-        from hermes_cli.secret_prompt import masked_secret_prompt
+        from lemon_cli.secret_prompt import masked_secret_prompt
         val = masked_secret_prompt("")
     else:  # non-TTY (piped input, test runners) reads plaintext
         val = sys.stdin.readline().strip()
@@ -228,16 +228,16 @@ def _sync_profiles(verbose: bool) -> int:
     """Clone host blocks for profiles lacking one; returns the count created."""
     say = print if verbose else (lambda *a: None)
     try:
-        from hermes_cli.profiles import list_profiles
+        from lemon_cli.profiles import list_profiles
         profiles = list_profiles()
     except Exception as e:
         return say(f"  Could not list profiles: {e}\n") or 0
     cfg = _read_config()
     if not cfg:
-        return say("  No Honcho config found. Run 'hermes honcho setup' first.\n") or 0
+        return say("  No Honcho config found. Run 'lemon honcho setup' first.\n") or 0
     default_block, has_key = _default_block_and_key(cfg)
     if not default_block and not has_key:
-        return say("  Honcho not configured on default profile. Run 'hermes honcho setup' first.\n") or 0
+        return say("  Honcho not configured on default profile. Run 'lemon honcho setup' first.\n") or 0
 
     created = skipped = 0
     for p in (p for p in profiles if p.name != "default"):
@@ -259,7 +259,7 @@ def cmd_sync(args) -> None:
 
 
 def sync_honcho_profiles_quiet() -> int:
-    """Sync host blocks for all profiles from `hermes update`; no output, no exceptions."""
+    """Sync host blocks for all profiles from `lemon update`; no output, no exceptions."""
     return _sync_profiles(verbose=False)
 
 
@@ -298,18 +298,18 @@ def cmd_disable(args) -> None:
 
 # ── identity mapping (setup wizard) ────────────────────────────────────────
 
-def _resolve_effective_identity_mapping(cfg: dict, hermes_host: dict) -> tuple[bool, dict, str, bool, bool]:
+def _resolve_effective_identity_mapping(cfg: dict, lemon_host: dict) -> tuple[bool, dict, str, bool, bool]:
     """``(pin, aliases, prefix, aliases_from_root, prefix_from_root)`` for the active host,
     mirroring ``from_global_config`` precedence (host over root; ``pinUserPeer`` beats
     ``pinPeerName``) so setup classifies the shape the gateway actually runs with.
     ``*_from_root`` lets writes skip inherited values."""
-    pin_sources = (hermes_host.get("pinUserPeer"), hermes_host.get("pinPeerName"),
+    pin_sources = (lemon_host.get("pinUserPeer"), lemon_host.get("pinPeerName"),
                    cfg.get("pinUserPeer"), cfg.get("pinPeerName"))
     pin = bool(next((v for v in pin_sources if v is not None), False))
 
     def _inherit(key):
-        if key in hermes_host:
-            return hermes_host.get(key), False
+        if key in lemon_host:
+            return lemon_host.get(key), False
         val = cfg.get(key)
         return val, val is not None
 
@@ -319,10 +319,10 @@ def _resolve_effective_identity_mapping(cfg: dict, hermes_host: dict) -> tuple[b
     return pin, aliases, str(prefix_src or ""), aliases_from_root, prefix_from_root
 
 
-def _scrub_identity_mapping(hermes_host: dict) -> None:
+def _scrub_identity_mapping(lemon_host: dict) -> None:
     """Drop every peer-mapping key so a stale alias/prefix/pin can't bleed into the new shape."""
     for key in _IDENTITY_MAPPING_KEYS:
-        hermes_host.pop(key, None)
+        lemon_host.pop(key, None)
 
 
 def _migrate_pin_key(block: dict) -> bool:
@@ -357,29 +357,29 @@ def _collect_operator_aliases(existing: dict, peer_target: str) -> dict:
     return aliases
 
 
-def _apply_runtime_prefix(hermes_host: dict, current_prefix: str, prefix_from_root: bool, label: str) -> None:
+def _apply_runtime_prefix(lemon_host: dict, current_prefix: str, prefix_from_root: bool, label: str) -> None:
     """Write a host-level runtimePeerPrefix only when it diverges from an
     inherited root value; otherwise let the root cascade stand."""
     new_prefix = _prompt(label, default=current_prefix or "").strip()
     if new_prefix and not (prefix_from_root and new_prefix == current_prefix):
-        hermes_host["runtimePeerPrefix"] = new_prefix
+        lemon_host["runtimePeerPrefix"] = new_prefix
 
 
-def _echo_identity_mapping(hermes_host: dict) -> None:
-    print(f"  resolved →\n    pinUserPeer       = {bool(hermes_host.get('pinUserPeer'))}\n"
-          f"    userPeerAliases   = {hermes_host.get('userPeerAliases') or '{}'}\n"
-          f"    runtimePeerPrefix = {hermes_host.get('runtimePeerPrefix') or '(none)'}")
+def _echo_identity_mapping(lemon_host: dict) -> None:
+    print(f"  resolved →\n    pinUserPeer       = {bool(lemon_host.get('pinUserPeer'))}\n"
+          f"    userPeerAliases   = {lemon_host.get('userPeerAliases') or '{}'}\n"
+          f"    runtimePeerPrefix = {lemon_host.get('runtimePeerPrefix') or '(none)'}")
 
 
-def _configure_raw_identity_mapping(hermes_host, current_pin, current_aliases, current_prefix,
+def _configure_raw_identity_mapping(lemon_host, current_pin, current_aliases, current_prefix,
                                     aliases_from_root, prefix_from_root) -> None:
     """Power-user escape hatch: set the three resolver knobs directly."""
     print("\n  Raw identity-mapping keys (resolver tries them top-down):")
     pin_in = _prompt("pinUserPeer — pin all gateway users to your peer? (true/false)",
                      default=str(bool(current_pin)).lower()).strip().lower()
     pin = pin_in in {"true", "t", "yes", "y", "1"}
-    _scrub_identity_mapping(hermes_host)
-    hermes_host["pinUserPeer"] = pin
+    _scrub_identity_mapping(lemon_host)
+    lemon_host["pinUserPeer"] = pin
     if pin:
         return
     aliases = dict(current_aliases) if isinstance(current_aliases, dict) and not aliases_from_root else {}
@@ -389,16 +389,16 @@ def _configure_raw_identity_mapping(hermes_host, current_pin, current_aliases, c
         if rid and peer:
             aliases[rid] = peer
     if aliases:
-        hermes_host["userPeerAliases"] = aliases
-    _apply_runtime_prefix(hermes_host, current_prefix, prefix_from_root,
+        lemon_host["userPeerAliases"] = aliases
+    _apply_runtime_prefix(lemon_host, current_prefix, prefix_from_root,
                           "runtimePeerPrefix — namespace for unknown IDs (blank for none)")
 
 
-def _setup_identity_mapping(cfg: dict, hermes_host: dict, current_peer: str) -> None:
+def _setup_identity_mapping(cfg: dict, lemon_host: dict, current_peer: str) -> None:
     """Gateway identity mapping step. Only the gateway supplies a runtime user ID (CLI/TUI/
     desktop fall through to peerName), so the step is gated on gateway detection."""
     current_pin, current_aliases, current_prefix, aliases_from_root, prefix_from_root = (
-        _resolve_effective_identity_mapping(cfg, hermes_host))
+        _resolve_effective_identity_mapping(cfg, lemon_host))
     current_shape = "single" if current_pin else "hybrid" if current_aliases else "multi"
 
     gw_platforms = _gateway_platforms()
@@ -407,14 +407,14 @@ def _setup_identity_mapping(cfg: dict, hermes_host: dict, current_peer: str) -> 
     else:
         notice, question = (
             ("\n  Gateway identity mapping routes platform users to memory peers.",
-             "Running the Hermes gateway (Telegram/Discord/etc.)? (y/N)") if gw_platforms is None else
+             "Running the Lemon AI gateway (Telegram/Discord/etc.)? (y/N)") if gw_platforms is None else
             ("\n  No gateway platforms connected — identity mapping only affects\n"
              "  gateway users, so this step doesn't apply here.", "Configure gateway mapping anyway? (y/N)"))
         print(notice)
         if not _yes(_prompt(question, default="n")):
             return
 
-    peer_target = hermes_host.get("peerName") or current_peer or "user"
+    peer_target = lemon_host.get("peerName") or current_peer or "user"
     default_choice = {"single": "1", "hybrid": "2"}.get(current_shape, "3")
     print("\n  How should gateway users map to memory peers?\n"
           "    [1] just me — every non-agent user collapses to your peer\n"
@@ -439,7 +439,7 @@ def _setup_identity_mapping(cfg: dict, hermes_host: dict, current_peer: str) -> 
     if shape == "skip":
         return print("  Identity mapping left untouched.")
     if shape == "raw":
-        _configure_raw_identity_mapping(hermes_host, current_pin, current_aliases, current_prefix,
+        _configure_raw_identity_mapping(lemon_host, current_pin, current_aliases, current_prefix,
                                         aliases_from_root, prefix_from_root)
     else:
         # Preserve operator-curated host-level aliases across multi → multi re-runs. Root-sourced
@@ -447,20 +447,20 @@ def _setup_identity_mapping(cfg: dict, hermes_host: dict, current_peer: str) -> 
         prior_aliases = dict(current_aliases) if isinstance(current_aliases, dict) else {}
         if shape == "multi" and aliases_from_root:
             prior_aliases = {}
-        _scrub_identity_mapping(hermes_host)  # each shape starts from a clean slate
-        hermes_host["pinUserPeer"] = shape == "single"
+        _scrub_identity_mapping(lemon_host)  # each shape starts from a clean slate
+        lemon_host["pinUserPeer"] = shape == "single"
         if shape == "single":
             print(f"  All non-agent gateway users route to '{peer_target}' (pin overrides aliases).")
         else:
             aliases = prior_aliases if shape == "multi" else _collect_operator_aliases(prior_aliases, peer_target)
             if aliases:
-                hermes_host["userPeerAliases"] = aliases
-            _apply_runtime_prefix(hermes_host, current_prefix, prefix_from_root,
+                lemon_host["userPeerAliases"] = aliases
+            _apply_runtime_prefix(lemon_host, current_prefix, prefix_from_root,
                                   "Runtime peer prefix (e.g. 'telegram_', blank for none)" if shape == "multi" else
                                   "Runtime peer prefix for unknown users (e.g. 'telegram_', blank for none)")
             print("  Each gateway user → own peer." if shape == "multi" else
                   f"  Your runtime IDs → '{peer_target}', others → own peer.")
-    _echo_identity_mapping(hermes_host)
+    _echo_identity_mapping(lemon_host)
 
 
 # ── setup wizard ───────────────────────────────────────────────────────────
@@ -497,36 +497,36 @@ def _device_login_available() -> bool:
 
 
 def _headless() -> tuple[bool, bool]:
-    """(is_remote, can_open_browser) — degrades safely if hermes_cli internals move."""
+    """(is_remote, can_open_browser) — degrades safely if lemon_cli internals move."""
     try:
-        from hermes_cli.auth import _can_open_graphical_browser, _is_remote_session
+        from lemon_cli.auth import _can_open_graphical_browser, _is_remote_session
         return _is_remote_session(), _can_open_graphical_browser()
     except Exception:
         return False, True
 
 
-def _apply_grant_to_host(hermes_host: dict, cred) -> None:
+def _apply_grant_to_host(lemon_host: dict, cred) -> None:
     """Store an OAuth grant on the host block; the wizard's final save persists it."""
-    hermes_host["apiKey"] = cred.access_token
-    hermes_host["oauth"] = cred.oauth_block()
+    lemon_host["apiKey"] = cred.access_token
+    lemon_host["oauth"] = cred.oauth_block()
     if cred.consent_peer_name:  # default the peer prompt to the consent name
-        hermes_host["peerName"] = cred.consent_peer_name
+        lemon_host["peerName"] = cred.consent_peer_name
     print("  Authorized — token saved. Let's finish configuring.\n")
 
 
-def _setup_local_auth(cfg: dict, hermes_host: dict) -> None:
+def _setup_local_auth(cfg: dict, lemon_host: dict) -> None:
     """Self-hosted Honcho may run with AUTH_USE_AUTH=true; clients then send a JWT signed with
     the server's AUTH_JWT_SECRET as the bearer token. It is stored under the host block (not
     top-level apiKey) so ``get_honcho_client`` treats it as an explicit local auth opt-in and
     cloud/hybrid switching is unaffected."""
     if new_url := _prompt("Base URL", default=cfg.get("baseUrl") or "http://localhost:8000"):
         cfg["baseUrl"] = new_url
-    current_host_key = hermes_host.get("apiKey", "")
+    current_host_key = lemon_host.get("apiKey", "")
     print("\n  Local Honcho auth (JWT signed with the server's AUTH_JWT_SECRET).\n"
           f"  Leave blank if your server runs with AUTH_USE_AUTH=false. Current: {_mask(current_host_key)}")
     new_local_key = _prompt("Local JWT / bearer token (blank to skip / keep current)", secret=True)
     if new_local_key:
-        hermes_host["apiKey"] = new_local_key
+        lemon_host["apiKey"] = new_local_key
     elif current_host_key:
         print("  Keeping existing local JWT.")
     elif cfg.get("apiKey", ""):
@@ -536,7 +536,7 @@ def _setup_local_auth(cfg: dict, hermes_host: dict) -> None:
         print("\n  No local JWT set. Local no-auth ready.")
 
 
-def _setup_device_login(hermes_host: dict, write_path: Path, *, open_browser: bool) -> bool:
+def _setup_device_login(lemon_host: dict, write_path: Path, *, open_browser: bool) -> bool:
     """RFC 8628 device-code sign-in. Returns False if setup must abort."""
     from plugins.memory.honcho.oauth_flow import (
         AccessDenied, AuthorizationTimeout, DeviceCode, DeviceCodeExpired, DeviceFlowError, authorize_via_device_code,
@@ -552,13 +552,13 @@ def _setup_device_login(hermes_host: dict, write_path: Path, *, open_browser: bo
     import webbrowser
     try:
         cred = authorize_via_device_code(
-            config_path=write_path, source="hermes-cli", apply_config=False, display=_show,
+            config_path=write_path, source="lemon-cli", apply_config=False, display=_show,
             open_url=webbrowser.open if open_browser else None, on_poll=lambda: print(".", end="", flush=True),
         )
     except KeyboardInterrupt:
-        print("\n  Cancelled. Re-run 'hermes honcho setup' to try again.\n")
+        print("\n  Cancelled. Re-run 'lemon honcho setup' to try again.\n")
     except (AuthorizationTimeout, DeviceCodeExpired):
-        print("\n  Device code expired before approval.\n  Re-run 'hermes honcho setup' to get a new code.\n")
+        print("\n  Device code expired before approval.\n  Re-run 'lemon honcho setup' to get a new code.\n")
     except AccessDenied:
         print("\n  Sign-in was denied on the approval page.\n" + _RETRY_HINT)
     except Exception as e:
@@ -566,12 +566,12 @@ def _setup_device_login(hermes_host: dict, write_path: Path, *, open_browser: bo
               if isinstance(e, DeviceFlowError) and e.error == "http_429" else f"\n  Device sign-in failed: {e}\n" + _RETRY_HINT)
     else:
         print(" approved")
-        _apply_grant_to_host(hermes_host, cred)
+        _apply_grant_to_host(lemon_host, cred)
         return True
     return False
 
 
-def _setup_browser_login(hermes_host: dict, write_path: Path) -> bool:
+def _setup_browser_login(lemon_host: dict, write_path: Path) -> bool:
     """Loopback OAuth sign-in. Tokens merge into the in-memory cfg so the wizard's final save
     keeps them; settings stay wizard-owned (apply_config=False). Returns False on abort."""
     from plugins.memory.honcho.oauth_flow import authorize_via_loopback
@@ -583,19 +583,19 @@ def _setup_browser_login(hermes_host: dict, write_path: Path) -> bool:
 
     print("\n  Starting browser sign-in…")
     try:
-        cred = authorize_via_loopback(config_path=write_path, source="hermes-cli", apply_config=False, open_url=_open)
+        cred = authorize_via_loopback(config_path=write_path, source="lemon-cli", apply_config=False, open_url=_open)
     except Exception as e:
         print(f"  OAuth sign-in failed: {e}\n" + _RETRY_HINT)
         return False
-    _apply_grant_to_host(hermes_host, cred)
+    _apply_grant_to_host(lemon_host, cred)
     return True
 
 
-def _setup_cloud_auth(cfg: dict, hermes_host: dict, write_path: Path) -> bool:
+def _setup_cloud_auth(cfg: dict, lemon_host: dict, write_path: Path) -> bool:
     """Cloud auth: OAuth (browser), device code, or API key. Returns False on abort."""
     cfg.pop("baseUrl", None)  # cloud uses SDK default
     from plugins.memory.honcho.oauth import OAuthCredential
-    existing_oauth = OAuthCredential.from_host_block(hermes_host)
+    existing_oauth = OAuthCredential.from_host_block(lemon_host)
     device_available = _device_login_available()
     is_remote, can_browse = _headless()
 
@@ -616,16 +616,16 @@ def _setup_cloud_auth(cfg: dict, hermes_host: dict, write_path: Path) -> bool:
                      default=default_method).strip().lower()
 
     if device_available and method in {"device", "d"}:
-        return _setup_device_login(hermes_host, write_path, open_browser=can_browse and not is_remote)
+        return _setup_device_login(lemon_host, write_path, open_browser=can_browse and not is_remote)
     if method in {"oauth", "o"}:
-        return _setup_browser_login(hermes_host, write_path)
+        return _setup_browser_login(lemon_host, write_path)
     print(f"\n  Current API key: {_mask(cfg.get('apiKey', ''))}")
     if new_key := _prompt("Honcho API key (leave blank to keep current)", secret=True):
         cfg["apiKey"] = new_key
     if cfg.get("apiKey"):
         return True
     print("\n  No API key configured. Get yours at https://app.honcho.dev\n"
-          "  Run 'hermes honcho setup' again once you have a key.\n")
+          "  Run 'lemon honcho setup' again once you have a key.\n")
     return False
 
 
@@ -633,21 +633,21 @@ def _menu(header: str, *lines: str) -> None:
     print(f"\n  {header}:\n" + "\n".join(f"    {line}" for line in lines))
 
 
-def _choice_step(hermes_host, key, current, label, valid, fallback=None) -> None:
+def _choice_step(lemon_host, key, current, label, valid, fallback=None) -> None:
     """Prompt for one of ``valid``; an invalid answer writes ``fallback`` (None = keep current)."""
     new = _prompt(label, default=current)
     if new in valid:
-        hermes_host[key] = new
+        lemon_host[key] = new
     elif fallback is not None:
-        hermes_host[key] = fallback
+        lemon_host[key] = fallback
 
 
-def _setup_tuning(cfg: dict, hermes_host: dict) -> None:
+def _setup_tuning(cfg: dict, lemon_host: dict) -> None:
     """Wizard steps 4-8: observation, write frequency, recall, budgets, reasoning, strategy."""
     _menu("Observation mode",
           "directional  -- all observations on, each AI peer builds its own view (default)",
           "unified      -- user observes self, AI observes others only")
-    _choice_step(hermes_host, "observationMode", _pref(hermes_host, cfg, "observationMode", "directional"),
+    _choice_step(lemon_host, "observationMode", _pref(lemon_host, cfg, "observationMode", "directional"),
                  "Observation mode", {"unified", "directional"}, "directional")
 
     _menu("Write frequency",
@@ -655,32 +655,32 @@ def _setup_tuning(cfg: dict, hermes_host: dict) -> None:
           "turn    -- sync write after every turn",
           "session -- batch write at session end only",
           "N       -- write every N turns (e.g. 5)")
-    new_wf = _prompt("Write frequency", default=str(_pref(hermes_host, cfg, "writeFrequency", "async")))
-    hermes_host["writeFrequency"] = _first_parsed([new_wf], int, new_wf if new_wf in {"async", "turn", "session"} else "async")
+    new_wf = _prompt("Write frequency", default=str(_pref(lemon_host, cfg, "writeFrequency", "async")))
+    lemon_host["writeFrequency"] = _first_parsed([new_wf], int, new_wf if new_wf in {"async", "turn", "session"} else "async")
 
     _menu("Recall mode", *(f"{m:<7} -- {desc}" for m, desc in _MODES.items()))
-    raw_recall = _pref(hermes_host, cfg, "recallMode", "hybrid")
-    _choice_step(hermes_host, "recallMode", raw_recall if raw_recall in _MODES else "hybrid", "Recall mode", _MODES)
+    raw_recall = _pref(lemon_host, cfg, "recallMode", "hybrid")
+    _choice_step(lemon_host, "recallMode", raw_recall if raw_recall in _MODES else "hybrid", "Recall mode", _MODES)
 
-    current_ctx_tokens = _pref(hermes_host, cfg, "contextTokens")
+    current_ctx_tokens = _pref(lemon_host, cfg, "contextTokens")
     _menu("Context injection per turn (hybrid/context recall modes only)",
           "uncapped -- no limit (default)",
           "N        -- token limit per turn (e.g. 1200)")
     new_ctx_tokens = _prompt("Context tokens", default=str(current_ctx_tokens) if current_ctx_tokens else "uncapped").strip()
     if new_ctx_tokens.lower() in {"none", "uncapped", "no limit"}:
-        hermes_host.pop("contextTokens", None)
+        lemon_host.pop("contextTokens", None)
     elif new_ctx_tokens and (val := _first_parsed([new_ctx_tokens], int, -1)) >= 0:  # non-numeric keeps current
-        hermes_host["contextTokens"] = val
+        lemon_host["contextTokens"] = val
 
     _menu("Dialectic cadence",
           "How often Honcho rebuilds its user model (LLM call on Honcho backend).",
           "1 = every turn, 2 = every other turn, 3+ = sparser.",
           "Recommended: 1-5.")
-    new_dialectic = _prompt("Dialectic cadence", default=str(_pref(hermes_host, cfg, "dialecticCadence") or "2"))
+    new_dialectic = _prompt("Dialectic cadence", default=str(_pref(lemon_host, cfg, "dialecticCadence") or "2"))
     if (val := _first_parsed([new_dialectic], int, None)) is None:
-        hermes_host["dialecticCadence"] = 2
+        lemon_host["dialecticCadence"] = 2
     elif val >= 1:
-        hermes_host["dialecticCadence"] = val
+        lemon_host["dialecticCadence"] = val
 
     _menu("Dialectic reasoning level",
           "Depth Honcho uses when synthesizing user context on auto-injected calls.",
@@ -689,11 +689,11 @@ def _setup_tuning(cfg: dict, hermes_host: dict) -> None:
           "medium   -- multi-aspect synthesis",
           "high     -- complex behavioral patterns",
           "max      -- thorough audit-level analysis")
-    _choice_step(hermes_host, "dialecticReasoningLevel", _pref(hermes_host, cfg, "dialecticReasoningLevel") or "low",
+    _choice_step(lemon_host, "dialecticReasoningLevel", _pref(lemon_host, cfg, "dialecticReasoningLevel") or "low",
                  "Reasoning level", REASONING_LEVELS, "low")
 
     _menu("Session strategy", *(f"{s:<13} -- {desc}" for s, desc in _STRATEGIES.items()))
-    _choice_step(hermes_host, "sessionStrategy", _pref(hermes_host, cfg, "sessionStrategy", "per-session"),
+    _choice_step(lemon_host, "sessionStrategy", _pref(lemon_host, cfg, "sessionStrategy", "per-session"),
                  "Session strategy", _STRATEGIES)
 
 
@@ -701,16 +701,16 @@ def cmd_setup(args) -> None:
     """Interactive Honcho setup wizard."""
     cfg = _read_config()
     write_path, read_path = _local_config_path(), _config_path()
-    print(f"\nHoncho memory setup\n{RULE}\n  Honcho gives Hermes persistent cross-session memory.\n  Config: {write_path}")
+    print(f"\nHoncho memory setup\n{RULE}\n  Honcho gives Lemon AI persistent cross-session memory.\n  Config: {write_path}")
     if read_path != write_path and read_path.exists():
         print(f"  (seeding from existing config at {read_path})")
     print()
     if not _ensure_sdk_installed():
         return
 
-    hermes_host = cfg.setdefault("hosts", {}).setdefault(_host_key(), {})
+    lemon_host = cfg.setdefault("hosts", {}).setdefault(_host_key(), {})
     _migrate_pin_key(cfg)  # canonicalize legacy pinPeerName before detection/writes
-    _migrate_pin_key(hermes_host)
+    _migrate_pin_key(lemon_host)
 
     # --- 1. Cloud or local? ---
     print("  Deployment:\n    cloud -- Honcho cloud (api.honcho.dev)\n    local -- self-hosted Honcho server")
@@ -719,36 +719,36 @@ def cmd_setup(args) -> None:
     is_local = _prompt("Cloud or local?", default=current_deploy).lower() in {"local", "l"}
     cfg.pop("base_url", None)  # legacy snake_case key
     if is_local:
-        _setup_local_auth(cfg, hermes_host)
-    elif not _setup_cloud_auth(cfg, hermes_host, write_path):
+        _setup_local_auth(cfg, lemon_host)
+    elif not _setup_cloud_auth(cfg, lemon_host, write_path):
         return
 
     # --- 3. Identity ---
-    current_peer = hermes_host.get("peerName") or cfg.get("peerName", "")
+    current_peer = lemon_host.get("peerName") or cfg.get("peerName", "")
     for key, label, default in (
         ("peerName", "Your name (user peer)", current_peer or os.getenv("USER", "user")),
-        ("aiPeer", "AI peer name", _pref(hermes_host, cfg, "aiPeer", "hermes")),
-        ("workspace", "Workspace ID", _pref(hermes_host, cfg, "workspace", "hermes")),
+        ("aiPeer", "AI peer name", _pref(lemon_host, cfg, "aiPeer", "lemon")),
+        ("workspace", "Workspace ID", _pref(lemon_host, cfg, "workspace", "lemon")),
     ):
         if new := _prompt(label, default=default):
-            hermes_host[key] = new
+            lemon_host[key] = new
 
-    _setup_identity_mapping(cfg, hermes_host, current_peer)
+    _setup_identity_mapping(cfg, lemon_host, current_peer)
 
-    _setup_tuning(cfg, hermes_host)
-    hermes_host["enabled"] = True
-    hermes_host.setdefault("saveMessages", True)
+    _setup_tuning(cfg, lemon_host)
+    lemon_host["enabled"] = True
+    lemon_host.setdefault("saveMessages", True)
     _write_config(cfg)
     print(f"\n  Config written to {write_path}")
 
     try:  # auto-enable Honcho as memory provider in config.yaml
-        from hermes_cli.config import load_config, save_config
-        hermes_config = load_config()
-        hermes_config.setdefault("memory", {})["provider"] = "honcho"
-        save_config(hermes_config)
+        from lemon_cli.config import load_config, save_config
+        lemon_config = load_config()
+        lemon_config.setdefault("memory", {})["provider"] = "honcho"
+        save_config(lemon_config)
         print("  Memory provider set to 'honcho' in config.yaml")
     except Exception as e:
-        print(f"  Could not auto-enable in config.yaml: {e}\n  Run: hermes config set memory.provider honcho")
+        print(f"  Could not auto-enable in config.yaml: {e}\n  Run: lemon config set memory.provider honcho")
 
     print("  Testing connection... ", end="", flush=True)
     try:
@@ -776,22 +776,22 @@ def cmd_setup(args) -> None:
     honcho_conclude  -- persist a user fact to memory
 
   Other commands:
-    hermes honcho status     -- show full config
-    hermes honcho mode       -- change recall/observation mode
-    hermes honcho tokens     -- tune context and dialectic budgets
-    hermes honcho peer       -- update peer names
-    hermes honcho map <name> -- map this directory to a session name
+    lemon honcho status     -- show full config
+    lemon honcho mode       -- change recall/observation mode
+    lemon honcho tokens     -- tune context and dialectic budgets
+    lemon honcho peer       -- update peer names
+    lemon honcho map <name> -- map this directory to a session name
 """)
 
 
 # ── status / peers ─────────────────────────────────────────────────────────
 
 def _active_profile_name() -> str:
-    """Active Hermes profile name (respects --target-profile override)."""
+    """Active Lemon AI profile name (respects --target-profile override)."""
     if _profile_override:
         return _profile_override
     try:
-        from hermes_cli.profiles import get_active_profile_name
+        from lemon_cli.profiles import get_active_profile_name
         return get_active_profile_name()
     except Exception:
         return "default"
@@ -800,12 +800,12 @@ def _active_profile_name() -> str:
 def _all_profile_host_configs() -> list[tuple[str, str, dict]]:
     """(profile_name, host_key, host_block) for every known profile, reading honcho.json once."""
     try:
-        from hermes_cli.profiles import list_profiles
+        from lemon_cli.profiles import list_profiles
         profiles = list_profiles()
     except Exception:
         return [(_active_profile_name(), _host_key(), {})]
     cfg = _read_config()
-    # _host_block (not hosts.get) keeps legacy dot-form keys ("hermes.work") readable.
+    # _host_block (not hosts.get) keeps legacy dot-form keys ("lemon.work") readable.
     return [("default", HOST, cfg.get("hosts", {}).get(HOST, {}))] + [
         (p.name, profile_host_key(p.name), _host_block(cfg, profile_host_key(p.name)))
         for p in profiles if p.name != "default"
@@ -820,14 +820,14 @@ def cmd_status(args) -> None:
     try:
         import honcho  # noqa: F401
     except ImportError:
-        print("  honcho-ai is not installed. Run: hermes honcho setup\n")
+        print("  honcho-ai is not installed. Run: lemon honcho setup\n")
         return
 
     cfg = _read_config()
     active_path = _config_path()
     write_path = _local_config_path()
     from plugins.memory.honcho.client import HonchoClientConfig, get_honcho_client
-    not_found = f"  No Honcho config found at {active_path}\n  Run 'hermes honcho setup' to configure.\n"
+    not_found = f"  No Honcho config found at {active_path}\n  Run 'lemon honcho setup' to configure.\n"
     try:
         hcfg = HonchoClientConfig.from_global_config(host=_host_key())
     except Exception as e:
@@ -937,7 +937,7 @@ def cmd_sessions(args) -> None:
     """List known directory → session name mappings."""
     sessions = _read_config().get("sessions", {})
     if not sessions:
-        return print(f"  No session mappings configured.\n\n  Add one with: hermes honcho map <session-name>\n"
+        return print(f"  No session mappings configured.\n\n  Add one with: lemon honcho map <session-name>\n"
                      f"  Or edit {_config_path()} directly.\n")
     cwd = os.getcwd()
     print(f"\nHoncho session mappings ({len(sessions)})\n" + RULE)
@@ -986,18 +986,18 @@ def _show_or_set_fields(args, fields: tuple, show) -> None:
 
 def cmd_peer(args) -> None:
     """Show or update peer names and dialectic reasoning level."""
-    def show(hermes, cfg):
+    def show(lemon, cfg):
         print(f"""
 Honcho peers
 {RULE}
-  User peer:   {_pref(hermes, cfg, 'peerName') or '(not set)'}
+  User peer:   {_pref(lemon, cfg, 'peerName') or '(not set)'}
     Your identity in Honcho. Messages you send build this peer's card.
-  AI peer:     {_pref(hermes, cfg, 'aiPeer') or _host_key()}
-    Hermes' identity in Honcho. Seed with 'hermes honcho identity <file>'.
+  AI peer:     {_pref(lemon, cfg, 'aiPeer') or _host_key()}
+    Lemon AI' identity in Honcho. Seed with 'lemon honcho identity <file>'.
     Dialectic calls ask this peer questions to warm session context.
 
-  Dialectic reasoning:  {_pref(hermes, cfg, 'dialecticReasoningLevel') or 'low'}  ({', '.join(REASONING_LEVELS)})
-  Dialectic cap:        {_pref(hermes, cfg, 'dialecticMaxChars') or 600} chars
+  Dialectic reasoning:  {_pref(lemon, cfg, 'dialecticReasoningLevel') or 'low'}  ({', '.join(REASONING_LEVELS)})
+  Dialectic cap:        {_pref(lemon, cfg, 'dialecticMaxChars') or 600} chars
 """)
     _show_or_set_fields(args, (("user", "peerName", "User peer -> {}", None), ("ai", "aiPeer", "AI peer   -> {}", None),
                                ("reasoning", "dialecticReasoningLevel", "Dialectic reasoning level -> {}", REASONING_LEVELS)), show)
@@ -1012,7 +1012,7 @@ def _show_or_set_choice(args, *, attr: str, key: str, noun: str, title: str, cho
         current = _pref(_active_block(cfg), cfg, key) or default
         print(f"\nHoncho {title}\n" + RULE)
         print("\n".join(f"  {m:<{width}}  {desc}{' <-' if m == current else ''}" for m, desc in choices.items()))
-        return print(f"\n  Set with: hermes honcho {attr} [{'|'.join(choices)}]\n")
+        return print(f"\n  Set with: lemon honcho {attr} [{'|'.join(choices)}]\n")
     if value not in choices:
         return print(f"  Invalid {noun} '{value}'. Options: {', '.join(choices)}\n")
     host = _host_key()
@@ -1035,22 +1035,22 @@ def cmd_strategy(args) -> None:
 
 def cmd_tokens(args) -> None:
     """Show or set token budget settings."""
-    def show(hermes, cfg):
+    def show(lemon, cfg):
         print(f"""
 Honcho budgets
 {RULE}
 
-  Context     {_pref(hermes, cfg, 'contextTokens') or '(Honcho default)'} tokens
+  Context     {_pref(lemon, cfg, 'contextTokens') or '(Honcho default)'} tokens
     Raw memory retrieval. Honcho returns stored facts/history about
     the user and session, injected directly into the system prompt.
 
-  Dialectic   {_pref(hermes, cfg, 'dialecticMaxChars') or 600} chars, reasoning: {_pref(hermes, cfg, 'dialecticReasoningLevel') or 'low'}
-    AI-to-AI inference. Hermes asks Honcho's AI peer a question
+  Dialectic   {_pref(lemon, cfg, 'dialecticMaxChars') or 600} chars, reasoning: {_pref(lemon, cfg, 'dialecticReasoningLevel') or 'low'}
+    AI-to-AI inference. Lemon AI asks Honcho's AI peer a question
     (e.g. "what were we working on?") and Honcho runs its own model
     to synthesize an answer. Used for first-turn session continuity.
     Level controls how much reasoning Honcho spends on the answer.
 
-  Set with: hermes honcho tokens [--context N] [--dialectic N]
+  Set with: lemon honcho tokens [--context N] [--dialectic N]
 """)
     _show_or_set_fields(args, (("context", "contextTokens", "context tokens -> {}", None),
                                ("dialectic", "dialecticMaxChars", "dialectic cap  -> {} chars", None)), show)
@@ -1062,7 +1062,7 @@ def cmd_identity(args) -> None:
     """Seed AI peer identity or show both peer representations."""
     cfg = _read_config()
     if not _resolve_api_key(cfg):
-        return print("  No API key configured. Run 'hermes honcho setup' first.\n")
+        return print("  No API key configured. Run 'lemon honcho setup' first.\n")
     file_path = getattr(args, "file", None)
     try:
         hcfg, client = _connect(_host_key())
@@ -1082,7 +1082,7 @@ def cmd_identity(args) -> None:
               else "  No user peer card yet. Send a few messages to build one.")
         print(f"\nAI peer ({hcfg.ai_peer})\n" + RULE)
         print(ai_rep.get("representation") or ai_rep.get("card")
-              or "  No representation built yet.\n  Run 'hermes honcho identity <file>' to seed one.")
+              or "  No representation built yet.\n  Run 'lemon honcho identity <file>' to seed one.")
         print()
         return
 
@@ -1093,8 +1093,8 @@ Honcho identity management
   User peer: {hcfg.peer_name or 'not set'}
   AI peer:   {hcfg.ai_peer}
 
-    hermes honcho identity --show        — show both peer representations
-    hermes honcho identity <file>        — seed AI peer from SOUL.md or any .md/.txt
+    lemon honcho identity --show        — show both peer representations
+    lemon honcho identity <file>        — seed AI peer from SOUL.md or any .md/.txt
 """)
         return
 
@@ -1145,13 +1145,13 @@ def _offer(question: str, action, files: list[Path]) -> None:
 
 
 def cmd_migrate(args) -> None:
-    """Step-by-step migration guide: OpenClaw native memory → Hermes + Honcho."""
+    """Step-by-step migration guide: OpenClaw native memory → Lemon AI + Honcho."""
     user_files = _find_memory_files(["USER.md", "MEMORY.md"])  # facts about the user
     agent_files = _find_memory_files(["SOUL.md", "IDENTITY.md", "AGENTS.md", "TOOLS.md", "BOOTSTRAP.md"])
     cfg = _read_config()
     has_key = bool(_resolve_api_key(cfg))
 
-    print("\nHoncho migration: OpenClaw native memory → Hermes\n" + "─" * 50)
+    print("\nHoncho migration: OpenClaw native memory → Lemon AI\n" + "─" * 50)
     print("""
   OpenClaw's native memory stores context in local markdown files
   (USER.md, MEMORY.md, SOUL.md, ...) and injects them via QMD search.
@@ -1164,19 +1164,19 @@ Step 1  Create a Honcho account
     if has_key:
         print(f"  Honcho API key already configured: {_mask(cfg['apiKey'])}\n  Skip to Step 2.")
     else:
-        print("""  Honcho is a cloud memory service that gives Hermes persistent memory
+        print("""  Honcho is a cloud memory service that gives Lemon AI persistent memory
   across sessions. You need an API key to use it.
 
   1. Get your API key at https://app.honcho.dev
-  2. Run:  hermes honcho setup
+  2. Run:  lemon honcho setup
      Paste the key when prompted.
 """)
-        if _yes(_prompt("  Run 'hermes honcho setup' now?", default="y")):
+        if _yes(_prompt("  Run 'lemon honcho setup' now?", default="y")):
             cmd_setup(args)
             cfg = _read_config()
             has_key = bool(cfg.get("apiKey", ""))
         else:
-            print("\n  Run 'hermes honcho setup' when ready, then re-run this walkthrough.")
+            print("\n  Run 'lemon honcho setup' when ready, then re-run this walkthrough.")
 
     print("\nStep 2  Detected OpenClaw memory files\n")
     if user_files or agent_files:
@@ -1188,7 +1188,7 @@ Step 1  Create a Honcho account
     else:
         print("  No OpenClaw native memory files found in cwd or ~/.openclaw/.\n"
               "  If your files are elsewhere, copy them here before continuing,\n"
-              "  or seed them manually:  hermes honcho identity <path/to/file>")
+              "  or seed them manually:  lemon honcho identity <path/to/file>")
 
     print("""
 Step 3  Migrate user memory files → Honcho user peer
@@ -1200,16 +1200,16 @@ Step 3  Migrate user memory files → Honcho user peer
     if user_files:
         print(f"  Found: {', '.join(f.name for f in user_files)}")
         print("""
-  These are picked up automatically the first time you run 'hermes'
+  These are picked up automatically the first time you run 'lemon'
   with Honcho configured and no prior session history.
-  (Hermes calls migrate_memory_files() on first session init.)
+  (Lemon AI calls migrate_memory_files() on first session init.)
 
   If you want to migrate them now without starting a session:""")
-        print("    hermes honcho migrate  — this step handles it interactively\n" * len(user_files), end="")
+        print("    lemon honcho migrate  — this step handles it interactively\n" * len(user_files), end="")
         if has_key:
             _offer("  Upload user memory files to Honcho now?", _migrate_upload, user_files)
         else:
-            print("  Run 'hermes honcho setup' first, then re-run this step.")
+            print("  Run 'lemon honcho setup' first, then re-run this step.")
     else:
         print("  No user memory files detected. Nothing to migrate here.")
 
@@ -1220,7 +1220,7 @@ Step 4  Seed AI identity files → Honcho AI peer
   agent's character, capabilities, and behavioral rules. In OpenClaw
   these are injected via file search at prompt-build time.
 
-  In Hermes, they are seeded once into Honcho's AI peer through the
+  In Lemon AI, they are seeded once into Honcho's AI peer through the
   observation pipeline. Honcho builds a representation from them and
   from every subsequent assistant message (observe_me=True). Over time
   the representation reflects actual behavior, not just declaration.
@@ -1231,27 +1231,27 @@ Step 4  Seed AI identity files → Honcho AI peer
         if has_key:
             _offer("  Seed AI identity from all detected files now?", _migrate_seed, agent_files)
         else:
-            print("  Run 'hermes honcho setup' first, then seed manually:")
-            print("\n".join(f"    hermes honcho identity {f}" for f in agent_files))
+            print("  Run 'lemon honcho setup' first, then seed manually:")
+            print("\n".join(f"    lemon honcho identity {f}" for f in agent_files))
     else:
-        print("  No agent identity files detected.\n  To seed manually:  hermes honcho identity <path/to/SOUL.md>")
+        print("  No agent identity files detected.\n  To seed manually:  lemon honcho identity <path/to/SOUL.md>")
 
     print("""
 Step 5  What changes vs. OpenClaw native memory
 
   Storage
     OpenClaw: markdown files on disk, searched via QMD at prompt-build time.
-    Hermes:   cloud-backed Honcho peers. Files can stay on disk as source
+    Lemon AI:   cloud-backed Honcho peers. Files can stay on disk as source
               of truth; Honcho holds the live representation.
 
   Context injection
     OpenClaw: file excerpts injected synchronously before each LLM call.
-    Hermes:   Honcho context fetched async at turn end, injected next turn.
+    Lemon AI:   Honcho context fetched async at turn end, injected next turn.
               First turn has no Honcho context; subsequent turns are loaded.
 
   Memory growth
     OpenClaw: you edit files manually to update memory.
-    Hermes:   Honcho observes every message and updates representations
+    Lemon AI:   Honcho observes every message and updates representations
               automatically. Files become the seed, not the live store.
 
   Honcho tools (available to the agent during conversation)
@@ -1263,21 +1263,21 @@ Step 5  What changes vs. OpenClaw native memory
 
   Session naming
     OpenClaw: no persistent session concept — files are global.
-    Hermes:   per-session by default — each run gets its own session
-              Map a custom name:  hermes honcho map <session-name>
+    Lemon AI:   per-session by default — each run gets its own session
+              Map a custom name:  lemon honcho map <session-name>
 
 Step 6  Next steps
 """)
     if not has_key:
-        print("  1. hermes honcho setup              — configure API key (required)\n"
-              "  2. hermes honcho migrate            — re-run this walkthrough")
+        print("  1. lemon honcho setup              — configure API key (required)\n"
+              "  2. lemon honcho migrate            — re-run this walkthrough")
     else:
-        print("""  1. hermes honcho status             — verify Honcho connection
-  2. hermes                           — start a session
+        print("""  1. lemon honcho status             — verify Honcho connection
+  2. lemon                           — start a session
      (user memory files auto-uploaded on first turn if not done above)
-  3. hermes honcho identity --show    — verify AI peer representation
-  4. hermes honcho tokens             — tune context and dialectic budgets
-  5. hermes honcho mode               — view or change memory mode""")
+  3. lemon honcho identity --show    — verify AI peer representation
+  4. lemon honcho tokens             — tune context and dialectic budgets
+  5. lemon honcho mode               — view or change memory mode""")
     print()
 
 
@@ -1285,7 +1285,7 @@ Step 6  Next steps
 
 # (subcommand, help, handler, ((arg, kwargs), ...)); order defines --help order.
 _SUBCOMMANDS = (
-    ("setup", "Initial Honcho setup (redirects to hermes memory setup)", None, ()),
+    ("setup", "Initial Honcho setup (redirects to lemon memory setup)", None, ()),
     ("status", "Show current Honcho config and connection status", cmd_status, (
         ("--all", dict(action="store_true", help="Show config overview across all profiles")),
     )),
@@ -1317,7 +1317,7 @@ _SUBCOMMANDS = (
         ("file", dict(nargs="?", default=None, help="Path to file to seed from (e.g. SOUL.md). Omit to show usage.")),
         ("--show", dict(action="store_true", help="Show current AI peer representation from Honcho")),
     )),
-    ("migrate", "Step-by-step migration guide from openclaw-honcho to Hermes Honcho", cmd_migrate, ()),
+    ("migrate", "Step-by-step migration guide from openclaw-honcho to Lemon AI Honcho", cmd_migrate, ()),
     ("enable", "Enable Honcho for the active profile", cmd_enable, ()),
     ("disable", "Disable Honcho for the active profile", cmd_disable, ()),
     ("sync", "Sync Honcho config to all existing profiles", cmd_sync, ()),
@@ -1331,8 +1331,8 @@ def honcho_command(args) -> None:
     _profile_override = getattr(args, "target_profile", None)
     sub = getattr(args, "honcho_command", None)
     if sub == "setup":  # honcho setup goes through the unified memory-provider path
-        print("\n  Honcho is configured via the memory provider system.\n  Running 'hermes memory setup'...\n")
-        from hermes_cli.memory_setup import cmd_setup_provider
+        print("\n  Honcho is configured via the memory provider system.\n  Running 'lemon memory setup'...\n")
+        from lemon_cli.memory_setup import cmd_setup_provider
         return cmd_setup_provider("honcho")
     handler = cmd_status if sub is None else _HANDLERS.get(sub)
     if handler is None:
@@ -1342,7 +1342,7 @@ def honcho_command(args) -> None:
 
 
 def register_cli(subparser) -> None:
-    """Build the ``hermes honcho`` argparse subcommand tree on the ``hermes honcho`` parser."""
+    """Build the ``lemon honcho`` argparse subcommand tree on the ``lemon honcho`` parser."""
     subparser.add_argument("--target-profile", metavar="NAME", dest="target_profile",
                            help="Target a specific profile's Honcho config without switching")
     subs = subparser.add_subparsers(dest="honcho_command")
