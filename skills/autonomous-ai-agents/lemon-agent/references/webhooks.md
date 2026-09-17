@@ -83,7 +83,7 @@ lemon webhook subscribe todoist-lemon \
   --deliver telegram --deliver-chat-id "12345"
 ```
 
-Full filter syntax: https://github.com/DangLemon/lemon-agent/docs/user-guide/messaging/webhooks#payload-filters
+Full filter syntax: https://danglemon.github.io/lemon-agent/docs/user-guide/messaging/webhooks#payload-filters
 
 ### List subscriptions
 ```bash

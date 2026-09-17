@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 
-_DOCS_BASE = "https://github.com/DangLemon/lemon-agent/docs"
+_DOCS_BASE = "https://danglemon.github.io/lemon-agent/docs"
 _BRACKETED_PASTE_PATTERN = re.compile(r"\x1b\[\s*200~|\x1b\[\s*201~")
 
 

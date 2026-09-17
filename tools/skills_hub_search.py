@@ -23,7 +23,7 @@ from tools.skills_hub_sources import BrowseShSource, LobeHubSource, UrlSource, W
 # Log-record parity with the origin module.
 logger = logging.getLogger("tools.skills_hub")
 
-LEMON_INDEX_URL = "https://github.com/DangLemon/lemon-agent/docs/api/skills-index.json"
+LEMON_INDEX_URL = "https://danglemon.github.io/lemon-agent/docs/api/skills-index.json"
 LEMON_INDEX_TTL = 6 * 3600  # 6 hours
 
 

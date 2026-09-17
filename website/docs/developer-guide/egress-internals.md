@@ -312,8 +312,8 @@ The CLI uses argparse, so `--help` is a good first probe for "did my new flag re
 
 ## See also
 
-- User-facing setup + troubleshooting: [Egress proxy](https://github.com/DangLemon/lemon-agent/docs/user-guide/egress/iron-proxy)
-- Docker backend internals: [Docker](https://github.com/DangLemon/lemon-agent/docs/user-guide/docker)
-- Bitwarden Secrets Manager integration: [`lemon secrets bitwarden`](https://github.com/DangLemon/lemon-agent/docs/user-guide/secrets/bitwarden)
-- CLI command reference: [`lemon egress`](https://github.com/DangLemon/lemon-agent/docs/reference/cli-commands#lemon-egress)
-- Sandbox-injected environment variables: [Egress proxy (sandbox-injected)](https://github.com/DangLemon/lemon-agent/docs/reference/environment-variables#egress-proxy-sandbox-injected)
+- User-facing setup + troubleshooting: [Egress proxy](https://danglemon.github.io/lemon-agent/docs/user-guide/egress/iron-proxy)
+- Docker backend internals: [Docker](https://danglemon.github.io/lemon-agent/docs/user-guide/docker)
+- Bitwarden Secrets Manager integration: [`lemon secrets bitwarden`](https://danglemon.github.io/lemon-agent/docs/user-guide/secrets/bitwarden)
+- CLI command reference: [`lemon egress`](https://danglemon.github.io/lemon-agent/docs/reference/cli-commands#lemon-egress)
+- Sandbox-injected environment variables: [Egress proxy (sandbox-injected)](https://danglemon.github.io/lemon-agent/docs/reference/environment-variables#egress-proxy-sandbox-injected)

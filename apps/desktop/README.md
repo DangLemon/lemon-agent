@@ -241,7 +241,7 @@ Remove-Item -Recurse -Force "$env:LOCALAPPDATA\Lemon AI\lemon-agent\venv"
 
 ## Upstream
 
-- [Lemon AI documentation](https://github.com/DangLemon/lemon-agent/docs/)
+- [Lemon AI documentation](https://danglemon.github.io/lemon-agent/docs/)
 - [Lemon AI upstream repository](https://github.com/DangLemon/lemon-agent)
 
 ---

@@ -134,7 +134,7 @@ LEMON_AGENT_HELP_GUIDANCE = (
     # resolution). No "when the two differ" clause: docs-are-authoritative already carries the precedence.
     "You run on Lemon AI (by Lemon Digital). When the user needs help with Lemon AI itself — configuring, "
     "setting up, using, extending, or troubleshooting it — or when you need to understand your own features, "
-    "tools, or capabilities, the documentation at https://github.com/DangLemon/lemon-agent/docs is your "
+    "tools, or capabilities, the documentation at https://danglemon.github.io/lemon-agent/docs is your "
     "authoritative reference and always holds the latest, most up-to-date information. The `lemon-agent` "
     "skill has the actual commands and proven workflows — load it with skill_view(name='lemon-agent') "
     "before configuring, modifying, or troubleshooting Lemon AI so you don't guess or invent workarounds."
@@ -144,7 +144,7 @@ LEMON_AGENT_HELP_GUIDANCE = (
 LEMON_AGENT_HELP_GUIDANCE_NO_SKILLS = (
     "You run on Lemon AI (by Lemon Digital). When the user needs help with Lemon AI itself — configuring, "
     "setting up, using, extending, or troubleshooting it — or when you need to understand your own features, "
-    "tools, or capabilities, the documentation at https://github.com/DangLemon/lemon-agent/docs is the "
+    "tools, or capabilities, the documentation at https://danglemon.github.io/lemon-agent/docs is the "
     "authoritative reference and always holds the latest, most up-to-date information. Point the user there "
     "(or read it yourself if you have a way to fetch web content)."
 )

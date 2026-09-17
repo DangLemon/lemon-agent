@@ -10,7 +10,7 @@ def build_secrets_parser(subparsers) -> None:
         description="Pull API keys from an external secret manager at process startup "
             "instead of storing them in ~/.lemon-ai/.env.  Supports Bitwarden "
             "Secrets Manager and 1Password.  See: "
-            "https://github.com/DangLemon/lemon-agent/docs/user-guide/secrets/")
+            "https://danglemon.github.io/lemon-agent/docs/user-guide/secrets/")
     secrets_subparsers = secrets_parser.add_subparsers(dest="secrets_command")
 
     secrets_bw = secrets_subparsers.add_parser(

@@ -270,7 +270,7 @@ The desktop app and the Lemon AI backend it talks to update on separate clocks â
 
 After any backend update, the app also re-checks its own version and warns with a one-click **Update desktop app** action if the GUI is still behind â€” so updating a remote backend can never silently leave you on a stale desktop build.
 
-The [manual update process](https://github.com/DangLemon/lemon-agent/docs/getting-started/updating) also works with the GUI.
+The [manual update process](https://danglemon.github.io/lemon-agent/docs/getting-started/updating) also works with the GUI.
 
 ## Uninstalling
 

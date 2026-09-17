@@ -376,7 +376,7 @@ def _format_privileged_intents_guidance(*, needs_members: bool) -> str:
             "Fix: https://discord.com/developers/applications → your application "
             "→ Bot → Privileged Gateway Intents → enable the intent(s) listed "
             "above → Save Changes, then restart the gateway.",
-            "Docs: https://github.com/DangLemon/lemon-agent/docs/user-guide/messaging/discord",
+            "Docs: https://danglemon.github.io/lemon-agent/docs/user-guide/messaging/discord",
         ]
     )
     return "\n".join(lines)
@@ -7165,7 +7165,7 @@ def interactive_setup() -> None:
         "  - Message Content Intent (required — without it Discord rejects the connection)",
         "  - Server Members Intent (required if you use usernames or role allowlists)",
         "Save Changes in the Developer Portal before starting the gateway.",
-        "Docs: https://github.com/DangLemon/lemon-agent/docs/user-guide/messaging/discord",
+        "Docs: https://danglemon.github.io/lemon-agent/docs/user-guide/messaging/discord",
     )
     token = prompt("Discord bot token", password=True)
     if not token:

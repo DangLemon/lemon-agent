@@ -7,8 +7,8 @@ const config: Config = {
   tagline: 'The self-improving AI agent',
   favicon: 'img/favicon.ico',
 
-  url: 'https://github.com/DangLemon/lemon-agent',
-  baseUrl: '/docs/',
+  url: 'https://danglemon.github.io',
+  baseUrl: '/lemon-agent/docs/',
 
   organizationName: 'DangLemon',
   projectName: 'lemon-agent',
@@ -45,7 +45,7 @@ const config: Config = {
       '@docusaurus/plugin-client-redirects',
       {
         // Static-host redirects for renamed doc pages (GitHub Pages can't
-        // do server-side redirects). Paths are relative to baseUrl (/docs/).
+        // do server-side redirects). Paths are relative to baseUrl (/lemon-agent/docs/).
         redirects: [
           {
             // Renamed in #44470 (Automation Blueprints terminology rebrand)
@@ -78,7 +78,7 @@ const config: Config = {
       'classic',
       {
         docs: {
-          routeBasePath: '/',  // Docs at the root of /docs/
+          routeBasePath: '/',  // Docs at the root of /lemon-agent/docs/
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/DangLemon/lemon-agent/edit/main/website/',
         },

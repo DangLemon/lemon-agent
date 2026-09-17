@@ -7,7 +7,7 @@
 # Lemon AI ☤
 
 <p align="center">
-  <a href="https://github.com/DangLemon/lemon-agent/docs/"><img src="https://img.shields.io/badge/Docs-DangLemon/lemon--agent-FFD700?style=for-the-badge" alt="Documentation"></a>
+  <a href="https://danglemon.github.io/lemon-agent/docs/"><img src="https://img.shields.io/badge/Docs-DangLemon/lemon--agent-FFD700?style=for-the-badge" alt="Documentation"></a>
   <a href="https://github.com/DangLemon/lemon-agent/issues"><img src="https://img.shields.io/badge/Issues-GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Issues"></a>
   <a href="https://github.com/DangLemon/lemon-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://github.com/DangLemon/lemon-agent"><img src="https://img.shields.io/badge/Built%20by-Lemon%20Digital-blueviolet?style=for-the-badge" alt="Built by Lemon Digital"></a>
@@ -61,7 +61,7 @@ iex (irm https://github.com/DangLemon/lemon-agent/install.ps1)
 
 اگر آپ کے پاس پہلے سے گٹ (Git) انسٹال ہے، تو انسٹالر اسے شناخت کر لیتا ہے اور اسے ہی استعمال کرتا ہے۔ بصورت دیگر آپ کو صرف ~45MB کے MinGit ڈاؤنلوڈ کی ضرورت ہوگی — یہ آپ کے سسٹم کے گٹ پر کوئی اثر نہیں ڈالے گا۔
 
-> **اینڈرائیڈ (Android) / ٹرمکس (Termux):** ٹیسٹ کیا گیا مینوئل طریقہ [Termux گائیڈ](https://github.com/DangLemon/lemon-agent/docs/getting-started/termux) میں موجود ہے۔ ٹرمکس پر ہرمیس ایک مخصوص `.[termux]` ایکسٹرا انسٹال کرتا ہے کیونکہ مکمل `.[all]` ایکسٹرا میں ایسی وائس ڈیپینڈینسیز شامل ہیں جو اینڈرائیڈ کے ساتھ مطابقت نہیں رکھتیں۔
+> **اینڈرائیڈ (Android) / ٹرمکس (Termux):** ٹیسٹ کیا گیا مینوئل طریقہ [Termux گائیڈ](https://danglemon.github.io/lemon-agent/docs/getting-started/termux) میں موجود ہے۔ ٹرمکس پر ہرمیس ایک مخصوص `.[termux]` ایکسٹرا انسٹال کرتا ہے کیونکہ مکمل `.[all]` ایکسٹرا میں ایسی وائس ڈیپینڈینسیز شامل ہیں جو اینڈرائیڈ کے ساتھ مطابقت نہیں رکھتیں۔
 >
 > **ونڈوز (Windows):** مقامی ونڈوز کی مکمل سپورٹ موجود ہے — اوپر دی گئی پاور شیل کی کمانڈ سب کچھ انسٹال کر دیتی ہے۔ اگر آپ WSL2 استعمال کرنا چاہتے ہیں، تو لینکس کی کمانڈ وہاں کام کرتی ہے۔ مقامی ونڈوز میں انسٹالیشن `%LOCALAPPDATA%\Lemon AI` میں ہوتی ہے؛ جبکہ WSL2 میں لینکس کی طرح `~/.lemon-ai` میں ہوتی ہے۔ ہرمیس کا وہ واحد فیچر جسے فی الحال خاص طور پر WSL2 کی ضرورت ہے وہ براؤزر پر مبنی ڈیش بورڈ چیٹ پین ہے (یہ POSIX PTY استعمال کرتا ہے — کلاسک CLI اور گیٹ وے دونوں مقامی طور پر چلتے ہیں)۔
 
@@ -96,7 +96,7 @@ lemon doctor       # کسی بھی مسئلے کی تشخیص کریں
 
 </div>
 
-📖 **[مکمل دستاویزات →](https://github.com/DangLemon/lemon-agent/docs/)**
+📖 **[مکمل دستاویزات →](https://danglemon.github.io/lemon-agent/docs/)**
 
 ---
 
@@ -117,7 +117,7 @@ lemon setup --portal
 
 </div>
 
-یہ آپ کو OAuth کے ذریعے لاگ ان کرواتا ہے، Nous کو آپ کا پرووائیڈر مقرر کرتا ہے، اور ٹول گیٹ وے کو آن کر دیتا ہے۔ `lemon portal info` کمانڈ استعمال کر کے آپ کسی بھی وقت چیک کر سکتے ہیں کہ کون کون سی سروسز منسلک ہیں۔ مکمل تفصیلات [Tool Gateway دستاویزات کے صفحے](https://github.com/DangLemon/lemon-agent/docs/user-guide/features/tool-gateway) پر موجود ہیں۔
+یہ آپ کو OAuth کے ذریعے لاگ ان کرواتا ہے، Nous کو آپ کا پرووائیڈر مقرر کرتا ہے، اور ٹول گیٹ وے کو آن کر دیتا ہے۔ `lemon portal info` کمانڈ استعمال کر کے آپ کسی بھی وقت چیک کر سکتے ہیں کہ کون کون سی سروسز منسلک ہیں۔ مکمل تفصیلات [Tool Gateway دستاویزات کے صفحے](https://danglemon.github.io/lemon-agent/docs/user-guide/features/tool-gateway) پر موجود ہیں۔
 
 آپ اب بھی کسی بھی ٹول کے لیے اپنی مرضی کی API کیز استعمال کر سکتے ہیں — گیٹ وے ہر سروس کے لیے الگ الگ کام کرتا ہے، ایسا نہیں کہ یا تو سب کچھ استعمال کریں یا کچھ بھی نہیں۔
 
@@ -143,33 +143,33 @@ lemon setup --portal
 
 </div>
 
-مکمل کمانڈ لسٹ کے لیے، [CLI گائیڈ](https://github.com/DangLemon/lemon-agent/docs/user-guide/cli) اور [میسجنگ گیٹ وے گائیڈ](https://github.com/DangLemon/lemon-agent/docs/user-guide/messaging) دیکھیں۔
+مکمل کمانڈ لسٹ کے لیے، [CLI گائیڈ](https://danglemon.github.io/lemon-agent/docs/user-guide/cli) اور [میسجنگ گیٹ وے گائیڈ](https://danglemon.github.io/lemon-agent/docs/user-guide/messaging) دیکھیں۔
 
 ---
 
 ## دستاویزات (Documentation)
 
-تمام دستاویزات **[github.com/DangLemon/lemon-agent/docs](https://github.com/DangLemon/lemon-agent/docs/)** پر موجود ہیں:
+تمام دستاویزات **[danglemon.github.io/lemon-agent/docs](https://danglemon.github.io/lemon-agent/docs/)** پر موجود ہیں:
 
 <div dir="ltr">
 
 | سیکشن (Section)                                                                                     | تفصیل (What's Covered)                                     |
 | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [فوری آغاز (Quickstart)](https://github.com/DangLemon/lemon-agent/docs/getting-started/quickstart)     | انسٹالیشن → سیٹ اپ → 2 منٹ میں پہلی بات چیت شروع کریں       |
-| [CLI کا استعمال](https://github.com/DangLemon/lemon-agent/docs/user-guide/cli)                         | کمانڈز، کی بائنڈنگز (keybindings)، پرسنلٹیز (personalities)، سیشنز |
-| [کنفیگریشن (Configuration)](https://github.com/DangLemon/lemon-agent/docs/user-guide/configuration)    | کنفگ فائل، پرووائیڈرز، ماڈلز، اور تمام آپشنز               |
-| [میسجنگ گیٹ وے](https://github.com/DangLemon/lemon-agent/docs/user-guide/messaging)                    | ٹیلی گرام، ڈسکارڈ، سلیک، واٹس ایپ، سگنل، ہوم اسسٹنٹ         |
-| [سیکیورٹی (Security)](https://github.com/DangLemon/lemon-agent/docs/user-guide/security)              | کمانڈ کی منظوری، DM پیئرنگ (pairing)، کنٹینر آئسولیشن       |
-| [ٹولز اور ٹول سیٹس](https://github.com/DangLemon/lemon-agent/docs/user-guide/features/tools)          | 40 سے زائد ٹولز، ٹول سیٹ سسٹم، ٹرمینل بیک اینڈز             |
-| [مہارتوں کا سسٹم (Skills System)](https://github.com/DangLemon/lemon-agent/docs/user-guide/features/skills)| پروسیجرل (Procedural) میموری، سکلز ہب، نئی مہارتیں بنانا    |
-| [میموری (Memory)](https://github.com/DangLemon/lemon-agent/docs/user-guide/features/memory)            | مستقل میموری، یوزر پروفائلز، بہترین طریقہ کار              |
-| [MCP انضمام (Integration)](https://github.com/DangLemon/lemon-agent/docs/user-guide/features/mcp)      | صلاحیتوں کو بڑھانے کے لیے کسی بھی MCP سرور کو جوڑیں        |
-| [کرون (Cron) شیڈیولنگ](https://github.com/DangLemon/lemon-agent/docs/user-guide/features/cron)         | پلیٹ فارم ڈیلیوری کے ساتھ شیڈول کیے گئے کام                 |
-| [کانٹیکسٹ (Context) فائلز](https://github.com/DangLemon/lemon-agent/docs/user-guide/features/context-files)| پروجیکٹ کا سیاق و سباق (context) جو ہر بات چیت پر اثر انداز ہوتا ہے |
-| [آرکیٹیکچر (Architecture)](https://github.com/DangLemon/lemon-agent/docs/developer-guide/architecture) | پروجیکٹ کا ڈھانچہ، ایجنٹ لوپ، اہم کلاسز                    |
-| [تعاون (Contributing)](https://github.com/DangLemon/lemon-agent/docs/developer-guide/contributing)     | ڈیویلپمنٹ سیٹ اپ، PR کا طریقہ کار، کوڈنگ کا انداز          |
-| [CLI حوالہ جات (Reference)](https://github.com/DangLemon/lemon-agent/docs/reference/cli-commands)      | تمام کمانڈز اور فلیگز (flags)                              |
-| [انوائرمنٹ ویری ایبلز](https://github.com/DangLemon/lemon-agent/docs/reference/environment-variables)  | مکمل انوائرمنٹ ویری ایبل حوالہ جات                         |
+| [فوری آغاز (Quickstart)](https://danglemon.github.io/lemon-agent/docs/getting-started/quickstart)     | انسٹالیشن → سیٹ اپ → 2 منٹ میں پہلی بات چیت شروع کریں       |
+| [CLI کا استعمال](https://danglemon.github.io/lemon-agent/docs/user-guide/cli)                         | کمانڈز، کی بائنڈنگز (keybindings)، پرسنلٹیز (personalities)، سیشنز |
+| [کنفیگریشن (Configuration)](https://danglemon.github.io/lemon-agent/docs/user-guide/configuration)    | کنفگ فائل، پرووائیڈرز، ماڈلز، اور تمام آپشنز               |
+| [میسجنگ گیٹ وے](https://danglemon.github.io/lemon-agent/docs/user-guide/messaging)                    | ٹیلی گرام، ڈسکارڈ، سلیک، واٹس ایپ، سگنل، ہوم اسسٹنٹ         |
+| [سیکیورٹی (Security)](https://danglemon.github.io/lemon-agent/docs/user-guide/security)              | کمانڈ کی منظوری، DM پیئرنگ (pairing)، کنٹینر آئسولیشن       |
+| [ٹولز اور ٹول سیٹس](https://danglemon.github.io/lemon-agent/docs/user-guide/features/tools)          | 40 سے زائد ٹولز، ٹول سیٹ سسٹم، ٹرمینل بیک اینڈز             |
+| [مہارتوں کا سسٹم (Skills System)](https://danglemon.github.io/lemon-agent/docs/user-guide/features/skills)| پروسیجرل (Procedural) میموری، سکلز ہب، نئی مہارتیں بنانا    |
+| [میموری (Memory)](https://danglemon.github.io/lemon-agent/docs/user-guide/features/memory)            | مستقل میموری، یوزر پروفائلز، بہترین طریقہ کار              |
+| [MCP انضمام (Integration)](https://danglemon.github.io/lemon-agent/docs/user-guide/features/mcp)      | صلاحیتوں کو بڑھانے کے لیے کسی بھی MCP سرور کو جوڑیں        |
+| [کرون (Cron) شیڈیولنگ](https://danglemon.github.io/lemon-agent/docs/user-guide/features/cron)         | پلیٹ فارم ڈیلیوری کے ساتھ شیڈول کیے گئے کام                 |
+| [کانٹیکسٹ (Context) فائلز](https://danglemon.github.io/lemon-agent/docs/user-guide/features/context-files)| پروجیکٹ کا سیاق و سباق (context) جو ہر بات چیت پر اثر انداز ہوتا ہے |
+| [آرکیٹیکچر (Architecture)](https://danglemon.github.io/lemon-agent/docs/developer-guide/architecture) | پروجیکٹ کا ڈھانچہ، ایجنٹ لوپ، اہم کلاسز                    |
+| [تعاون (Contributing)](https://danglemon.github.io/lemon-agent/docs/developer-guide/contributing)     | ڈیویلپمنٹ سیٹ اپ، PR کا طریقہ کار، کوڈنگ کا انداز          |
+| [CLI حوالہ جات (Reference)](https://danglemon.github.io/lemon-agent/docs/reference/cli-commands)      | تمام کمانڈز اور فلیگز (flags)                              |
+| [انوائرمنٹ ویری ایبلز](https://danglemon.github.io/lemon-agent/docs/reference/environment-variables)  | مکمل انوائرمنٹ ویری ایبل حوالہ جات                         |
 
 </div>
 
@@ -211,7 +211,7 @@ lemon claw migrate --overwrite  # موجودہ متصادم فائلوں کو ا
 
 ## تعاون کریں (Contributing)
 
-ہم آپ کے تعاون کا خیرمقدم کرتے ہیں! ڈیویلپمنٹ سیٹ اپ، کوڈ کے انداز اور PR کے طریقہ کار کے لیے براہ کرم ہماری [Contributing گائیڈ](https://github.com/DangLemon/lemon-agent/docs/developer-guide/contributing) دیکھیں۔
+ہم آپ کے تعاون کا خیرمقدم کرتے ہیں! ڈیویلپمنٹ سیٹ اپ، کوڈ کے انداز اور PR کے طریقہ کار کے لیے براہ کرم ہماری [Contributing گائیڈ](https://danglemon.github.io/lemon-agent/docs/developer-guide/contributing) دیکھیں۔
 
 معاونین (contributors) کے لیے فوری آغاز — کلون (clone) کریں اور `setup-lemon.sh` چلائیں:
 

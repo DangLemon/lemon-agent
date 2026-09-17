@@ -153,28 +153,28 @@ describe('buildToolView browser_navigate title', () => {
     const view = buildToolView(
       part({
         toolName: 'browser_navigate',
-        args: { url: 'https://github.com/DangLemon/lemon-agent/docs' },
+        args: { url: 'https://danglemon.github.io/lemon-agent/docs' },
         result: { success: false, error: 'Command timed out after 60 seconds' }
       }),
       ''
     )
 
     expect(view.status).toBe('error')
-    expect(view.title).toBe('Failed to open github.com/DangLemon/lemon-agent/docs')
+    expect(view.title).toBe('Failed to open danglemon.github.io/lemon-agent/docs')
   })
 
   it('shows opened title on success', () => {
     const view = buildToolView(
       part({
         toolName: 'browser_navigate',
-        args: { url: 'https://github.com/DangLemon/lemon-agent/docs' },
-        result: { success: true, url: 'https://github.com/DangLemon/lemon-agent/docs', title: 'Docs' }
+        args: { url: 'https://danglemon.github.io/lemon-agent/docs' },
+        result: { success: true, url: 'https://danglemon.github.io/lemon-agent/docs', title: 'Docs' }
       }),
       ''
     )
 
     expect(view.status).toBe('success')
-    expect(view.title).toBe('Opened github.com/DangLemon/lemon-agent/docs')
+    expect(view.title).toBe('Opened danglemon.github.io/lemon-agent/docs')
   })
 })
 

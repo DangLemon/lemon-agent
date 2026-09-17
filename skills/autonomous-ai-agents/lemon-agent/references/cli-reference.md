@@ -1,7 +1,7 @@
 # Lemon AI CLI Reference
 
 Live sources when anything looks stale: `lemon --help`, `lemon <command> --help`,
-https://github.com/DangLemon/lemon-agent/docs/reference/cli-commands
+https://danglemon.github.io/lemon-agent/docs/reference/cli-commands
 
 ### Global Flags
 
@@ -79,7 +79,7 @@ lemon gateway run|install|start|stop|restart|status|setup
 ```
 
 20+ platforms: Telegram, Discord, Slack, WhatsApp (Baileys + Business Cloud API), iMessage (Photon — `lemon photon setup`), Signal, Email, SMS, Matrix, Mattermost, Teams, LINE, SimpleX, ntfy, Google Chat, Home Assistant, DingTalk, Feishu, WeCom, Weixin, API Server, Webhooks. Open WebUI connects via the API Server adapter. Most adapters ship under `plugins/platforms/`.
-Docs: https://github.com/DangLemon/lemon-agent/docs/user-guide/messaging/
+Docs: https://danglemon.github.io/lemon-agent/docs/user-guide/messaging/
 
 ### Sessions
 
@@ -141,10 +141,10 @@ Plugin- and provider-supplied subcommands (e.g. `lemon photon setup`) only appea
 
 | Looking for... | Location |
 |---|---|
-| Config options | `lemon config edit` · [Configuration docs](https://github.com/DangLemon/lemon-agent/docs/user-guide/configuration) |
-| Tools / toolsets | `lemon tools list` · [Tools reference](https://github.com/DangLemon/lemon-agent/docs/reference/tools-reference) |
-| Skills catalog | `lemon skills browse` · [Skills catalog](https://github.com/DangLemon/lemon-agent/docs/reference/skills-catalog) |
-| Provider setup | `lemon model` · [Providers guide](https://github.com/DangLemon/lemon-agent/docs/integrations/providers) |
-| Env variables | `lemon config env-path` · [Env vars reference](https://github.com/DangLemon/lemon-agent/docs/reference/environment-variables) |
+| Config options | `lemon config edit` · [Configuration docs](https://danglemon.github.io/lemon-agent/docs/user-guide/configuration) |
+| Tools / toolsets | `lemon tools list` · [Tools reference](https://danglemon.github.io/lemon-agent/docs/reference/tools-reference) |
+| Skills catalog | `lemon skills browse` · [Skills catalog](https://danglemon.github.io/lemon-agent/docs/reference/skills-catalog) |
+| Provider setup | `lemon model` · [Providers guide](https://danglemon.github.io/lemon-agent/docs/integrations/providers) |
+| Env variables | `lemon config env-path` · [Env vars reference](https://danglemon.github.io/lemon-agent/docs/reference/environment-variables) |
 | Gateway logs | `~/.lemon-ai/logs/gateway.log` (or `lemon logs`) |
 | Sessions | `lemon sessions browse` (reads state.db) |

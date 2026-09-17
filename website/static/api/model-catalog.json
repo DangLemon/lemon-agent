@@ -3,7 +3,7 @@
   "updated_at": "2026-09-05T06:42:02Z",
   "metadata": {
     "source": "lemon-agent repo",
-    "docs": "https://github.com/DangLemon/lemon-agent/docs/reference/model-catalog"
+    "docs": "https://danglemon.github.io/lemon-agent/docs/reference/model-catalog"
   },
   "providers": {
     "openrouter": {

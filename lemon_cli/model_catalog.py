@@ -23,7 +23,7 @@ from utils import atomic_replace
 logger = logging.getLogger(__name__)
 
 DEFAULT_CATALOG_URL = (
-    "https://github.com/DangLemon/lemon-agent/docs/api/model-catalog.json")
+    "https://danglemon.github.io/lemon-agent/docs/api/model-catalog.json")
 # The Docusaurus site sits behind Vercel, which occasionally 403s non-browser clients (bot
 # challenge); the raw GitHub copy is the same manifest and is not bot-gated.
 DEFAULT_CATALOG_FALLBACK_URLS: tuple[str, ...] = (

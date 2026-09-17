@@ -133,7 +133,7 @@ def _print_curator_first_run_notice() -> None:
     )
     print("  Preview now:  lemon curator run --dry-run")
     print("  Pause it:     lemon curator pause")
-    print("  Docs:         https://github.com/DangLemon/lemon-agent/docs/user-guide/features/curator")
+    print("  Docs:         https://danglemon.github.io/lemon-agent/docs/user-guide/features/curator")
 
 
 def _print_fts_optimize_available_notice() -> None:

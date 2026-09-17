@@ -155,21 +155,21 @@ def _provider_entry(initial: Dict[str, Any]) -> Dict[str, Any]:
     return entry
 
 
-def seed_from_resource(resource_path: Path | str, *, lemon_home: Path | str | None = None, lemon_home: Path | str | None = None, profile: str = "") -> Dict[str, bool]:
+def seed_from_resource(resource_path: Path | str, *, hermes_home: Path | str | None = None, lemon_home: Path | str | None = None, profile: str = "") -> Dict[str, bool]:
     resource = json.loads(Path(resource_path).read_text(encoding="utf-8"))
     initial = resource.get("initialProvider")
     if not isinstance(initial, dict):
         return {"ok": True, "seeded_provider": False, "selected_provider": False}
 
-    selected_home = lemon_home if lemon_home is not None else lemon_home
+    selected_home = lemon_home if lemon_home is not None else hermes_home
     if selected_home is None:
         raise ValueError("Lemon AI home is required")
     root_home = Path(selected_home)
     os.environ["LEMON_HOME"] = str(root_home)
-    os.environ["LEMON_HOME"] = str(root_home)
+    os.environ["HERMES_HOME"] = str(root_home)
     target_home = _target_home(root_home, profile)
     os.environ["LEMON_HOME"] = str(target_home)
-    os.environ["LEMON_HOME"] = str(target_home)
+    os.environ["HERMES_HOME"] = str(target_home)
 
     from lemon_cli import config as config_mod
     from lemon_cli import managed_scope
@@ -191,10 +191,10 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--resource", required=True)
     parser.add_argument("--lemon-home")
-    parser.add_argument("--lemon-home")
+    parser.add_argument("--hermes-home")
     parser.add_argument("--profile", default="")
     args = parser.parse_args()
-    result = seed_from_resource(args.resource, lemon_home=args.lemon_home, lemon_home=args.lemon_home, profile=args.profile)
+    result = seed_from_resource(args.resource, lemon_home=args.lemon_home, hermes_home=args.hermes_home, profile=args.profile)
     print(json.dumps(result, sort_keys=True))
     return 0
 

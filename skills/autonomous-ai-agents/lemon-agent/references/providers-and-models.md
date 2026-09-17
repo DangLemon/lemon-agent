@@ -2,7 +2,7 @@
 
 Set via `lemon model` (picker) or `lemon setup`. 35+ provider profiles ship as
 plugins under `plugins/model-providers/`; user plugins of the same name override.
-Full docs: https://github.com/DangLemon/lemon-agent/docs/integrations/providers
+Full docs: https://danglemon.github.io/lemon-agent/docs/integrations/providers
 
 ### Providers
 

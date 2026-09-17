@@ -474,7 +474,7 @@ def _maybe_setup_dashboard_auth_interactively(args) -> None:
             "    lemon dashboard register\n"
             "  It provisions a Nous Portal OAuth client and writes "
             "LEMON_DASHBOARD_OAUTH_CLIENT_ID into ~/.lemon-ai/.env for you.\n"
-            "  Docs: https://github.com/DangLemon/lemon-agent/docs/"
+            "  Docs: https://danglemon.github.io/lemon-agent/docs/"
             "user-guide/features/web-dashboard#authentication-gated-mode"
         )
         sys.exit(0)

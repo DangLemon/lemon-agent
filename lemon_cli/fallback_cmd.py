@@ -113,7 +113,7 @@ def cmd_fallback_list(args) -> None:  # noqa: ARG001
         print(f"  Primary:   {primary}\n")
     _print_chain("Fallback chain", chain)
     print("  Tried in order when the primary fails (rate-limit, 5xx, connection errors).")
-    print("  Docs: https://github.com/DangLemon/lemon-agent/docs/user-guide/features/fallback-providers\n")
+    print("  Docs: https://danglemon.github.io/lemon-agent/docs/user-guide/features/fallback-providers\n")
 
 
 def cmd_fallback_add(args) -> None:

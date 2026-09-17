@@ -77,7 +77,7 @@ def test_empty_provider_login_page_shows_supported_auth_paths():
     assert "SSH tunnel" in html
     assert "Tailscale" in html
     assert (
-        'href="https://github.com/DangLemon/lemon-agent/docs/'
+        'href="https://danglemon.github.io/lemon-agent/docs/'
         'user-guide/features/web-dashboard#authentication-gated-mode"'
     ) in html
 

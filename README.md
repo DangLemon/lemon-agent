@@ -7,7 +7,7 @@
   <a href="https://github.com/DangLemon/lemon-agent/">Lemon AI</a> | <a href="https://github.com/DangLemon/lemon-agent/">Lemon AI</a>
 </p>
 <p align="center">
-  <a href="https://github.com/DangLemon/lemon-agent/docs/"><img src="https://img.shields.io/badge/Docs-DangLemon/lemon--agent-FFD700?style=for-the-badge" alt="Documentation"></a>
+  <a href="https://danglemon.github.io/lemon-agent/docs/"><img src="https://img.shields.io/badge/Docs-DangLemon/lemon--agent-FFD700?style=for-the-badge" alt="Documentation"></a>
   <a href="https://github.com/DangLemon/lemon-agent/issues"><img src="https://img.shields.io/badge/Issues-GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Issues"></a>
   <a href="https://github.com/DangLemon/lemon-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://github.com/DangLemon/lemon-agent"><img src="https://img.shields.io/badge/Built%20by-Lemon%20Digital-blueviolet?style=for-the-badge" alt="Built by Lemon Digital"></a>
@@ -18,7 +18,7 @@
 
 **The self-improving AI agent built by [Lemon Digital](https://github.com/DangLemon/lemon-agent).** It's the only agent with a built-in learning loop — it creates skills from experience, improves them during use, nudges itself to persist knowledge, searches its own past conversations, and builds a deepening model of who you are across sessions. Run it on a $5 VPS, a GPU cluster, or serverless infrastructure that costs nearly nothing when idle. It's not tied to your laptop — talk to it from Telegram while it works on a cloud VM.
 
-Use any model you want — [Nous Portal](https://portal.nousresearch.com), OpenRouter, OpenAI, your own endpoint, and [many others](https://github.com/DangLemon/lemon-agent/docs/integrations/providers). Switch with `lemon model` — no code changes, no lock-in.
+Use any model you want — [Nous Portal](https://portal.nousresearch.com), OpenRouter, OpenAI, your own endpoint, and [many others](https://danglemon.github.io/lemon-agent/docs/integrations/providers). Switch with `lemon model` — no code changes, no lock-in.
 
 <table>
 <tr><td><b>A real terminal interface</b></td><td>Full TUI with multiline editing, slash-command autocomplete, conversation history, interrupt-and-redirect, and streaming tool output.</td></tr>
@@ -54,7 +54,7 @@ The installer handles everything: uv, Python 3.11, Node.js, ripgrep, ffmpeg, **a
 
 If you already have Git installed, the installer detects it and uses that instead. Otherwise a ~45MB MinGit download is all you need — it won't touch or interfere with any system Git.
 
-> **Android / Termux:** The tested manual path is documented in the [Termux guide](https://github.com/DangLemon/lemon-agent/docs/getting-started/termux). On Termux, Lemon AI installs a curated `.[termux]` extra because the full `.[all]` extra currently pulls Android-incompatible voice dependencies.
+> **Android / Termux:** The tested manual path is documented in the [Termux guide](https://danglemon.github.io/lemon-agent/docs/getting-started/termux). On Termux, Lemon AI installs a curated `.[termux]` extra because the full `.[all]` extra currently pulls Android-incompatible voice dependencies.
 >
 > **Windows:** Native Windows is fully supported — the PowerShell one-liner above installs everything. If you'd rather use WSL2, the Linux command works there too. Native Windows install lives under `%LOCALAPPDATA%\Lemon AI`; WSL2 installs under `~/.lemon-ai` as on Linux.
 
@@ -117,7 +117,7 @@ lemon update       # Update to the latest version
 lemon doctor       # Diagnose any issues
 ```
 
-📖 **[Full documentation →](https://github.com/DangLemon/lemon-agent/docs/)**
+📖 **[Full documentation →](https://danglemon.github.io/lemon-agent/docs/)**
 
 ---
 
@@ -134,7 +134,7 @@ One command from a fresh install:
 lemon setup --portal
 ```
 
-That logs you in via OAuth, sets Nous as your provider, and turns on the Tool Gateway. Check what's wired up any time with `lemon portal info`. Full details on the [Tool Gateway docs page](https://github.com/DangLemon/lemon-agent/docs/user-guide/features/tool-gateway).
+That logs you in via OAuth, sets Nous as your provider, and turns on the Tool Gateway. Check what's wired up any time with `lemon portal info`. Full details on the [Tool Gateway docs page](https://danglemon.github.io/lemon-agent/docs/user-guide/features/tool-gateway).
 
 You can still bring your own keys per-tool whenever you want — the gateway is per-backend, not all-or-nothing.
 
@@ -156,31 +156,31 @@ Lemon AI has two entry points: start the terminal UI with `lemon`, or run the ga
 | Interrupt current work         | `Ctrl+C` or send a new message                | `/stop` or send a new message                                                    |
 | Platform-specific status       | `/platforms`                                  | `/status`, `/sethome`                                                            |
 
-For the full command lists, see the [CLI guide](https://github.com/DangLemon/lemon-agent/docs/user-guide/cli) and the [Messaging Gateway guide](https://github.com/DangLemon/lemon-agent/docs/user-guide/messaging).
+For the full command lists, see the [CLI guide](https://danglemon.github.io/lemon-agent/docs/user-guide/cli) and the [Messaging Gateway guide](https://danglemon.github.io/lemon-agent/docs/user-guide/messaging).
 
 ---
 
 ## Documentation
 
-All documentation lives at **[github.com/DangLemon/lemon-agent/docs](https://github.com/DangLemon/lemon-agent/docs/)**:
+All documentation lives at **[danglemon.github.io/lemon-agent/docs](https://danglemon.github.io/lemon-agent/docs/)**:
 
 | Section                                                                                             | What's Covered                                             |
 | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [Quickstart](https://github.com/DangLemon/lemon-agent/docs/getting-started/quickstart)                 | Install → setup → first conversation in 2 minutes          |
-| [CLI Usage](https://github.com/DangLemon/lemon-agent/docs/user-guide/cli)                              | Commands, keybindings, personalities, sessions             |
-| [Configuration](https://github.com/DangLemon/lemon-agent/docs/user-guide/configuration)                | Config file, providers, models, all options                |
-| [Messaging Gateway](https://github.com/DangLemon/lemon-agent/docs/user-guide/messaging)                | Telegram, Discord, Slack, WhatsApp, Signal, Home Assistant |
-| [Security](https://github.com/DangLemon/lemon-agent/docs/user-guide/security)                          | Command approval, DM pairing, container isolation          |
-| [Tools & Toolsets](https://github.com/DangLemon/lemon-agent/docs/user-guide/features/tools)            | 40+ tools, toolset system, terminal backends               |
-| [Skills System](https://github.com/DangLemon/lemon-agent/docs/user-guide/features/skills)              | Procedural memory, Skills Hub, creating skills             |
-| [Memory](https://github.com/DangLemon/lemon-agent/docs/user-guide/features/memory)                     | Persistent memory, user profiles, best practices           |
-| [MCP Integration](https://github.com/DangLemon/lemon-agent/docs/user-guide/features/mcp)               | Connect any MCP server for extended capabilities           |
-| [Cron Scheduling](https://github.com/DangLemon/lemon-agent/docs/user-guide/features/cron)              | Scheduled tasks with platform delivery                     |
-| [Context Files](https://github.com/DangLemon/lemon-agent/docs/user-guide/features/context-files)       | Project context that shapes every conversation             |
-| [Architecture](https://github.com/DangLemon/lemon-agent/docs/developer-guide/architecture)             | Project structure, agent loop, key classes                 |
-| [Contributing](https://github.com/DangLemon/lemon-agent/docs/developer-guide/contributing)             | Development setup, PR process, code style                  |
-| [CLI Reference](https://github.com/DangLemon/lemon-agent/docs/reference/cli-commands)                  | All commands and flags                                     |
-| [Environment Variables](https://github.com/DangLemon/lemon-agent/docs/reference/environment-variables) | Complete env var reference                                 |
+| [Quickstart](https://danglemon.github.io/lemon-agent/docs/getting-started/quickstart)                 | Install → setup → first conversation in 2 minutes          |
+| [CLI Usage](https://danglemon.github.io/lemon-agent/docs/user-guide/cli)                              | Commands, keybindings, personalities, sessions             |
+| [Configuration](https://danglemon.github.io/lemon-agent/docs/user-guide/configuration)                | Config file, providers, models, all options                |
+| [Messaging Gateway](https://danglemon.github.io/lemon-agent/docs/user-guide/messaging)                | Telegram, Discord, Slack, WhatsApp, Signal, Home Assistant |
+| [Security](https://danglemon.github.io/lemon-agent/docs/user-guide/security)                          | Command approval, DM pairing, container isolation          |
+| [Tools & Toolsets](https://danglemon.github.io/lemon-agent/docs/user-guide/features/tools)            | 40+ tools, toolset system, terminal backends               |
+| [Skills System](https://danglemon.github.io/lemon-agent/docs/user-guide/features/skills)              | Procedural memory, Skills Hub, creating skills             |
+| [Memory](https://danglemon.github.io/lemon-agent/docs/user-guide/features/memory)                     | Persistent memory, user profiles, best practices           |
+| [MCP Integration](https://danglemon.github.io/lemon-agent/docs/user-guide/features/mcp)               | Connect any MCP server for extended capabilities           |
+| [Cron Scheduling](https://danglemon.github.io/lemon-agent/docs/user-guide/features/cron)              | Scheduled tasks with platform delivery                     |
+| [Context Files](https://danglemon.github.io/lemon-agent/docs/user-guide/features/context-files)       | Project context that shapes every conversation             |
+| [Architecture](https://danglemon.github.io/lemon-agent/docs/developer-guide/architecture)             | Project structure, agent loop, key classes                 |
+| [Contributing](https://danglemon.github.io/lemon-agent/docs/developer-guide/contributing)             | Development setup, PR process, code style                  |
+| [CLI Reference](https://danglemon.github.io/lemon-agent/docs/reference/cli-commands)                  | All commands and flags                                     |
+| [Environment Variables](https://danglemon.github.io/lemon-agent/docs/reference/environment-variables) | Complete env var reference                                 |
 
 ---
 
@@ -216,7 +216,7 @@ See `lemon claw migrate --help` for all options, or use the `openclaw-migration`
 
 ## Contributing
 
-We welcome contributions! See the [Contributing Guide](https://github.com/DangLemon/lemon-agent/docs/developer-guide/contributing) for development setup, code style, and PR process.
+We welcome contributions! See the [Contributing Guide](https://danglemon.github.io/lemon-agent/docs/developer-guide/contributing) for development setup, code style, and PR process.
 
 Quick start for contributors — use the standard installer, then work from the
 full git checkout it creates at `$LEMON_HOME/lemon-agent` (usually

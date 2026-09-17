@@ -1,7 +1,7 @@
 # Configuration, Toolsets & Voice
 
 Edit with `lemon config edit` or `lemon config set section.key value`.
-Full reference: https://github.com/DangLemon/lemon-agent/docs/user-guide/configuration
+Full reference: https://danglemon.github.io/lemon-agent/docs/user-guide/configuration
 
 ### Config Sections (most-used keys)
 

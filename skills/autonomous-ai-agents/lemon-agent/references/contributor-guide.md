@@ -1,6 +1,6 @@
 # Contributor Quick Reference
 
-For occasional contributors and PR authors. Full developer docs: https://github.com/DangLemon/lemon-agent/docs/developer-guide/
+For occasional contributors and PR authors. Full developer docs: https://danglemon.github.io/lemon-agent/docs/developer-guide/
 
 ### Project Layout
 

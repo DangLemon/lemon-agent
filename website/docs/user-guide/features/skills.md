@@ -760,7 +760,7 @@ lemon skills tap add myorg/skills-repo
 [skills.sh schema](https://skills.sh/schemas/skills.sh.schema.json). Its
 `groupings` (each with a `title` and a list of skill names) are read at index
 time and become the category labels shown in the
-[Skills Hub](https://github.com/DangLemon/lemon-agent/docs) page — instead of a
+[Skills Hub](https://danglemon.github.io/lemon-agent/docs) page — instead of a
 tag-derived guess. This is generic: any tap that ships the file gets real
 categorization, no Lemon AI-side changes required.
 

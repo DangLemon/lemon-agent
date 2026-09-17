@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useBots } from './i18n'
 
 // ── skills hub section: the REAL hub page (docs) embedded as a picker ──────
-// https://github.com/DangLemon/lemon-agent/docs/skills?embed=picker hides the
+// https://danglemon.github.io/lemon-agent/docs/skills?embed=picker hides the
 // docs chrome and adds "+ Add to this Agent" per card, posting
 // {type: 'lemon-skill-pick', ...} to us (lemon-agent#86243). We validate
 // the origin, install via skills.manage, and bubble onInstalled so the

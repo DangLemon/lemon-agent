@@ -17,8 +17,8 @@ use, web search, and 22 messaging platforms were absent from the index every
 LLM reads to learn what Lemon AI does.
 
 Both publish at:
-  https://github.com/DangLemon/lemon-agent/docs/llms.txt
-  https://github.com/DangLemon/lemon-agent/docs/llms-full.txt
+  https://danglemon.github.io/lemon-agent/docs/llms.txt
+  https://danglemon.github.io/lemon-agent/docs/llms-full.txt
 
 The `/docs/` prefix is not a mistake — Docusaurus serves `website/static/`
 at the `docs/` base path. Clients and IDE plugins that probe the classic
@@ -39,7 +39,7 @@ WEBSITE = SCRIPT_DIR.parent
 DOCS = WEBSITE / "docs"
 STATIC = WEBSITE / "static"
 
-SITE_BASE = "https://github.com/DangLemon/lemon-agent/docs"
+SITE_BASE = "https://danglemon.github.io/lemon-agent/docs"
 
 # The product story: which pages lead, and in what order. Everything not named
 # here is still indexed — ABSORB decides where it lands — so this list is safe
@@ -345,8 +345,8 @@ def emit_llms_full() -> str:
             "Started, Using Lemon AI, Features, Messaging, Integrations, Guides, "
             "Developer Guide, Reference, then everything else.\n"
         ),
-        "Canonical site: https://github.com/DangLemon/lemon-agent/docs\n",
-        "Short index: https://github.com/DangLemon/lemon-agent/docs/llms.txt\n",
+        "Canonical site: https://danglemon.github.io/lemon-agent/docs\n",
+        "Short index: https://danglemon.github.io/lemon-agent/docs/llms.txt\n",
         "\n---\n\n",
     ]
 

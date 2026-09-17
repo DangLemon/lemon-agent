@@ -22,7 +22,7 @@ class TestLemonAgentHelpGuidance:
     def test_no_skills_variant_has_no_skill_view_reference(self):
         from agent.prompt_builder import LEMON_AGENT_HELP_GUIDANCE_NO_SKILLS
         assert "skill_view" not in LEMON_AGENT_HELP_GUIDANCE_NO_SKILLS
-        assert "github.com/DangLemon/lemon-agent/docs" in LEMON_AGENT_HELP_GUIDANCE_NO_SKILLS
+        assert "danglemon.github.io/lemon-agent/docs" in LEMON_AGENT_HELP_GUIDANCE_NO_SKILLS
 
 
 class TestExecutionGuidanceText:

@@ -150,7 +150,7 @@ _OAUTH_PROVIDER_CATALOG: tuple[Dict[str, Any], ...] = (
     # Device code works in remote shells/containers without a reachable 127.0.0.1 callback.
     {"id": "xai-oauth", "name": "xAI Grok OAuth (SuperGrok / Premium+)", "flow": "device_code",
      "cli_command": "lemon auth add xai-oauth",
-     "docs_url": "https://github.com/DangLemon/lemon-agent/docs/guides/xai-grok-oauth", "status_fn": None},
+     "docs_url": "https://danglemon.github.io/lemon-agent/docs/guides/xai-grok-oauth", "status_fn": None},
     # `copilot login` is the non-interactive subcommand; `copilot /login` is not valid
     # (slash-commands only exist inside an interactive session).
     {"id": "copilot-acp", "name": "GitHub Copilot (ACP)", "flow": "external", "cli_command": "copilot login",
