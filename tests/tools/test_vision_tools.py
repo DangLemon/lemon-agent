@@ -705,7 +705,31 @@ class TestErrorClassification:
 
         assert result["success"] is False
         assert "rejected the image" in result["analysis"].lower()
-        assert "smaller" in result["analysis"].lower()
+
+    @pytest.mark.asyncio
+    async def test_unsupported_field_error_does_not_blame_image_size(self, tmp_path):
+        """Copilot/GPT-5 unnamed 400 is a request-shape rejection, not a huge image."""
+        img = tmp_path / "test.png"
+        img.write_bytes(VALID_PNG + b"\x00" * 8)
+        api_error = Exception(
+            "Error code: 400 - {'error': {'code': 'invalid_request_error', "
+            "'message': 'invalid request body or unsupported field'}}"
+        )
+        with (
+            patch(
+                "tools.vision_tools._image_to_base64_data_url",
+                return_value="data:image/png;base64,abc",
+            ),
+            patch(
+                "tools.vision_tools.async_call_llm",
+                new_callable=AsyncMock,
+                side_effect=api_error,
+            ),
+        ):
+            result = json.loads(await vision_analyze_tool(str(img), "describe", "test/model"))
+        assert result["success"] is False
+        assert "unsupported field" in result["analysis"].lower() or "request shape" in result["analysis"].lower()
+        assert "smaller" not in result["analysis"].lower()
 
 
 class TestVisionRegistration:
@@ -921,6 +945,10 @@ class TestIsImageSizeError:
         assert not _is_image_size_error(Exception("Connection refused"))
         assert not _is_image_size_error(Exception("401 Unauthorized"))
         assert not _is_image_size_error(Exception(""))
+        assert not _is_image_size_error(Exception(
+            "Error code: 400 - {'error': {'code': 'invalid_request_error', "
+            "'message': 'invalid request body or unsupported field'}}"
+        ))
 
 
 class TestDownloadRetryClassification:

@@ -2665,6 +2665,13 @@ class TestAnthropicCompatImageConversion:
         assert vid_block["type"] == "video"
         assert vid_block["source"] == {"type": "url", "url": "https://example.com/clip.mp4"}
 
+    def test_vision_request_headers_for_copilot(self):
+        from agent.auxiliary_client import _vision_request_headers
+        assert _vision_request_headers("copilot", "https://api.githubcopilot.com") == {
+            "Copilot-Vision-Request": "true"
+        }
+        assert _vision_request_headers("openrouter", "https://openrouter.ai/api/v1") == {}
+
 
 
 class _AuxAuth401(Exception):

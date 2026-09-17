@@ -3080,6 +3080,23 @@ def _is_auth_error(exc: Exception) -> bool:
     return "bad-credentials" in err_lower and (status == 403 or "unauthenticated" in err_lower)
 
 
+_UNNAMED_UNSUPPORTED_FIELD_HINTS = (
+    "invalid request body or unsupported field",
+)
+
+
+def _is_unnamed_unsupported_field_error(exc: Exception) -> bool:
+    """Copilot/Azure chat-completions 400 that names no parameter.
+
+    Verbatim: ``invalid request body or unsupported field``. GPT-5 / Copilot
+    emit this for ``temperature`` (and sometimes ``extra_body``) instead of
+    ``Unsupported parameter: temperature``, so the named-parameter detector
+    would miss it and vision_analyze would surface a bogus "image too large"
+    fallback.
+    """
+    return _contains_any(str(exc).lower(), _UNNAMED_UNSUPPORTED_FIELD_HINTS)
+
+
 def _is_unsupported_parameter_error(exc: Exception, param: str) -> bool:
     """Provider 400 for an unsupported request parameter: the parameter name plus a generic
     unsupported/unknown/unrecognized marker, so call sites can retry without the key."""
@@ -3087,10 +3104,15 @@ def _is_unsupported_parameter_error(exc: Exception, param: str) -> bool:
     if not param_lower:
         return False
     err_lower = str(exc).lower()
-    return param_lower in err_lower and _contains_any(err_lower, (
+    if param_lower in err_lower and _contains_any(err_lower, (
         "unsupported parameter", "unsupported_parameter", "not supported", "does not support",
         "unknown parameter", "unrecognized request argument", "unrecognized parameter", "invalid parameter",
-    ))
+    )):
+        return True
+    # Copilot/Azure omit the parameter name. Temperature is the field Lemon
+    # always sends on aux vision/search calls, so treat the unnamed 400 as a
+    # temperature rejection when that is the param we are probing.
+    return param_lower == "temperature" and _is_unnamed_unsupported_field_error(exc)
 
 
 def _is_structured_output_rejection(exc: Exception) -> bool:
@@ -3369,8 +3391,15 @@ def _prepare_same_provider_retry(
         # Preserve per-request attribution headers across the rebuilt-client retry — see the sync variant
         # above (#60293).
         retry_kwargs["extra_headers"] = dict(extra_headers)
-    if _is_anthropic_compat_endpoint(resolved_provider, retry_base):
+    if _needs_anthropic_image_blocks(effective_provider or resolved_provider, retry_model or final_model, retry_client, retry_base):
         retry_kwargs["messages"] = _convert_openai_images_to_anthropic(retry_kwargs["messages"])
+    if str(task or "") == "vision":
+        vision_headers = _vision_request_headers(effective_provider or resolved_provider, retry_base)
+        if vision_headers:
+            merged = dict(retry_kwargs.get("extra_headers") or {})
+            for key, value in vision_headers.items():
+                merged.setdefault(key, value)
+            retry_kwargs["extra_headers"] = merged
     return retry_client, retry_kwargs
 
 
@@ -5739,6 +5768,29 @@ def _is_anthropic_compat_endpoint(provider: str, base_url: str) -> bool:
     return provider in _ANTHROPIC_COMPAT_PROVIDERS or "/anthropic" in (base_url or "").lower()
 
 
+def _needs_anthropic_image_blocks(provider: str, model: Optional[str], client: Any, base_url: str) -> bool:
+    """True when OpenAI ``image_url`` parts must be rewritten to Anthropic ``image`` blocks."""
+    provider_norm = str(provider or "").strip().lower()
+    if _is_anthropic_compat_endpoint(provider_norm, base_url):
+        return True
+    if _nous_on_messages_wire(provider_norm, str(model or "")):
+        return True
+    if _endpoint_speaks_anthropic_messages(base_url):
+        return True
+    return isinstance(client, (AnthropicAuxiliaryClient, AsyncAnthropicAuxiliaryClient))
+
+
+def _vision_request_headers(provider: str, base_url: str) -> Dict[str, str]:
+    """Per-request headers required to send images on this vision route."""
+    provider_norm = str(provider or "").strip().lower()
+    if (
+        provider_norm in {"copilot", "github-copilot", "github-models", "github", "github-model"}
+        or base_url_host_matches(base_url, "githubcopilot.com")
+    ):
+        return {"Copilot-Vision-Request": "true"}
+    return {}
+
+
 # OpenAI block type → (Anthropic block type, default media type for data: URLs). MiniMax's
 # Anthropic-compatible endpoint wants type="video" (not "video_url"/"input_video") with the same
 # ``source`` shape as "image".
@@ -6577,8 +6629,15 @@ def _prepare_aux_request(
         kwargs["extra_headers"] = dict(extra_headers)
     # Convert image blocks for Anthropic-compatible endpoints (e.g. MiniMax)
     client_base = str(getattr(client, "base_url", "") or "")
-    if _is_anthropic_compat_endpoint(request_provider, client_base):
+    if _needs_anthropic_image_blocks(request_provider, final_model, client, client_base):
         kwargs["messages"] = _convert_openai_images_to_anthropic(kwargs["messages"])
+    if str(task or "") == "vision":
+        vision_headers = _vision_request_headers(request_provider, client_base)
+        if vision_headers:
+            merged = dict(kwargs.get("extra_headers") or {})
+            for key, value in vision_headers.items():
+                merged.setdefault(key, value)
+            kwargs["extra_headers"] = merged
     return _PreparedAuxRequest(
         client, final_model, kwargs, resolved_provider, request_provider, resolved_model,
         resolved_base_url, resolved_api_key, resolved_api_mode, effective_timeout,
@@ -6619,7 +6678,8 @@ def _param_rung_accepts(exc: Exception) -> bool:
     """After a parameter-strip retry: fall through to the max_tokens/payment/auth
     chains with the stripped kwargs; re-raise anything those chains won't handle."""
     return (_is_payment_error(exc) or _is_connection_error(exc) or _is_auth_error(exc)
-            or "max_tokens" in str(exc) or "unsupported_parameter" in str(exc))
+            or "max_tokens" in str(exc) or "unsupported_parameter" in str(exc)
+            or _is_unnamed_unsupported_field_error(exc))
 
 
 def _credential_rung_accepts(exc: Exception) -> bool:
@@ -6645,6 +6705,15 @@ def _ladder_parameter_rungs(
     if "temperature" in kwargs and _is_unsupported_parameter_error(first_err, "temperature"):
         retry_kwargs = {k: v for k, v in kwargs.items() if k != "temperature"}
         logger.info("Auxiliary %s%s: provider rejected temperature; retrying once without it",
+                    task or "call", tag)
+        resp, first_err = yield from _rung(
+            _LadderStep("call", (client, retry_kwargs)), _param_rung_accepts)
+        if first_err is None:
+            return resp, None, retry_kwargs
+        kwargs = retry_kwargs
+    if kwargs.get("extra_body") and _is_unnamed_unsupported_field_error(first_err):
+        retry_kwargs = {k: v for k, v in kwargs.items() if k != "extra_body"}
+        logger.info("Auxiliary %s%s: provider rejected extra_body; retrying once without it",
                     task or "call", tag)
         resp, first_err = yield from _rung(
             _LadderStep("call", (client, retry_kwargs)), _param_rung_accepts)

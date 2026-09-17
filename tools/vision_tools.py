@@ -262,15 +262,25 @@ _EMBED_MAX_DIMENSION = 1568
 _RESIZE_TARGET_BYTES = 5 * 1024 * 1024
 
 _SIZE_ERROR_HINTS = (
-    "too large", "payload", "413", "content_too_large",
+    "too large", "too big", "payload", "413", "content_too_large",
     "request_too_large", "exceeds", "size limit",
 )
 
 
 def _is_image_size_error(error: Exception) -> bool:
-    """Detect if an API error is related to image or payload size."""
+    """Detect if an API error is related to image or payload size.
+
+    Generic ``invalid_request_error`` / Copilot ``unsupported field`` 400s are
+    request-shape rejections (temperature, extra_body), not size — those are
+    retried in the aux client. Matching them here used to skip that recovery
+    and tell the user to "try a smaller JPEG".
+    """
     err_str = str(error).lower()
-    return any(hint in err_str for hint in _SIZE_ERROR_HINTS + ("image_url", "invalid_request"))
+    if any(hint in err_str for hint in _SIZE_ERROR_HINTS):
+        return True
+    return "image_url" in err_str and any(
+        hint in err_str for hint in ("too", "large", "size", "limit", "exceed")
+    )
 
 
 def _build_scale_note(scale_info: Optional[dict], crop_offset: Optional[dict]) -> Optional[str]:
@@ -658,11 +668,19 @@ _IMAGE_ERROR_RULES = (
       "unrecognized request argument", "image input"),
      "{model} does not support vision or our request was not "
      "accepted by the server. Error: {e}"),
+    (("too large", "too big", "payload", "413", "content_too_large",
+      "request_too_large", "exceeds", "size limit"),
+     "The vision API rejected the image as too large. Try a smaller "
+     "JPEG/PNG and retry. Error: {e}"),
+    (("unsupported field", "invalid request body"),
+     "The vision provider rejected the request shape (often an extra "
+     "field such as temperature on GPT-5/Copilot). Retry; if it keeps "
+     "failing, set auxiliary.vision.provider to a vision-capable "
+     "backend. Error: {e}"),
     (("invalid_request", "image_url"),
      "The vision API rejected the image. This can happen when the "
-     "image is in an unsupported format, corrupted, or still too "
-     "large after auto-resize. Try a smaller JPEG/PNG and retry. "
-     "Error: {e}"),
+     "image is in an unsupported format or corrupted. Convert to "
+     "JPEG/PNG and retry. Error: {e}"),
 )
 _VIDEO_ERROR_RULES = (
     (_BILLING_HINTS, _IMAGE_ERROR_RULES[0][1]),
