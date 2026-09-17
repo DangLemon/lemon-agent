@@ -182,7 +182,7 @@ test('rejects a receipt from the wrong source repository fork', async () => {
     const assetsRoot = await createReleaseAssets(root, ({ fixtures }) => {
       const fixture = fixtures[1]
       const receiptPath = path.join(fixture.dir, receiptNameForInstaller(fixture.installer))
-      writeJson(receiptPath, { ...fixture.receipt, sourceRepository: 'DangLemon/lemon-agent' })
+      writeJson(receiptPath, { ...fixture.receipt, sourceRepository: 'NousResearch/hermes-agent' })
     })
 
     assert.throws(() => runPrepare(root, assetsRoot), /sourceRepository/)

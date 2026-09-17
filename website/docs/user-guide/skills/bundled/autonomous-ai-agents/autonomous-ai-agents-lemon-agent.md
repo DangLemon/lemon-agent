@@ -63,7 +63,7 @@ Never answer "Lemon AI can't do that" from memory. Lemon AI ships far more than 
 
 ```bash
 # Install (shell installer — sets up uv, Python, the venv, and the launcher)
-curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash
 
 # Interactive chat (default surface; set display.interface: tui to launch the Ink TUI instead)
 lemon

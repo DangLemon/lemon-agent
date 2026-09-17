@@ -541,9 +541,6 @@ $RepoUrlSsh = "git@github.com:$Repository.git"
 $RepoUrlHttps = "https://github.com/$Repository.git"
 
 function Get-InstallerRecoveryUrl {
-    if ((Get-RepositoryIdentityKey $Repository) -eq (Get-RepositoryIdentityKey "DangLemon/lemon-agent")) {
-        return "https://github.com/DangLemon/lemon-agent/install.ps1"
-    }
     return "https://raw.githubusercontent.com/$Repository/main/scripts/install.ps1"
 }
 

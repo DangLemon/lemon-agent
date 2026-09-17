@@ -35,8 +35,8 @@ def _run_keep_data_uninstall(monkeypatch, capsys, tmp_path: Path, *, windows: bo
 @pytest.mark.parametrize(
     ("windows", "expected"),
     [
-        (False, "curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash"),
-        (True, "iex (irm https://github.com/DangLemon/lemon-agent/install.ps1)"),
+        (False, "curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash"),
+        (True, "iex (irm https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1)"),
     ],
 )
 def test_keep_data_uninstall_preserves_public_reinstall_hint(

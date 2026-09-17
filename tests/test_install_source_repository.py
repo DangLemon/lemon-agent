@@ -165,7 +165,7 @@ def test_install_sh_windows_handoff_uses_lemon_powershell_installer_by_default(
     result = run_raw_install_sh_on_fake_windows(tmp_path)
 
     assert result.returncode == 1
-    assert "iex (irm https://github.com/DangLemon/lemon-agent/install.ps1)" in result.stdout
+    assert "iex (irm https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1)" in result.stdout
     assert "NousResearch/hermes-agent" not in result.stdout
 
 
@@ -182,7 +182,7 @@ def test_install_sh_windows_handoff_uses_configured_powershell_installer(
         "https://raw.githubusercontent.com/ExampleOrg/internal-agent/main/scripts/install.ps1))) "
         "-Repository 'ExampleOrg/internal-agent'"
     ) in result.stdout
-    assert "https://github.com/DangLemon/lemon-agent/install.ps1" not in result.stdout
+    assert "https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1" not in result.stdout
 
 
 def test_install_sh_raw_script_defaults_to_lemon_without_network(tmp_path: Path) -> None:

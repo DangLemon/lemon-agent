@@ -126,7 +126,7 @@ def test_prepare_git_command_reinstall_uses_configured_repository(
         f"https://raw.githubusercontent.com/{repository}/main/scripts/install.sh "
         "| bash"
     ) in out
-    assert "https://github.com/DangLemon/lemon-agent/install.sh" not in out
+    assert "https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh" not in out
 
 
 def test_prepare_git_command_reinstall_keeps_public_installer(
@@ -147,7 +147,7 @@ def test_prepare_git_command_reinstall_keeps_public_installer(
 
     assert exc_info.value.code == 1
     out = capsys.readouterr().out
-    assert "curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash" in out
+    assert "curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash" in out
     assert "raw.githubusercontent.com" not in out
 
 

@@ -55,14 +55,14 @@ For a command-line only install without Lemon AI, run:
 
 #### Linux / macOS / WSL2 / Android (Termux)
 ```bash
-curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash
 ```
 
 #### Windows (native)
 
 Run in powershell:
 ```powershell
-iex (irm https://github.com/DangLemon/lemon-agent/install.ps1)
+iex (irm https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1)
 ```
 
 :::tip Android / Termux

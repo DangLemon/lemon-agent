@@ -83,7 +83,7 @@ Packaging/repository/signing problems for this option should be reported to the 
 Lemon AI now ships a Termux-aware installer path:
 
 ```bash
-curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash
 ```
 
 On Termux, the installer automatically:

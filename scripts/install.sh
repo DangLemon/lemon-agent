@@ -533,7 +533,7 @@ ensure_managed_origin() {
 
 powershell_installer_command() {
     if [ "$(repository_identity_key "$REPOSITORY")" = "$(repository_identity_key "$LEMON_DEFAULT_REPOSITORY")" ]; then
-        printf '%s\n' "iex (irm https://github.com/DangLemon/lemon-agent/install.ps1)"
+        printf '%s\n' "iex (irm https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1)"
     else
         printf '%s\n' "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/${REPOSITORY}/main/scripts/install.ps1))) -Repository '${REPOSITORY}'"
     fi

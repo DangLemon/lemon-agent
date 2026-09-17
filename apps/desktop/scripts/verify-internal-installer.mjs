@@ -236,8 +236,8 @@ export function validateGeneratedConfig(config) {
   assertEqual(config.appId, 'com.lemondigital.lemonai', 'electron-builder appId')
 
   const serializedConfig = JSON.stringify(config)
-  if (serializedConfig.includes('DangLemon/lemon-agent'))
-    fail('electron-builder config contains upstream Lemon AI repository')
+  if (serializedConfig.includes('NousResearch/hermes-agent'))
+    fail('electron-builder config contains upstream Hermes repository')
   if (serializedConfig.includes('lemon-updater'))
     fail('electron-builder config contains upstream Lemon AI updater cache name')
 }

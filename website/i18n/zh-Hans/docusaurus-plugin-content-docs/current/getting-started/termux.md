@@ -46,7 +46,7 @@ python -m pip install -e '.[termux]' -c constraints-termux.txt
 Lemon AI 现已内置 Termux 感知的安装路径：
 
 ```bash
-curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash
 ```
 
 在 Termux 上，安装程序会自动：

@@ -37,7 +37,7 @@ Use any model you want — [Nous Portal](https://portal.nousresearch.com), OpenR
 ### Linux, macOS, WSL2, Termux
 
 ```bash
-curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash
 ```
 
 ### Windows (native, PowerShell)
@@ -47,7 +47,7 @@ curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
 Run this in PowerShell:
 
 ```powershell
-iex (irm https://github.com/DangLemon/lemon-agent/install.ps1)
+iex (irm https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1)
 ```
 
 The installer handles everything: uv, Python 3.11, Node.js, ripgrep, ffmpeg, **and a portable Git Bash** (MinGit, unpacked to `%LOCALAPPDATA%\Lemon AI\git` — no admin required, completely isolated from any system Git install). Lemon AI uses this bundled Git Bash to run shell commands.
@@ -224,7 +224,7 @@ full git checkout it creates at `$LEMON_HOME/lemon-agent` (usually
 managed venv, lazy dependencies, gateway, and docs tooling.
 
 ```bash
-curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash
 cd "${LEMON_HOME:-$HOME/.lemon-ai}/lemon-agent"
 uv pip install -e ".[all,dev]"
 scripts/run_tests.sh

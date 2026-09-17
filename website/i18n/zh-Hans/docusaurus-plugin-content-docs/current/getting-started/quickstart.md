@@ -58,7 +58,7 @@ description: "与 Lemon AI 的第一次对话——从安装到开始聊天，5 
 
 ```bash
 # Linux / macOS / WSL2 / Android (Termux)
-curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash
 ```
 
 安装脚本会在 `~/.lemon-ai/lemon-agent` 创建一个受管理的隔离环境（独立的 uv 托管解释器和 venv），这是唯一受支持的安装方式 —— 包括开发用途。请勿使用 `pip install lemon-agent`。

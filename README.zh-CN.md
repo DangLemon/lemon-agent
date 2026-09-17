@@ -32,7 +32,7 @@
 ## 快速安装
 
 ```bash
-curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash
 ```
 
 支持 Linux、macOS、WSL2 和 Android (Termux)。安装程序会自动处理平台特定的配置。
@@ -41,7 +41,7 @@ curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
 >
 > **Windows：** 在 PowerShell 中运行：
 > ```powershell
-> iex (irm https://github.com/DangLemon/lemon-agent/install.ps1)
+> iex (irm https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1)
 > ```
 > 安装完成后，可能需要重启终端，然后运行 `lemon` 开始对话。
 
@@ -173,7 +173,7 @@ lemon claw migrate --overwrite  # 覆盖已有冲突
 `lemon update`、托管 venv、lazy dependencies、gateway 和 docs tooling 使用的布局。
 
 ```bash
-curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash
 cd "${LEMON_HOME:-$HOME/.lemon-ai}/lemon-agent"
 uv pip install -e ".[all,dev]"
 scripts/run_tests.sh

@@ -170,7 +170,7 @@ def _capture_head_sha(git_cmd, cwd) -> str | None:
 def _reinstall_command_for_configured_repository() -> str:
     """Shell command for non-git reinstall guidance."""
     if _is_default_update_repository():
-        return "curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash"
+        return "curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash"
     repository = _configured_update_repository()
     installer_url = f"https://raw.githubusercontent.com/{repository}/main/scripts/install.sh"
     return f"curl -fsSL {installer_url} | bash -s -- --repo {repository}"

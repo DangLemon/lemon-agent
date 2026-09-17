@@ -49,7 +49,7 @@ development environment on the same layout the CLI, updater, lazy dependency
 installer, gateway, and docs assume.
 
 ```bash
-curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash
 cd "${LEMON_HOME:-$HOME/.lemon-ai}/lemon-agent"
 
 # Add dev/test extras on top of the standard install.

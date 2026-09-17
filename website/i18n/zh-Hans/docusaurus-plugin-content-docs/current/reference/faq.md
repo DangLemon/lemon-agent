@@ -33,7 +33,7 @@ Lemon AI 可与任何兼容 OpenAI 的 API 配合使用。支持的提供商包�
 **原生不支持。** Lemon AI 需要类 Unix 环境。在 Windows 上，请安装 [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) 并在其中运行 Lemon AI。标准安装命令在 WSL2 中可完美运行：
 
 ```bash
-curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash
 ```
 
 ### 我在 WSL2 中运行 Lemon AI，如何控制 Windows 上的普通 Chrome？
@@ -61,7 +61,7 @@ curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
 快速安装：
 
 ```bash
-curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash
 ```
 
 完整的手动步骤、支持的扩展及当前限制，请参阅 [Termux 指南](../getting-started/termux.md)。
@@ -225,7 +225,7 @@ source ~/.bashrc
 # 如果之前使用 sudo 安装，请先清理：
 sudo rm /usr/local/bin/lemon
 # 然后重新运行标准安装程序
-curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash
 ```
 
 ---
@@ -750,7 +750,7 @@ skills:
 
 1. 在新机器上安装 Lemon AI：
    ```bash
-   curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash
    ```
 
 2. 在**源机器**上创建完整备份：

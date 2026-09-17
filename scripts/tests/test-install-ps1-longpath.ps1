@@ -300,11 +300,11 @@ Assert-Equal -Expected $explicitHome -Actual $result.LemonHome -Label "checkout 
 Assert-Equal -Expected (Join-Path $explicitHome 'lemon-agent') -Actual $result.InstallDir -Label "checkout manifest derives InstallDir from explicit -LemonHome"
 
 $result = Invoke-Normalization -Environment @{ LEMON_HOME = (Join-Path $longRoot 'ambient-lemon-home') }
-Assert-Equal -Expected $expectedLemonHome -Actual $result.LemonHome -Label "checkout manifest ignores inherited LEMON_HOME"
+Assert-Equal -Expected (Join-Path $longRoot 'ambient-lemon-home') -Actual $result.LemonHome -Label "checkout manifest honors inherited LEMON_HOME"
 
 $result = Invoke-Normalization -Environment @{ LEMON_INSTALL_RUNTIME_DIR_NAME = 'custom-runtime' }
-Assert-Equal -Expected 'lemon-agent' -Actual $result.RuntimeDirName -Label "checkout manifest ignores Lemon AI runtime alias"
-Assert-Equal -Expected $expectedLemonInstallDir -Actual $result.InstallDir -Label "checkout manifest keeps Lemon install dir when Lemon AI alias is inherited"
+Assert-Equal -Expected 'custom-runtime' -Actual $result.RuntimeDirName -Label "checkout manifest honors LEMON_INSTALL_RUNTIME_DIR_NAME"
+Assert-Equal -Expected (Join-Path $expectedLemonHome 'custom-runtime') -Actual $result.InstallDir -Label "checkout manifest derives InstallDir from the inherited runtime alias"
 
 $customLemonHome = Join-Path $longRoot 'custom-lemon-home'
 $result = Invoke-Normalization -Environment @{
@@ -330,7 +330,7 @@ $result = Invoke-Normalization -Environment @{ LEMON_INSTALLER_BRAND = 'lemon' }
 Assert-Equal -Expected "DangLemon/lemon-agent" -Actual $result.Repository -Label "brand=lemon overrides checkout manifest"
 Assert-Equal -Expected "lemon-agent" -Actual $result.RuntimeDirName -Label "brand=lemon keeps the Lemon AI runtime directory"
 Assert-Equal -Expected ".lemon-ai-bootstrap-complete" -Actual $result.BootstrapMarker -Label "brand=lemon keeps the Lemon AI bootstrap marker"
-Assert-Equal -Expected "https://github.com/DangLemon/lemon-agent/install.ps1" -Actual $result.RecoveryUrl -Label "brand=lemon keeps the Lemon AI recovery URL"
+Assert-Equal -Expected "https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1" -Actual $result.RecoveryUrl -Label "brand=lemon keeps the Lemon AI recovery URL"
 
 $result = Invoke-Normalization -Environment @{ LEMON_INSTALLER_BRAND = 'lemon' } `
     -ExtraArgs @('-Repository', 'ExampleOrg/runtime-agent')

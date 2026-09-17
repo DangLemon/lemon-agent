@@ -1049,7 +1049,7 @@ export const en: Translations = {
       sshErrHostKey:
         'The host key has CHANGED since you last connected. Verify this is expected, then run ssh-keygen -R <host> and reconnect.',
       sshErrNotInstalled:
-        'Lemon AI is not installed on the remote host. Install it there (curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | sh) or set the Lemon AI path.',
+        'Lemon AI is not installed on the remote host. Install it there (curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | sh) or set the Lemon AI path.',
       sshErrPlatform:
         'Unsupported remote platform. Lemon AI SSH mode supports Linux, macOS, and Windows remote hosts.',
       sshErrTimeout: 'SSH connection timed out. The host may be unreachable or asleep.',

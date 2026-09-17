@@ -467,7 +467,7 @@ test('validateStamp requires exact CI source SHA and ref', () => {
 test('validateHarnessManifest requires the approved fork and canonical harness resource contract', () => {
   validateHarnessManifest(validManifest())
   assert.throws(
-    () => validateHarnessManifest({ ...validManifest(), sourceRepository: 'DangLemon/lemon-agent' }),
+    () => validateHarnessManifest({ ...validManifest(), sourceRepository: 'NousResearch/hermes-agent' }),
     /sourceRepository/
   )
   const literalSecret = validManifest()
@@ -528,7 +528,7 @@ test('macOS verification rejects universal or x64 Mach-O payloads', () => {
 test('macOS verification fails when Lemon plist metadata is missing', () => {
   withTempDir(root => {
     const options = makeMacFixture(root)
-    makePlist(path.join(options.appPath, 'Contents', 'Info.plist'), { CFBundleDisplayName: 'Lemon AI' })
+    makePlist(path.join(options.appPath, 'Contents', 'Info.plist'), { CFBundleDisplayName: 'Hermes Agent' })
     assert.throws(
       () =>
         verifyInternalInstaller({
@@ -918,7 +918,7 @@ test('validateNativePayload rejects missing target node-pty binary', () => {
 test('validateGeneratedConfig requires Lemon product and executable identity', () => {
   validateGeneratedConfig(validGeneratedConfig())
   assert.throws(
-    () => validateGeneratedConfig({ ...validGeneratedConfig(), executableName: 'Lemon AI' }),
+    () => validateGeneratedConfig({ ...validGeneratedConfig(), executableName: 'Hermes' }),
     /executableName/
   )
   assert.throws(
@@ -928,7 +928,7 @@ test('validateGeneratedConfig requires Lemon product and executable identity', (
         mac: {
           ...validGeneratedConfig().mac,
           extendInfo: {
-            CFBundleExecutable: 'Lemon AI'
+            CFBundleExecutable: 'Hermes'
           }
         }
       }),

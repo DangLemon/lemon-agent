@@ -788,8 +788,8 @@ def _reinstall_hint(windows: bool) -> str:
     repository = _configured_update_repository_for_reinstall()
     if repository.lower() == _DEFAULT_UPDATE_REPOSITORY.lower():
         if windows:
-            return "  iex (irm https://github.com/DangLemon/lemon-agent/install.ps1)"
-        return "  curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash"
+            return "  iex (irm https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1)"
+        return "  curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash"
     script_name = "install.ps1" if windows else "install.sh"
     installer_url = f"https://raw.githubusercontent.com/{repository}/main/scripts/{script_name}"
     if windows:

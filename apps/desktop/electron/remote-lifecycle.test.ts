@@ -47,10 +47,10 @@ const SPAWN_NONCE = '0123456789abcdef'
 const exec = promisify(execCallback)
 
 test('remoteInstallCommand carries configured source repository for Lemon remote hints', () => {
-  assert.equal(remoteInstallCommand(), 'curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | sh')
+  assert.equal(remoteInstallCommand(), 'curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | sh')
   assert.equal(
-    remoteInstallCommand('DangLemon/lemon-agent'),
-    'curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | sh -s -- --repo DangLemon/lemon-agent'
+    remoteInstallCommand('ExampleOrg/custom-agent'),
+    'curl -fsSL https://raw.githubusercontent.com/ExampleOrg/custom-agent/main/scripts/install.sh | sh -s -- --repo ExampleOrg/custom-agent'
   )
 })
 
@@ -384,13 +384,13 @@ test('locateLemon uses the Lemon host label without changing executable hints', 
   const ssh = fakeSsh([]) // nothing is executable
 
   await assert.rejects(
-    () => locateLemon(ssh, '', 'DangLemon/lemon-agent', 'Lemon AI'),
+    () => locateLemon(ssh, '', 'ExampleOrg/custom-agent', 'Lemon AI'),
     (err: any) => {
       assert.equal(err.kind, 'lemon-not-found')
       assert.match(err.message, /Lemon AI is not installed/)
       assert.match(err.message, /`lemon` executable/)
-      assert.match(err.message, /--repo DangLemon\/lemon-agent/)
-      assert.doesNotMatch(err.message, /Lemon AI is not installed/)
+      assert.match(err.message, /--repo ExampleOrg\/custom-agent/)
+      assert.doesNotMatch(err.message, /Hermes Agent is not installed/)
 
       return true
     }

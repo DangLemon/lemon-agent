@@ -1198,7 +1198,7 @@ export const ru = defineLocale({
       sshErrHostKey:
         'Ключ хоста ИЗМЕНИЛСЯ с последнего подключения. Убедитесь, что это ожидаемо, затем выполните ssh-keygen -R <host> и переподключитесь.',
       sshErrNotInstalled:
-        'Lemon AI не установлен на удалённой машине. Установите его там (curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | sh) или задайте путь к Lemon AI.',
+        'Lemon AI не установлен на удалённой машине. Установите его там (curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | sh) или задайте путь к Lemon AI.',
       sshErrPlatform:
         'Неподдерживаемая удалённая платформа. SSH-режим Lemon AI поддерживает удалённые хосты Linux, macOS и Windows.',
       sshErrTimeout: 'SSH-соединение истекло. Хост может быть недоступен или «спит».',

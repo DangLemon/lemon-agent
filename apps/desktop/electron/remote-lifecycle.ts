@@ -80,7 +80,7 @@ function remoteInstallCommand(sourceRepository = DEFAULT_SOURCE_REPOSITORY) {
   const repository = validateSourceRepository(sourceRepository)
 
   if (repository.toLowerCase() === DEFAULT_SOURCE_REPOSITORY.toLowerCase()) {
-    return 'curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | sh'
+    return 'curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | sh'
   }
 
   return `curl -fsSL https://raw.githubusercontent.com/${repository}/main/scripts/install.sh | sh -s -- --repo ${repository}`

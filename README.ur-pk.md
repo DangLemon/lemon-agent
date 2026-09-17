@@ -38,7 +38,7 @@
 <div dir="ltr">
 
 ```bash
-curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash
 ```
 
 </div>
@@ -52,7 +52,7 @@ curl -fsSL https://github.com/DangLemon/lemon-agent/install.sh | bash
 <div dir="ltr">
 
 ```powershell
-iex (irm https://github.com/DangLemon/lemon-agent/install.ps1)
+iex (irm https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1)
 ```
 
 </div>
