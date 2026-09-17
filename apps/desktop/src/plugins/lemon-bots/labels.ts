@@ -40,8 +40,8 @@ export function botModeUsesLemonAiBrand(env: BrandEnv = import.meta.env): boolea
   return envString(env, 'VITE_LEMON_DESKTOP_HARNESS').toLowerCase() === 'internal'
 }
 
-export function botModeProductName(env: BrandEnv = import.meta.env): string {
-  return botModeUsesLemonAiBrand(env) ? 'Lemon AI' : 'Lemon AI'
+export function botModeProductName(_env: BrandEnv = import.meta.env): string {
+  return 'Lemon AI'
 }
 
 export function botModeDesktopProductName(env: BrandEnv = import.meta.env): string {
@@ -72,9 +72,10 @@ export function brandDisplayString(
   const desktopToken = '\uE000lemon-bot-desktop\uE001'
 
   const branded = protectedValue.text
-    .replace(/\bLemon\b/g, desktopToken)
-    .replace(/\bLemon\b/g, botModeProductName(env))
-    .replace(/\bLemon\b/g, botModeProductName(env))
+    .replace(/\bLemon AI Desktop\b/g, desktopToken)
+    .replace(/\bHermes Agent\b/g, desktopToken)
+    .replace(/\bHermes Desktop\b/g, desktopToken)
+    .replace(/\bHermes\b/g, botModeProductName(env))
     .split(desktopToken)
     .join(botModeDesktopProductName(env))
 

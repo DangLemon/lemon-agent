@@ -30,7 +30,7 @@ test('callback page can use the internal desktop product name', () => {
   const html = mcpOauthDoneHtml('Lemon AI')
 
   assert.match(html, /return to Lemon AI/)
-  assert.doesNotMatch(html, /return to Lemon AI/)
+  assert.doesNotMatch(html, /return to Hermes/)
 })
 
 async function freePort(host = '127.0.0.1'): Promise<number> {

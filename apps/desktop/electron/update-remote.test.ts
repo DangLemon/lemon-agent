@@ -90,7 +90,7 @@ test('GitHub repository helpers validate and build Lemon source URLs', () => {
   assert.equal(validateGitHubRepositoryIdentity('DangLemon/lemon-agent'), 'DangLemon/lemon-agent')
   assert.equal(githubRepositoryCanonical('DangLemon/lemon-agent'), 'github.com/danglemon/lemon-agent')
   assert.equal(githubRepositoryHttpsUrl('DangLemon/lemon-agent'), 'https://github.com/DangLemon/lemon-agent.git')
-  assert.equal(isNonDefaultRepository('DangLemon/lemon-agent'), true)
+  assert.equal(isNonDefaultRepository('acme/custom-agent'), true)
   assert.equal(isNonDefaultRepository('DangLemon/lemon-agent'), false)
 })
 
@@ -98,7 +98,7 @@ test('repository remote matching is driven by the configured owner/repo', () => 
   assert.equal(remoteMatchesRepository('https://github.com/DangLemon/lemon-agent.git', 'DangLemon/lemon-agent'), true)
   assert.equal(remoteMatchesRepository('git@github.com:DangLemon/lemon-agent.git', 'DangLemon/lemon-agent'), true)
   assert.equal(
-    remoteMatchesRepository('https://github.com/DangLemon/lemon-agent.git', 'DangLemon/lemon-agent'),
+    remoteMatchesRepository('https://github.com/NousResearch/hermes-agent.git', 'DangLemon/lemon-agent'),
     false
   )
   assert.equal(isSshRemoteForRepository('git@github.com:DangLemon/lemon-agent.git', 'DangLemon/lemon-agent'), true)
@@ -133,8 +133,8 @@ test('update origin plan preserves matching SSH origins', () => {
 test('update origin plan remaps mismatched origins to the configured repository', () => {
   assert.deepEqual(
     planUpdateOriginRepository({
-      originUrl: 'https://github.com/DangLemon/lemon-agent.git',
-      sourceRepository: 'DangLemon/lemon-agent',
+      originUrl: 'https://github.com/NousResearch/hermes-agent.git',
+      sourceRepository: 'acme/custom-agent',
       updateRootHasGit: true
     }),
     {
@@ -143,11 +143,11 @@ test('update origin plan remaps mismatched origins to the configured repository'
         'remote',
         'set-url',
         'origin',
-        'https://github.com/DangLemon/lemon-agent.git'
+        'https://github.com/acme/custom-agent.git'
       ],
-      expectedUrl: 'https://github.com/DangLemon/lemon-agent.git',
-      originUrl: 'https://github.com/DangLemon/lemon-agent.git',
-      repository: 'DangLemon/lemon-agent'
+      expectedUrl: 'https://github.com/acme/custom-agent.git',
+      originUrl: 'https://github.com/NousResearch/hermes-agent.git',
+      repository: 'acme/custom-agent'
     }
   )
 })
@@ -156,15 +156,15 @@ test('update origin plan adds a missing origin for a configured repository check
   assert.deepEqual(
     planUpdateOriginRepository({
       originUrl: '',
-      sourceRepository: 'DangLemon/lemon-agent',
+      sourceRepository: 'acme/custom-agent',
       updateRootHasGit: true
     }),
     {
       action: 'add',
-      args: ['remote', 'add', 'origin', 'https://github.com/DangLemon/lemon-agent.git'],
-      expectedUrl: 'https://github.com/DangLemon/lemon-agent.git',
+      args: ['remote', 'add', 'origin', 'https://github.com/acme/custom-agent.git'],
+      expectedUrl: 'https://github.com/acme/custom-agent.git',
       originUrl: '',
-      repository: 'DangLemon/lemon-agent'
+      repository: 'acme/custom-agent'
     }
   )
 })

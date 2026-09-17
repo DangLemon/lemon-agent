@@ -31,7 +31,7 @@ test('ordinary desktop HTML keeps the Lemon AI title by default', () => {
 
   assert.equal(plugin.transformIndexHtml.order, 'pre')
   assert.match(html, /<title>Lemon AI<\/title>/)
-  assert.equal(html.match(/\/apple-touch-icon\.png/g)?.length, 3)
+  assert.equal(html.match(/\/lemon-apple-touch-icon\.png/g)?.length, 3)
 })
 
 test('internal desktop HTML uses the Lemon AI title', () => {
@@ -64,5 +64,5 @@ test('invalid internal harness input fails closed to the Lemon AI title', () => 
   const env = { LEMON_DESKTOP_HARNESS_CONFIG: '/missing/internal.json' }
 
   assert.equal(desktopHtmlTitleForEnv(env), 'Lemon AI')
-  assert.doesNotMatch(transformHtml(desktopHtmlTitlePlugin(env), source), /Lemon AI/)
+  assert.match(transformHtml(desktopHtmlTitlePlugin(env), source), /<title>Lemon AI<\/title>/)
 })

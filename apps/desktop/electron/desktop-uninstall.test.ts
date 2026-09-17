@@ -147,7 +147,6 @@ test('buildPosixCleanupScript waits for the PID, runs the uninstall module, remo
   assert.match(script, /'-m' 'lemon_cli\.uninstall' '--mode' 'gui'/)
   assert.match(script, /rm -rf '\/opt\/lemon\/linux-unpacked'/)
   assert.match(script, /export LEMON_HOME='\/home\/x\/\.lemon-ai'/)
-  assert.match(script, /export LEMON_HOME='\/home\/x\/\.lemon-ai'/)
 })
 
 test('buildPosixCleanupScript exports PYTHONPATH when pythonPath is set (lite/full)', () => {
@@ -179,16 +178,12 @@ test('buildPosixCleanupScript carries validated Lemon identity into detached cle
     runtimeEnv: {
       LEMON_DESKTOP_INTERNAL: '1',
       LEMON_UPDATE_PRODUCT_NAME: 'Lemon AI',
-      LEMON_DESKTOP_INTERNAL: '1',
-      LEMON_UPDATE_PRODUCT_NAME: 'Lemon AI',
       LEMON_UPDATE_REPOSITORY: 'DangLemon/lemon-agent',
       LEMON_HOME: '/should/not/override',
       'BAD-NAME': 'ignored'
     }
   })
 
-  assert.match(script, /export LEMON_DESKTOP_INTERNAL='1'/)
-  assert.match(script, /export LEMON_UPDATE_PRODUCT_NAME='Lemon AI'/)
   assert.match(script, /export LEMON_DESKTOP_INTERNAL='1'/)
   assert.match(script, /export LEMON_UPDATE_PRODUCT_NAME='Lemon AI'/)
   assert.match(script, /export LEMON_UPDATE_REPOSITORY='DangLemon\/lemon-agent'/)
@@ -312,16 +307,12 @@ test('buildWindowsCleanupScript carries validated Lemon identity into detached c
     runtimeEnv: {
       LEMON_DESKTOP_INTERNAL: '1',
       LEMON_UPDATE_PRODUCT_NAME: 'Lemon AI',
-      LEMON_DESKTOP_INTERNAL: '1',
-      LEMON_UPDATE_PRODUCT_NAME: 'Lemon AI',
       LEMON_UPDATE_REPOSITORY: 'DangLemon/lemon-agent',
       PYTHONPATH: 'ignored',
       'BAD-NAME': 'ignored'
     }
   })
 
-  assert.match(script, /set "LEMON_DESKTOP_INTERNAL=1"/)
-  assert.match(script, /set "LEMON_UPDATE_PRODUCT_NAME=Lemon AI"/)
   assert.match(script, /set "LEMON_DESKTOP_INTERNAL=1"/)
   assert.match(script, /set "LEMON_UPDATE_PRODUCT_NAME=Lemon AI"/)
   assert.match(script, /set "LEMON_UPDATE_REPOSITORY=DangLemon\/lemon-agent"/)

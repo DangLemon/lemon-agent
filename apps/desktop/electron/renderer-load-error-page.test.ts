@@ -31,7 +31,7 @@ test('error page uses the packaged Lemon identity and actual runtime log path', 
 
   assert.match(html, /Lemon AI couldn.t start the desktop UI/)
   assert.match(html, /\/Users\/test\/\.lemon-ai\/logs\/lemon-ai-desktop\.log/)
-  assert.doesNotMatch(html, /Lemon AI couldn.t start/)
+  assert.doesNotMatch(html, /Hermes couldn.t start/)
   assert.doesNotMatch(html, /logs\/desktop\.log/)
 })
 

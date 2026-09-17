@@ -246,7 +246,7 @@ test('platform detection uses the Lemon host label while preserving the lemon.ex
       assert.equal(err.kind, 'unsupported-platform')
       assert.match(err.message, /Lemon AI Desktop SSH/)
       assert.match(err.message, /Lemon AI is not installed/)
-      assert.doesNotMatch(err.message, /Lemon AI is not installed/)
+      assert.doesNotMatch(err.message, /Hermes is not installed/)
 
       return true
     }
@@ -328,7 +328,7 @@ test('Windows integrated terminal uses the Lemon host label when requested', () 
   const command = buildWindowsInteractiveCommand('', 'Lemon AI')
   const script = Buffer.from(command.split(' ').pop()!, 'base64').toString('utf16le')
   assert.match(script, /WindowTitle='Lemon AI SSH'/)
-  assert.doesNotMatch(script, /Lemon AI SSH/)
+  assert.doesNotMatch(script, /Hermes SSH/)
 })
 
 test('Windows update marker errors use the Lemon host label', async () => {

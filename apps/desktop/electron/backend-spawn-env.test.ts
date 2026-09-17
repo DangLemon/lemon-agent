@@ -63,8 +63,6 @@ test('Lemon desktop runtime identity reaches backend child env', () => {
       LEMON_DESKTOP_INTERNAL: '1',
       LEMON_HOME: '/tmp/.lemon-ai',
       LEMON_INSTALL_RUNTIME_DIR_NAME: 'lemon-agent',
-      LEMON_DESKTOP_INTERNAL: '1',
-      LEMON_INSTALL_RUNTIME_DIR_NAME: 'lemon-agent',
       LEMON_UPDATE_MARKER_NAME: '.lemon-ai-update-in-progress',
       LEMON_UPDATE_PRODUCT_NAME: 'Lemon AI'
     },
@@ -77,8 +75,6 @@ test('Lemon desktop runtime identity reaches backend child env', () => {
 
   assert.equal(env.LEMON_DESKTOP_INTERNAL, '1')
   assert.equal(env.LEMON_HOME, '/tmp/.lemon-ai')
-  assert.equal(env.LEMON_INSTALL_RUNTIME_DIR_NAME, 'lemon-agent')
-  assert.equal(env.LEMON_DESKTOP_INTERNAL, '1')
   assert.equal(env.LEMON_INSTALL_RUNTIME_DIR_NAME, 'lemon-agent')
   assert.equal(env.LEMON_UPDATE_MARKER_NAME, '.lemon-ai-update-in-progress')
   assert.equal(env.LEMON_UPDATE_PRODUCT_NAME, 'Lemon AI')

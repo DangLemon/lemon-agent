@@ -53,15 +53,10 @@ test('terminalScriptEnv carries Lemon desktop runtime identity into the launcher
         LEMON_DESKTOP_INTERNAL: '1',
         LEMON_HOME: '/home/b/.lemon-ai',
         LEMON_INSTALL_RUNTIME_DIR_NAME: 'lemon-agent',
-        LEMON_DESKTOP_INTERNAL: '1',
-        LEMON_INSTALL_RUNTIME_DIR_NAME: 'lemon-agent',
         LEMON_UPDATE_PRODUCT_NAME: 'Lemon AI'
       }
     ),
     {
-      LEMON_DESKTOP_INTERNAL: '1',
-      LEMON_HOME: '/home/b/.lemon-ai',
-      LEMON_INSTALL_RUNTIME_DIR_NAME: 'lemon-agent',
       LEMON_DESKTOP_INTERNAL: '1',
       LEMON_HOME: '/home/b/.lemon-ai',
       LEMON_INSTALL_RUNTIME_DIR_NAME: 'lemon-agent',

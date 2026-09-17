@@ -333,7 +333,6 @@ test('runInternalDesktopInitialProviderSeed invokes the packaged seed helper bef
     'sales'
   ])
   assert.equal(calls[0].options.env['LEMON_HOME'], '/tmp/lemon-home')
-  assert.equal(calls[0].options.env['LEMON_HOME'], '/tmp/lemon-home')
   assert.equal(calls[0].options.env['PYTHONPATH'], '/app')
   assert.equal(calls[0].options.env['LEMON_AI_COMPANY_API_KEY'], 'from-env')
   assert.equal(calls[0].options.timeout, 15_000)

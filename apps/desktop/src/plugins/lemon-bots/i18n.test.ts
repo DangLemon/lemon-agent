@@ -89,15 +89,18 @@ describe('BOTS_LOCALES', () => {
 
     expect(botModeProductName(internalEnv)).toBe('Lemon AI')
     expect(brandDisplayString('Update Lemon AI to open another Bot chat.', internalEnv)).toBe(
-      'Update Lemon AI Desktop to open another Bot chat.'
+      'Update Lemon AI to open another Bot chat.'
     )
     expect(brandDisplayString('Set up Lemon AI before creating bots.', internalEnv)).toBe(
       'Set up Lemon AI before creating bots.'
     )
+    expect(brandDisplayString('Update Hermes Agent to open another Bot chat.', internalEnv)).toBe(
+      'Update Lemon AI Desktop to open another Bot chat.'
+    )
     expect(brandDisplayString('Provider not configured — run lemon model', internalEnv)).toBe(
       'Provider not configured — run lemon model'
     )
-    expect(internal.en.bot.openAnotherChatUnsupported).toBe('Update Lemon AI Desktop to open another Bot chat.')
+    expect(internal.en.bot.openAnotherChatUnsupported).toBe('Update Lemon AI to open another Bot chat.')
     expect(internal.en.tools.skillsHub).toBe('Lemon AI Skills Hub')
     expect(internal.ja.tools.skillsHub).toBe('Lemon AI スキルハブ')
     expect(internal.zh.tools.skillsHub).toBe('Lemon AI 技能中心')

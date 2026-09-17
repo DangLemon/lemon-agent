@@ -816,7 +816,6 @@ function runtimeUserText(value: string): string {
     .replaceAll('Lemon AI backend', backendName)
     .replaceAll('Lemon AI gateway', gatewayName)
     .replaceAll('Lemon AI', identity.appName)
-    .replaceAll('Lemon AI', identity.appName)
     .replace(/\bLemon\b/g, identity.appName)
 }
 

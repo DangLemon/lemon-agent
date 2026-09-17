@@ -149,7 +149,7 @@ test('encryptDesktopSecret uses the active app name in secure-storage guidance',
     (error: unknown) => {
       assert.ok(error instanceof Error)
       assert.match(error.message, /Lemon AI cannot save remote gateway tokens/)
-      assert.doesNotMatch(error.message, /Lemon AI cannot save/)
+      assert.doesNotMatch(error.message, /Hermes Desktop cannot save/)
       assert.match(error.message, /LEMON_DESKTOP_REMOTE_URL/)
 
       return true

@@ -20,7 +20,7 @@ test('matches the hindsight daemon shim (exe under venv Scripts + hindsight cmdl
 test('Windows path prefix match is ordinal case-insensitive', () => {
   assert.equal(
     isLemonOwnedVenvDaemon(
-      'c:\\lemon\\venv\\scripts\\python.exe',
+      'c:\\lemon ai\\venv\\scripts\\python.exe',
       'python.exe -m hindsight_api.main --daemon',
       'C:\\Lemon AI\\venv\\Scripts'
     ),

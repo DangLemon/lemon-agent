@@ -162,7 +162,6 @@ function buildPosixCleanupScript({
     '    sleep 0.5',
     '  done',
     'fi',
-    `export LEMON_HOME=${q(lemonHome)}`,
     `export LEMON_HOME=${q(lemonHome)}`
   ]
 
@@ -224,7 +223,6 @@ function buildWindowsCleanupScript({
   const lines = [
     '@echo off',
     'setlocal enableextensions',
-    `set "LEMON_HOME=${String(lemonHome).replace(/"/g, '')}"`,
     `set "LEMON_HOME=${String(lemonHome).replace(/"/g, '')}"`,
     `set "PID=${pid}"`
   ]
