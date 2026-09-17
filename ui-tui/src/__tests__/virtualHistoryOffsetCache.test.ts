@@ -66,7 +66,8 @@ function Harness({
   generation = 0,
   initialHeights,
   items,
-  maxMounted = 16
+  maxMounted = 16,
+  overscan = 2
 }: {
   columns?: number
   expose: React.MutableRefObject<Exposed | null>
@@ -75,6 +76,7 @@ function Harness({
   initialHeights?: ReadonlyMap<string, number>
   items: readonly Item[]
   maxMounted?: number
+  overscan?: number
 }) {
   const scrollRef = useRef<ScrollBoxHandle | null>(null)
 
@@ -84,7 +86,7 @@ function Harness({
     generation,
     initialHeights,
     maxMounted,
-    overscan: 2
+    overscan
   })
 
   useLayoutEffect(() => {
@@ -520,7 +522,7 @@ describe('useVirtualHistory offset cache reuse', () => {
     const streams = makeStreams()
     const initialHeights = new Map(items.map(item => [item.key, item.height]))
 
-    const instance = renderSync(React.createElement(Harness, { expose, initialHeights, items }), {
+    const instance = renderSync(React.createElement(Harness, { expose, initialHeights, items, overscan: 8 }), {
       patchConsole: false,
       stderr: streams.stderr as NodeJS.WriteStream,
       stdin: streams.stdin as NodeJS.ReadStream,
@@ -534,16 +536,23 @@ describe('useVirtualHistory offset cache reuse', () => {
       scroll.scrollTo(0)
       await delay(20)
       scroll.scrollTo(5)
+      await vi.waitFor(() => {
+        expect(scroll.isSticky()).toBe(false)
+        expect(scroll.getScrollTop()).toBe(5)
+        expect(expose.current!.virtualHistory.start).toBe(0)
+      })
+
       const adjustScrollTop = vi.spyOn(scroll, 'adjustScrollTop')
       const staleHeights = new Map(initialHeights)
 
       staleHeights.set(items[0]!.key, 1)
-      instance.rerender(React.createElement(Harness, { expose, initialHeights: staleHeights, items }))
-      await delay(40)
+      instance.rerender(React.createElement(Harness, { expose, initialHeights: staleHeights, items, overscan: 0 }))
 
-      expect(adjustScrollTop).toHaveBeenCalledOnce()
-      expect(adjustScrollTop).toHaveBeenCalledWith(1)
-      expect(scroll.getScrollTop()).toBe(6)
+      await vi.waitFor(() => {
+        expect(adjustScrollTop).toHaveBeenCalledOnce()
+        expect(adjustScrollTop).toHaveBeenCalledWith(1)
+        expect(scroll.getScrollTop()).toBe(6)
+      })
       expect(scroll.isSticky()).toBe(false)
       expect(expose.current!.virtualHistory.start).toBeGreaterThan(0)
       expect(expose.current!.virtualHistory.offsets[1]).toBe(2)
