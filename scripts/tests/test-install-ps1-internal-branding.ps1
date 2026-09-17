@@ -253,7 +253,7 @@ if (Test-Path -LiteralPath $smokeSoulPath -PathType Leaf) {
     $smokeSoul = Get-Content -LiteralPath $smokeSoulPath -Raw
     Assert-True ($smokeSoul.Contains('You are Lemon AI, built by Lemon Digital.')) `
         'clean profile SOUL.md uses Lemon AI and Lemon Digital'
-    Assert-True (-not $smokeSoul.Contains('Lemon AI')) 'clean profile SOUL.md has no Lemon AI identity'
+    Assert-True (-not $smokeSoul.Contains('Hermes Agent')) 'clean profile SOUL.md has no Hermes Agent identity'
     Assert-True (-not $smokeSoul.Contains('Nous Research')) 'clean profile SOUL.md has no Nous Research identity'
 }
 
@@ -263,25 +263,25 @@ $smokeAppDir = if ([string]::IsNullOrWhiteSpace($DesktopBuildRoot)) {
     (Resolve-Path -LiteralPath $DesktopBuildRoot -ErrorAction Stop).ProviderPath
 }
 $smokeLemonExe = Join-Path $smokeAppDir 'Lemon AI.exe'
-$smokeLemonExe = Join-Path $smokeAppDir 'Lemon AI.exe'
+$smokeHermesExe = Join-Path $smokeAppDir 'Hermes.exe'
 if ([string]::IsNullOrWhiteSpace($DesktopBuildRoot)) {
     New-Item -ItemType Directory -Force -Path (Join-Path $smokeAppDir 'resources') | Out-Null
     New-Item -ItemType File -Force -Path $smokeLemonExe, (Join-Path $smokeAppDir 'resources\icon.ico') | Out-Null
 } else {
     Assert-True (Test-Path -LiteralPath $smokeLemonExe -PathType Leaf) 'built desktop output contains Lemon AI.exe'
-    Assert-True (-not (Test-Path -LiteralPath $smokeLemonExe -PathType Leaf)) 'built internal output has no Lemon AI.exe'
+    Assert-True (-not (Test-Path -LiteralPath $smokeHermesExe -PathType Leaf)) 'built internal output has no Hermes.exe'
 }
 
 $shell = New-Object -ComObject WScript.Shell
-$legacyPath = Join-Path $smokePrograms 'Lemon AI.lnk'
+$legacyPath = Join-Path $smokePrograms 'Hermes.lnk'
 $legacyShortcutSmoke = $shell.CreateShortcut($legacyPath)
-$legacyShortcutSmoke.TargetPath = $smokeLemonExe
+$legacyShortcutSmoke.TargetPath = $smokeHermesExe
 $legacyShortcutSmoke.WorkingDirectory = $smokeAppDir
 $legacyShortcutSmoke.Save()
 
-$foreignPath = Join-Path $smokeDesktop 'Lemon AI.lnk'
+$foreignPath = Join-Path $smokeDesktop 'Hermes.lnk'
 $foreignShortcutSmoke = $shell.CreateShortcut($foreignPath)
-$foreignShortcutSmoke.TargetPath = Join-Path $smokeRoot 'foreign\Lemon AI.exe'
+$foreignShortcutSmoke.TargetPath = Join-Path $smokeRoot 'foreign\Hermes.exe'
 $foreignShortcutSmoke.Save()
 
 $InternalDesktopBuild = $true
@@ -305,9 +305,9 @@ foreach ($shortcutPath in @(
     }
 }
 Assert-True (-not (Test-Path -LiteralPath $legacyPath -PathType Leaf)) `
-    'clean profile removes an owned legacy Lemon AI shortcut'
+    'clean profile removes an owned legacy Hermes shortcut'
 Assert-True (Test-Path -LiteralPath $foreignPath -PathType Leaf) `
-    'clean profile keeps a foreign Lemon AI shortcut'
+    'clean profile keeps a foreign Hermes shortcut'
 
 if ($script:Failures -gt 0) {
     try {

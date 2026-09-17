@@ -4845,10 +4845,10 @@ function New-DesktopShortcuts {
             }
         }
 
-        if ($identity.LinkName -ne 'Lemon AI.lnk') {
+        if ($identity.LinkName -ne 'Hermes.lnk') {
             $legacyTargets = @(
-                (Join-Path $ProgramsFolder 'Lemon AI.lnk'),
-                (Join-Path $DesktopFolder 'Lemon AI.lnk')
+                (Join-Path $ProgramsFolder 'Hermes.lnk'),
+                (Join-Path $DesktopFolder 'Hermes.lnk')
             )
             foreach ($legacyPath in $legacyTargets) {
                 try {

@@ -107,6 +107,47 @@ function Assert-ThrowsLike {
     Assert-True $threw $Name
 }
 
+function New-CommandProbeExe {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$ClassName,
+        [Parameter(Mandatory = $true)][int]$ExitCode
+    )
+    $code = @"
+using System;
+public static class $ClassName {
+    public static int Main(string[] args) {
+        Console.WriteLine(Environment.GetEnvironmentVariable("LEMON_UPDATE_REPOSITORY"));
+        Console.WriteLine(string.Join("|", args));
+        return $ExitCode;
+    }
+}
+"@
+    $compiled = $false
+    try {
+        Add-Type -TypeDefinition $code -OutputAssembly $Path -OutputType ConsoleApplication -ErrorAction Stop
+        $compiled = Test-Path -LiteralPath $Path -PathType Leaf
+    } catch {
+        $compiled = $false
+    }
+    if (-not $compiled) {
+        $src = [System.IO.Path]::ChangeExtension($Path, '.cs')
+        [System.IO.File]::WriteAllText($src, $code)
+        $cscCandidates = @(
+            (Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'),
+            (Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe')
+        )
+        $csc = $cscCandidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+        if (-not $csc) {
+            throw "Cannot compile command probe; csc.exe not found"
+        }
+        $cscOut = & $csc /nologo /t:exe /out:$Path $src 2>&1
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+            throw "Cannot compile command probe with csc: $cscOut"
+        }
+    }
+}
+
 try {
     $installRoot = Join-Path $caseRoot 'lemon-agent'
     $binDir = Join-Path $caseRoot 'bin'
@@ -197,8 +238,15 @@ try {
             [Parameter(ValueFromRemainingArguments=$true)]
             [object[]]$Remaining
         )
-        if ($LiteralPath -and [string]$LiteralPath[0] -and [string]$LiteralPath[0].EndsWith('\lemon.exe', [System.StringComparison]::OrdinalIgnoreCase)) {
-            throw "simulated launcher lock"
+        $targets = @()
+        if ($null -ne $LiteralPath) { $targets += @($LiteralPath) }
+        if ($null -ne $Path) { $targets += @($Path) }
+        foreach ($target in $targets) {
+            if ($target -isnot [string] -or [string]::IsNullOrWhiteSpace($target)) { continue }
+            if ($target.EndsWith('\lemon.exe', [System.StringComparison]::OrdinalIgnoreCase) -or
+                $target.EndsWith('/lemon.exe', [System.StringComparison]::OrdinalIgnoreCase)) {
+                throw "simulated launcher lock"
+            }
         }
         if ($LiteralPath) {
             Microsoft.PowerShell.Management\Remove-Item -LiteralPath $LiteralPath -Force:$Force @Remaining
@@ -228,16 +276,7 @@ try {
 
     $probeSource = Join-Path $scriptsDir 'lemon.exe'
     Microsoft.PowerShell.Management\Remove-Item -LiteralPath $probeSource -Force
-    Add-Type -TypeDefinition @'
-using System;
-public static class LauncherProbe {
-    public static int Main(string[] args) {
-        Console.WriteLine(Environment.GetEnvironmentVariable("LEMON_UPDATE_REPOSITORY"));
-        Console.WriteLine(string.Join("|", args));
-        return 23;
-    }
-}
-'@ -OutputAssembly $probeSource -OutputType ConsoleApplication
+    New-CommandProbeExe -Path $probeSource -ClassName 'LauncherProbe' -ExitCode 23
     Install-LemonCommandLaunchers -Root $installRoot -Destination $binDir -Repository 'DangLemon/lemon-agent' | Out-Null
     $probeOutput = @(& (Join-Path $binDir 'lemon.cmd') 'alpha' 'beta gamma')
     $probeExit = $LASTEXITCODE
@@ -252,16 +291,7 @@ public static class LauncherProbe {
     $unicodeBin = Join-Path $caseRoot 'unicode-bin'
     New-Item -ItemType Directory -Force -Path $unicodeScripts | Out-Null
     $unicodeProbe = Join-Path $unicodeScripts 'lemon.exe'
-    Add-Type -TypeDefinition @'
-using System;
-public static class UnicodeLauncherProbe {
-    public static int Main(string[] args) {
-        Console.WriteLine(Environment.GetEnvironmentVariable("LEMON_UPDATE_REPOSITORY"));
-        Console.WriteLine(string.Join("|", args));
-        return 29;
-    }
-}
-'@ -OutputAssembly $unicodeProbe -OutputType ConsoleApplication
+    New-CommandProbeExe -Path $unicodeProbe -ClassName 'UnicodeLauncherProbe' -ExitCode 29
     Install-LemonCommandLaunchers -Root $unicodeInstallRoot -Destination $unicodeBin -Repository 'DangLemon/lemon-agent' | Out-Null
     Assert-True (Test-Path -LiteralPath (Join-Path $unicodeBin 'lemon-launcher.ps1')) `
         'Unicode source paths use a PowerShell companion instead of batch bytes'
