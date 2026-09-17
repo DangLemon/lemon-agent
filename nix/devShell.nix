@@ -11,7 +11,7 @@
     { pkgs, self', ... }:
     let
       packages = builtins.attrValues self'.packages;
-      lemonNpmLib = self'.packages.default.passthru.lemon-aiNpmLib;
+      lemonNpmLib = self'.packages.default.passthru.lemonNpmLib;
 
       # Collect all packageJsonPath values from npm workspace packages.
       npmPackageJsonPaths = builtins.filter (p: p != null) (

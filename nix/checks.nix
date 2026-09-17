@@ -7,7 +7,7 @@
   perSystem = { pkgs, lib, self', ... }:
     let
       lemon-agent = self'.packages.default;
-      lemonVenv = lemon-agent.lemon-aiVenv;
+      lemonVenv = lemon-agent.lemonVenv;
 
       configMergeScript = pkgs.callPackage ./configMergeScript.nix { };
 
@@ -1215,7 +1215,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
           # without building the full venv (which is expensive and redundant
           # since the mechanism is just list concatenation into python.nix).
           echo "derivation: ${lemonWithGroups}"
-          echo "venv: ${lemonWithGroups.lemon-aiVenv}"
+          echo "venv: ${lemonWithGroups.lemonVenv}"
           echo "PASS: extraDependencyGroups override evaluates cleanly"
 
           echo "=== All extraDependencyGroups checks passed ==="
@@ -1229,7 +1229,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         messaging-variant = pkgs.runCommand "lemon-messaging-variant" { } ''
           set -e
           echo "=== Checking discord.py importable from messaging variant ==="
-          ${self'.packages.messaging.lemon-aiVenv}/bin/python3 -c \
+          ${self'.packages.messaging.lemonVenv}/bin/python3 -c \
             "import discord; print(discord.__version__)"
           echo "PASS: discord.py importable from messaging variant venv"
           mkdir -p $out

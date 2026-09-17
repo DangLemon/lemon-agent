@@ -65,11 +65,11 @@
           extraDependencyGroups = [ "messaging" ];
         };
 
-        tui = full.lemon-aiTui;
-        web = full.lemon-aiWeb;
+        tui = full.lemonTui;
+        web = full.lemonWeb;
         desktop = full.lemonDesktop;
 
-        update-npm-lockfile = full.lemon-aiNpmLib.updateNpmLockfile;
+        update-npm-lockfile = full.lemonNpmLib.updateNpmLockfile;
       };
     };
 }
