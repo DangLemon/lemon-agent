@@ -274,6 +274,10 @@ def test_install_sh_checkout_manifest_reports_lemon_stage_titles(tmp_path: Path)
 def test_install_sh_raw_manifest_reports_lemon_stage_titles(tmp_path: Path) -> None:
     env = os.environ.copy()
     env.update({"HOME": str(tmp_path / "home")})
+    env.pop("LEMON_DESKTOP_INTERNAL", None)
+    env.pop("HERMES_DESKTOP_INTERNAL", None)
+    env.pop("LEMON_DESKTOP_HARNESS_CONFIG", None)
+    env.pop("HERMES_DESKTOP_HARNESS_CONFIG", None)
     raw_script = copy_raw_install_sh(tmp_path)
 
     result = subprocess.run(
@@ -287,13 +291,15 @@ def test_install_sh_raw_manifest_reports_lemon_stage_titles(tmp_path: Path) -> N
 
     manifest = json.loads(result.stdout)
     titles = {stage["name"]: stage["title"] for stage in manifest["stages"]}
-    assert titles["repository"] == "Tải Lemon AI"
-    assert titles["path"] == "Cài lệnh terminal"
-    assert titles["config"] == "Chuẩn bị cấu hình Lemon AI và skills"
-    assert titles["setup"] == "Cấu hình API key và cài đặt Lemon AI"
-    assert titles["gateway"] == "Cấu hình gateway Lemon AI"
-    assert titles["desktop"] == "Build app Lemon AI"
-    assert titles["complete"] == "Hoàn tất cài Lemon AI"
+    # Raw curl|bash has no checkout harness, so this is the public English copy.
+    assert titles["repository"] == "Download Lemon AI"
+    assert titles["path"] == "Install lemon command"
+    assert titles["config"] == "Prepare config and skills"
+    assert titles["setup"] == "Configure API keys and settings"
+    assert titles["gateway"] == "Configure gateway service"
+    assert titles["desktop"] == "Build desktop app"
+    assert titles["complete"] == "Finish install"
+    assert "Hermes" not in json.dumps(manifest)
 
 
 def test_install_sh_checkout_manifest_reports_lemon_help_text(tmp_path: Path) -> None:

@@ -251,9 +251,11 @@ def _lemon_holder_subcommand(cmdline: str) -> str | None:
         base = low.rsplit("\\", 1)[-1].rsplit("/", 1)[-1]
         if base in ("lemon.exe", "lemon.cmd"):
             return True
-        # Bare `lemon` on PATH — not a drive-path fragment like `C:\Lemon` from
-        # an unquoted `C:\Lemon AI\...` command line.
-        return base == "lemon" and "\\" not in low and "/" not in low
+        # Basename `lemon`: bare PATH or Unix `/usr/local/bin/lemon`. Reject
+        # Windows fragments like `C:\Lemon` from an unquoted `C:\Lemon AI\...`
+        # cmdline (`Lemon AI` is space-protected above; a remaining `\` is a
+        # leftover split token). `/` is a real Unix path separator.
+        return base == "lemon" and "\\" not in low
 
     entry_idx = next((i for i, token in enumerate(tokens) if _is_entry(i, token)), None)
     if entry_idx is None:
