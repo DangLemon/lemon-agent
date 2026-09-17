@@ -42,7 +42,7 @@ describe('aboutSettingsCopyForBrand', () => {
     expect(copy.heading).toBe('Lemon AI')
     expect(copy.bundleSwapPendingAction).toBe('Restart Lemon AI')
     expect(combined).toContain('Lemon AI checks for updates')
-    expect(combined).not.toContain('Lemon AI')
+    expect(combined).not.toContain('Hermes')
   })
 
   it('preserves localized surrounding text while replacing Lemon AI terms', () => {

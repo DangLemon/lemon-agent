@@ -79,7 +79,7 @@ describe('resolveVersionStatus', () => {
     expect(client({ applying: true, copy: lemonCopy, version: '0.21.0' }).tooltip).toBe(
       `${copy.updateInProgress} · Lemon AI v0.21.0`
     )
-    expect(client({ applying: true, copy: lemonCopy, version: '0.21.0' }).tooltip).not.toContain('Lemon AI')
+    expect(client({ applying: true, copy: lemonCopy, version: '0.21.0' }).tooltip).not.toContain('Hermes')
   })
 
   it('labels the backend target distinctly and never claims a client sha', () => {

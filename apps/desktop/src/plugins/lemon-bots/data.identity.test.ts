@@ -91,7 +91,7 @@ describe('renamed bots stay taggable', () => {
   })
 
   it('drops reserved tokens so a rename cannot hijack a built-in tag', () => {
-    expect(mentionNameForms('Lemon AI')).toEqual([])
+    expect(mentionNameForms('lemon')).toEqual([])
     expect(mentionNameForms('@everyone')).toEqual([])
     expect(mentionNameForms('')).toEqual([])
   })

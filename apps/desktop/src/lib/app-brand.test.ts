@@ -57,8 +57,8 @@ describe('appBrandForEnv', () => {
     )
   })
 
-  it('replaces legacy Lemon AI terms across internal update copy', () => {
-    const source = 'Lemon AI checks for updates and restarts the Lemon AI.'
+  it('replaces leftover Hermes terms across internal update copy', () => {
+    const source = 'Hermes Desktop checks for updates and restarts the Hermes Agent.'
 
     expect(replaceLemonBrandTerms(source, upstreamAppBrand)).toBe(source)
     expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(
@@ -66,9 +66,15 @@ describe('appBrandForEnv', () => {
     )
   })
 
+  it('does not double-brand already-Lemon copy', () => {
+    const source = 'Lemon AI checks for updates and restarts the Lemon AI.'
+
+    expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(source)
+  })
+
   it('brands renderer fallback copy without changing upstream copy', () => {
     const source =
-      'Ask Lemon AI… Not connected — open Lemon AI to reconnect. Open in Lemon AI. Lemon AI is working. Reacted by Lemon AI. Lemon AI reported an error.'
+      'Ask Hermes… Not connected — open Hermes to reconnect. Open in Hermes. Hermes is working. Reacted by Hermes. Hermes reported an error.'
 
     expect(replaceLemonBrandTerms(source, upstreamAppBrand)).toBe(source)
     expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(
@@ -76,46 +82,46 @@ describe('appBrandForEnv', () => {
     )
   })
 
-  it('brands quoted product labels while preserving quoted executable Lemon AI commands', () => {
+  it('brands quoted leftover product labels while preserving quoted executable commands', () => {
     const source =
-      "Open 'Lemon AI', read \"Lemon AI\", keep `Lemon AI`, then run 'lemon model' and `lemon mcp login amazon-ads`."
+      "Open 'Hermes Desktop', read \"Hermes Agent\", keep `Hermes Desktop`, then run 'hermes model' and `lemon mcp login amazon-ads`."
 
     expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(
-      "Open 'Lemon AI', read \"Lemon AI\", keep `Lemon AI`, then run 'lemon model' and `lemon mcp login amazon-ads`."
+      "Open 'Lemon AI', read \"Lemon AI\", keep `Lemon AI`, then run 'hermes model' and `lemon mcp login amazon-ads`."
     )
   })
 
   it('preserves only bounded bare executable commands and brands following prose', () => {
-    const source = 'Run lemon model before opening Lemon AI. Then run lemon doctor if Lemon AI still fails.'
+    const source = 'Run hermes model before opening Hermes Desktop. Then run lemon doctor if Lemon AI still fails.'
 
     expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(
-      'Run lemon model before opening Lemon AI. Then run lemon doctor if Lemon AI still fails.'
+      'Run hermes model before opening Lemon AI. Then run lemon doctor if Lemon AI still fails.'
     )
   })
 
-  it('does not protect arbitrary quoted or backticked Lemon AI product text', () => {
-    const source = 'Read "Lemon AI" and `Lemon AI`; keep "lemon doctor" and `lemon desktop --force-build`.'
+  it('does not protect arbitrary quoted leftover product text', () => {
+    const source = 'Read "Hermes Desktop" and `Hermes Agent`; keep "hermes doctor" and `lemon desktop --force-build`.'
 
     expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(
-      'Read "Lemon AI" and `Lemon AI`; keep "lemon doctor" and `lemon desktop --force-build`.'
+      'Read "Lemon AI" and `Lemon AI`; keep "hermes doctor" and `lemon desktop --force-build`.'
     )
   })
 
-  it('preserves the executable model command while branding config path hints without changing upstream copy', () => {
+  it('preserves the executable model command while branding leftover config path hints', () => {
     const source =
-      "Run 'lemon model', then check ~/.lemon-ai/.env and ~/.lemon-ai/config.yaml if the Lemon AI backend or lemon gateway still fails."
+      "Run 'hermes model', then check ~/.hermes/.env and ~/.hermes/config.yaml if the Hermes backend or hermes gateway still fails."
 
     expect(replaceLemonBrandTerms(source, upstreamAppBrand)).toBe(source)
     expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(
-      "Run 'lemon model', then check ~/.lemon-ai/.env and ~/.lemon-ai/config.yaml if the Lemon AI backend or Lemon AI gateway still fails."
+      "Run 'hermes model', then check ~/.lemon-ai/.env and ~/.lemon-ai/config.yaml if the Lemon AI backend or Lemon AI gateway still fails."
     )
   })
 
-  it('preserves interpolation values when the same text also contains executable Lemon AI commands', () => {
-    const source = "Run 'lemon model', then reopen Lemon AI.txt in Lemon AI."
+  it('preserves interpolation values when the same text also contains executable commands', () => {
+    const source = "Run 'hermes model', then reopen Hermes Agent.txt in Hermes Desktop."
 
-    expect(replaceLemonBrandTerms(source, lemonAppBrand, ['Lemon AI.txt'])).toBe(
-      "Run 'lemon model', then reopen Lemon AI.txt in Lemon AI."
+    expect(replaceLemonBrandTerms(source, lemonAppBrand, ['Hermes Agent.txt'])).toBe(
+      "Run 'hermes model', then reopen Hermes Agent.txt in Lemon AI."
     )
   })
 
@@ -158,8 +164,11 @@ describe('appBrandForEnv', () => {
     expect(replaceLemonBrandTerms('lemon gateway > gateway.log', lemonAppBrand)).toBe(
       'lemon gateway > gateway.log'
     )
-    expect(replaceLemonBrandTerms('lemon gateway\nLemon is ready.', lemonAppBrand)).toBe(
-      'lemon gateway\nLemon is ready.'
+    expect(replaceLemonBrandTerms('lemon gateway\nLemon AI is ready.', lemonAppBrand)).toBe(
+      'lemon gateway\nLemon AI is ready.'
+    )
+    expect(replaceLemonBrandTerms('hermes gateway\nHermes Agent is ready.', lemonAppBrand)).toBe(
+      'hermes gateway\nLemon AI is ready.'
     )
   })
 
@@ -208,60 +217,63 @@ describe('appBrandForEnv', () => {
     )
   })
 
-  it('preserves executable Lemon AI CLI commands while branding surrounding UI text', () => {
+  it('preserves executable CLI commands while branding leftover surrounding UI text', () => {
     const source =
-      'Lemon AI gateway is not connected. Run `lemon gateway setup`, then try lemon mcp login amazon-ads. See https://example.com/lemon/help.'
+      'Hermes gateway is not connected. Run `hermes gateway setup`, then try lemon mcp login amazon-ads. See https://example.com/hermes/help.'
 
     expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(
-      'Lemon AI gateway is not connected. Run `lemon gateway setup`, then try lemon mcp login amazon-ads. See https://example.com/lemon/help.'
+      'Lemon AI gateway is not connected. Run `hermes gateway setup`, then try lemon mcp login amazon-ads. See https://example.com/hermes/help.'
     )
   })
 
-  it('preserves internal Lemon AI protocol, IPC channel, package, and module identifiers', () => {
-    const source =
+  it('preserves leftover Hermes and current Lemon technical identifiers', () => {
+    const leftover =
+      'Open Hermes Desktop for hermes://open/settings/plugins, call hermes:api, import @hermes/plugin-sdk, and load hermes-agent from /opt/hermes-agent/bin.'
+    const current =
       'Open Lemon AI for lemon://open/settings/plugins, call lemon:api, import @lemon-ai/plugin-sdk, and load lemon-agent from /opt/lemon-agent/bin.'
 
+    expect(replaceLemonBrandTerms(leftover, lemonAppBrand)).toBe(
+      'Open Lemon AI for hermes://open/settings/plugins, call hermes:api, import @hermes/plugin-sdk, and load hermes-agent from /opt/hermes-agent/bin.'
+    )
+    expect(replaceLemonBrandTerms(current, lemonAppBrand)).toBe(current)
+  })
+
+  it('preserves lower-case technical identifiers while branding leftover Hermes home paths', () => {
+    const source =
+      'Store data-hermes-mode and hermes.desktop.routeTiles.v1 next to ~/.hermes/config.yaml for Hermes Desktop.'
+
     expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(
-      'Open Lemon AI for lemon://open/settings/plugins, call lemon:api, import @lemon-ai/plugin-sdk, and load lemon-agent from /opt/lemon-agent/bin.'
+      'Store data-hermes-mode and hermes.desktop.routeTiles.v1 next to ~/.lemon-ai/config.yaml for Lemon AI.'
     )
   })
 
-  it('preserves lower-case technical identifiers while keeping legacy Lemon AI home display branding', () => {
+  it('preserves explicit runtime values while branding leftover static copy', () => {
     const source =
-      'Store data-lemon-mode and lemon.desktop.routeTiles.v1 next to ~/.lemon-ai/config.yaml for Lemon AI.'
-
-    expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(
-      'Store data-lemon-mode and lemon.desktop.routeTiles.v1 next to ~/.lemon-ai/config.yaml for Lemon AI.'
-    )
-  })
-
-  it('preserves explicit runtime values while branding static copy', () => {
-    const source =
-      'Lemon AI could not open Lemon AI.txt from https://example.com/Lemon AI and reported: Lemon AI gateway unavailable.'
+      'Hermes Desktop could not open Hermes Agent.txt from https://example.com/Hermes and reported: Hermes gateway unavailable.'
 
     expect(
       replaceLemonBrandTerms(source, lemonAppBrand, [
-        'Lemon AI.txt',
-        'https://example.com/Lemon AI',
-        'Lemon AI gateway unavailable'
+        'Hermes Agent.txt',
+        'https://example.com/Hermes',
+        'Hermes gateway unavailable'
       ])
     ).toBe(
-      'Lemon AI could not open Lemon AI.txt from https://example.com/Lemon AI and reported: Lemon AI gateway unavailable.'
+      'Lemon AI could not open Hermes Agent.txt from https://example.com/Hermes and reported: Hermes gateway unavailable.'
     )
   })
 
-  it('brands translation functions without mutating interpolated filenames', () => {
+  it('brands leftover translation functions without mutating interpolated filenames', () => {
     const branded = brandTranslationTree(
       {
-        failedOpen: (name: string) => `Lemon AI could not open ${name}.`,
+        failedOpen: (name: string) => `Hermes Desktop could not open ${name}.`,
         nested: {
-          ready: 'Lemon AI is ready.'
+          ready: 'Hermes Agent is ready.'
         }
       },
       lemonAppBrand
     )
 
-    expect(branded.failedOpen('Lemon AI.txt')).toBe('Lemon AI could not open Lemon AI.txt.')
+    expect(branded.failedOpen('Hermes Agent.txt')).toBe('Lemon AI could not open Hermes Agent.txt.')
     expect(branded.nested.ready).toBe('Lemon AI is ready.')
   })
 })

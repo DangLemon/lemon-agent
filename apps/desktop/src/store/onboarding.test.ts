@@ -193,7 +193,7 @@ describe('refreshOnboarding', () => {
 
   it('brands backend readiness reasons before storing the onboarding overlay reason', async () => {
     vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
-    const sourceEnvPath = ['~/.lemon-ai/', 'env'].join('.')
+    const sourceEnvPath = ['~/.hermes/', 'env'].join('.')
     const brandedEnvPath = ['~/.lemon-ai/', 'env'].join('.')
     installApiMock(vi.fn())
 
@@ -206,7 +206,7 @@ describe('refreshOnboarding', () => {
         if (method === 'setup.runtime_check') {
           return {
             ok: false,
-            error: `Run 'lemon model', then check ${sourceEnvPath} because Lemon AI backend failed.`
+            error: `Run 'hermes model', then check ${sourceEnvPath} because Hermes backend failed.`
           } as never
         }
 
@@ -216,7 +216,7 @@ describe('refreshOnboarding', () => {
 
     expect(ready).toBe(false)
     expect($desktopOnboarding.get().reason).toContain(
-      `Run 'lemon model', then check ${brandedEnvPath} because Lemon AI backend failed.`
+      `Run 'hermes model', then check ${brandedEnvPath} because Lemon AI backend failed.`
     )
   })
 
@@ -679,14 +679,14 @@ describe('saveOnboardingLocalEndpoint', () => {
 
   it('brands local endpoint backend failure messages before returning them to the overlay', async () => {
     vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
-    const sourceEnvPath = ['~/.lemon-ai/', 'env'].join('.')
+    const sourceEnvPath = ['~/.hermes/', 'env'].join('.')
     const brandedEnvPath = ['~/.lemon-ai/', 'env'].join('.')
     installApiMock(async ({ path }: { path: string }) => {
       if (path === '/api/providers/validate') {
         return {
           ok: false,
           reachable: true,
-          message: `Run 'lemon model', then check ${sourceEnvPath} because Lemon AI backend failed.`,
+          message: `Run 'hermes model', then check ${sourceEnvPath} because Hermes backend failed.`,
           models: []
         }
       }
@@ -700,7 +700,7 @@ describe('saveOnboardingLocalEndpoint', () => {
 
     expect(result).toEqual({
       ok: false,
-      message: `Run 'lemon model', then check ${brandedEnvPath} because Lemon AI backend failed.`
+      message: `Run 'hermes model', then check ${brandedEnvPath} because Lemon AI backend failed.`
     })
   })
 })

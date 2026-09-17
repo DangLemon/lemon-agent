@@ -372,7 +372,7 @@ describe('turn prompt', () => {
       viewer: { name: 'builder', title: '' }
     })
 
-    expect(peer).toMatch(/group chat with @lemon-ai/)
+    expect(peer).toMatch(/group chat with @lemon/)
   })
 
   it('asks for full-quality results and short chatter, not short results', async () => {

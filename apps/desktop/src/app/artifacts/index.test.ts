@@ -309,38 +309,33 @@ ${payload}
     expect(fromNow[0]?.timestamp).toBe(now)
   })
 
-  it('resolves local file image artifacts through the desktop fs bridge', async () => {
+  it('resolves local file image artifacts through the desktop media stream', async () => {
     const readFileDataUrl = vi.fn(async () => 'data:image/png;base64,TE9DQUw=')
     vi.stubGlobal('window', { lemonDesktop: { readFileDataUrl } })
+    $connection.set(null)
 
-    // Local desktop (connection mode != 'remote'): a local image_generate
-    // output path must be read through the Electron bridge, not left as a
-    // file:// URL the renderer cannot load (#83380).
+    // Local desktop raster previews stream through the Electron media
+    // protocol so they bypass the data-URL size cap (#83380).
     const path = '/home/me/.lemon-ai/cache/image_generate/out.png'
 
-    await expect(artifactImageSrc(path)).resolves.toBe('data:image/png;base64,TE9DQUw=')
-    expect(readFileDataUrl).toHaveBeenCalledWith(path)
+    await expect(artifactImageSrc(path)).resolves.toBe(
+      `lemon-media://stream/${encodeURIComponent(path)}`
+    )
+    expect(readFileDataUrl).not.toHaveBeenCalled()
   })
 
-  it('resolves remote image artifact thumbnails through the desktop fs bridge', async () => {
-    const api = vi.fn(async ({ path }: { path: string }) => {
-      if (path.startsWith('/api/fs/read-data-url?')) {
-        return { dataUrl: 'data:image/jpeg;base64,cmVtb3Rl' }
-      }
-
-      throw new Error(`unexpected path ${path}`)
-    })
+  it('resolves remote image artifact thumbnails through the desktop media stream', async () => {
+    const api = vi.fn()
 
     vi.stubGlobal('window', { lemonDesktop: { api } })
     $connection.set({ baseUrl: 'https://gw', mode: 'remote', token: 'secret' } as never)
 
     const path = '/Users/me/.lemon-ai/skills/work-esab/references/images/manual-step03.jpeg'
 
-    await expect(artifactImageSrc(path)).resolves.toBe('data:image/jpeg;base64,cmVtb3Rl')
-
-    expect(api).toHaveBeenCalledWith({
-      path: '/api/fs/read-data-url?path=%2FUsers%2Fme%2F.lemon-ai%2Fskills%2Fwork-esab%2Freferences%2Fimages%2Fmanual-step03.jpeg'
-    })
+    await expect(artifactImageSrc(path)).resolves.toBe(
+      `lemon-media://remote/${encodeURIComponent(path)}`
+    )
+    expect(api).not.toHaveBeenCalled()
   })
 })
 

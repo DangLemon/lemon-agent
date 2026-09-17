@@ -165,7 +165,7 @@ describe('I18nProvider', () => {
     expect(screen.getByTestId('install-one-time').textContent).toBe('Lemon AI cần cài đặt lần đầu')
     expect(screen.getByTestId('onboarding-title').textContent).toBe('Thiết lập Lemon AI')
     expect(screen.getByTestId('approval-desc').textContent).toContain('~/.lemon-ai/config.yaml')
-    expect(screen.getByTestId('approval-desc').textContent).not.toContain('Lemon AI')
+    expect(screen.getByTestId('approval-desc').textContent).not.toContain('Hermes')
     expect(configClient.saveConfig).not.toHaveBeenCalled()
   })
 

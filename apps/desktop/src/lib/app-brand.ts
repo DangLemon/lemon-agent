@@ -81,13 +81,13 @@ export function appBrandForEnv(env: BrandEnv = internalCompanyBuildEnv()): AppBr
 
 export const appBrand = appBrandForEnv
 
-const BRAND_VALUE_TOKEN_PREFIX = '\uE000lemon-brand-'
+const BRAND_VALUE_TOKEN_PREFIX = '\uE000brand-value-'
 const BRAND_VALUE_TOKEN_SUFFIX = '\uE001'
-const BRAND_SPAN_TOKEN_PREFIX = '\uE000lemon-span-'
-const LEMON_EXECUTABLE = /\blemon\b/g
+const BRAND_SPAN_TOKEN_PREFIX = '\uE000brand-span-'
+const CLI_EXECUTABLE = /\b(?:hermes|lemon)\b/g
 
-const LEMON_TECHNICAL_CONTRACT =
-  /\/lemon(?=\/|\b)|@lemon\/[A-Za-z0-9][A-Za-z0-9._/-]*|\blemon:\/\/[^\s<>"'`,;)]*|\blemon:(?!\/\/)[A-Za-z0-9][A-Za-z0-9._:-]*|\blemon[._/-][A-Za-z0-9][A-Za-z0-9._/-]*/g
+const TECHNICAL_CONTRACT =
+  /\/(?:hermes|lemon)(?=\/|\b)|@(?:hermes|lemon)\/[A-Za-z0-9][A-Za-z0-9._/-]*|\b(?:hermes|lemon):\/\/[^\s<>"'`,;)]*|\b(?:hermes|lemon):(?!\/\/)[A-Za-z0-9][A-Za-z0-9._:-]*|\b(?:hermes|lemon)[._/-][A-Za-z0-9][A-Za-z0-9._/-]*/g
 
 const BARE_TECHNICAL_CONTEXT_WORDS = new Set(['binary', 'command', 'executable', 'path'])
 
@@ -265,8 +265,8 @@ function isCliTokenValue(token: string): boolean {
   return false
 }
 
-function scanLemonCliCommand(input: string, start: number): TextSpan {
-  let cursor = start + 'lemon'.length
+function scanCliCommand(input: string, start: number, executableLength: number): TextSpan {
+  let cursor = start + executableLength
   let end = cursor
   let consumedTokens = 0
 
@@ -338,21 +338,23 @@ function hasBareTechnicalContext(input: string, span: TextSpan): boolean {
     return true
   }
 
-  if (tokens.length !== 1 || input.slice(span.start, span.end) !== 'lemon') {
+  const executable = input.slice(span.start, span.end).toLowerCase()
+
+  if (tokens.length !== 1 || (executable !== 'hermes' && executable !== 'lemon')) {
     return false
   }
 
   // In translated copy the word following the executable is often a
   // non-ASCII noun (for example, the Chinese/Japanese equivalent of
-  // "binary"). A lower-case standalone `lemon` at that boundary is the
-  // executable name, while an English prose continuation such as `lemon is`
+  // "binary"). A lower-case standalone CLI name at that boundary is the
+  // executable, while an English prose continuation such as `lemon is`
   // remains eligible for display branding.
   const firstCodePoint = input.slice(span.end).trimStart().codePointAt(0)
 
   return firstCodePoint === undefined || firstCodePoint > 0x7f
 }
 
-function shouldProtectLemonCliSpan(input: string, span: TextSpan): boolean {
+function shouldProtectCliSpan(input: string, span: TextSpan): boolean {
   return (
     hasCodeOrQuoteBoundary(input, span.start, span.end) ||
     hasCliContext(input, span.start) ||
@@ -362,35 +364,35 @@ function shouldProtectLemonCliSpan(input: string, span: TextSpan): boolean {
   )
 }
 
-function protectLemonCliSpans(input: string, protect: (original: string) => string): string {
+function protectCliSpans(input: string, protect: (original: string) => string): string {
   let output = ''
   let cursor = 0
-  LEMON_EXECUTABLE.lastIndex = 0
+  CLI_EXECUTABLE.lastIndex = 0
 
-  for (let match = LEMON_EXECUTABLE.exec(input); match !== null; match = LEMON_EXECUTABLE.exec(input)) {
+  for (let match = CLI_EXECUTABLE.exec(input); match !== null; match = CLI_EXECUTABLE.exec(input)) {
     const start = match.index
-    const span = scanLemonCliCommand(input, start)
+    const span = scanCliCommand(input, start, match[0].length)
 
     output += input.slice(cursor, start)
 
-    if (shouldProtectLemonCliSpan(input, span)) {
+    if (shouldProtectCliSpan(input, span)) {
       output += protect(input.slice(span.start, span.end))
       cursor = span.end
-      LEMON_EXECUTABLE.lastIndex = span.end
+      CLI_EXECUTABLE.lastIndex = span.end
     } else {
       output += input.slice(start, span.end)
       cursor = span.end
-      LEMON_EXECUTABLE.lastIndex = span.end
+      CLI_EXECUTABLE.lastIndex = span.end
     }
   }
 
   return output + input.slice(cursor)
 }
 
-function protectLemonTechnicalContracts(input: string, protect: (original: string) => string): string {
-  LEMON_TECHNICAL_CONTRACT.lastIndex = 0
+function protectTechnicalContracts(input: string, protect: (original: string) => string): string {
+  TECHNICAL_CONTRACT.lastIndex = 0
 
-  return input.replace(LEMON_TECHNICAL_CONTRACT, (match, offset: number) => {
+  return input.replace(TECHNICAL_CONTRACT, (match, offset: number) => {
     if (input[offset - 1] === '.') {
       return match
     }
@@ -438,8 +440,8 @@ function protectDisplaySpans(input: string): ProtectedBrandText {
   // names inside quotes/backticks remain brandable display copy unless the span
   // is a lower-case executable or technical contract identifier.
   const textWithProtectedUrls = input.replace(/https?:\/\/[^\s<>"'`]+/gi, protect)
-  const textWithProtectedContracts = protectLemonTechnicalContracts(textWithProtectedUrls, protect)
-  const text = protectLemonCliSpans(textWithProtectedContracts, protect)
+  const textWithProtectedContracts = protectTechnicalContracts(textWithProtectedUrls, protect)
+  const text = protectCliSpans(textWithProtectedContracts, protect)
 
   return {
     restore: value =>
@@ -452,12 +454,12 @@ function replaceBrandText(input: string, brand: AppBrand): string {
   const protectedSpans = protectDisplaySpans(input)
 
   const tokenized = protectedSpans.text
-    .replace(/~\/\.lemon-ai(?=\/|\b)/gi, '~/.lemon-ai')
-    .replace(/\bLemon\b/gi, '{appName}')
-    .replace(/\bLemon\b/gi, '{appName}')
-    .replace(/\bLemon backend\b/gi, '{appName} backend')
-    .replace(/\bLemon gateway\b/gi, '{appName} gateway')
-    .replace(/\bLemon\b/gi, '{appName}')
+    .replace(/~\/\.hermes(?=\/|\b)/gi, '~/.lemon-ai')
+    .replace(/\bHermes Desktop\b/gi, '{appName}')
+    .replace(/\bHermes Agent\b/gi, '{appName}')
+    .replace(/\bHermes backend\b/gi, '{appName} backend')
+    .replace(/\bHermes gateway\b/gi, '{appName} gateway')
+    .replace(/\bHermes\b/gi, '{appName}')
 
   return protectedSpans.restore(replaceAppBrandTokens(tokenized, brand))
 }

@@ -727,19 +727,19 @@ describe('checkUpdates branding', () => {
 
   it('brands bridge check messages before storing them for About settings', async () => {
     vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
-    const sourceEnvPath = ['~/.lemon-ai/', 'env'].join('.')
+    const sourceEnvPath = ['~/.hermes/', 'env'].join('.')
     const brandedEnvPath = ['~/.lemon-ai/', 'env'].join('.')
     checkClientMock.mockResolvedValue(
       status({
         supported: false,
-        message: `Run 'lemon model', then check ${sourceEnvPath} because Lemon AI update is unsupported.`
+        message: `Run 'hermes model', then check ${sourceEnvPath} because Hermes update is unsupported.`
       })
     )
 
     const result = await checkUpdates()
 
     expect(result?.message).toBe(
-      `Run 'lemon model', then check ${brandedEnvPath} because Lemon AI update is unsupported.`
+      `Run 'hermes model', then check ${brandedEnvPath} because Lemon AI update is unsupported.`
     )
     expect($updateStatus.get()?.message).toBe(result?.message)
   })
