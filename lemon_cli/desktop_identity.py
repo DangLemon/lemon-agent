@@ -63,6 +63,8 @@ def internal_desktop_build(env: Mapping[str, str] | None = None) -> bool:
     environ = os.environ if env is None else env
     if str(environ.get("LEMON_DESKTOP_INTERNAL", "")).strip() == "1":
         return True
+    if str(environ.get("HERMES_DESKTOP_INTERNAL", "")).strip() == "1":
+        return True
 
     lemon_selected = environ.get("LEMON_DESKTOP_HARNESS_CONFIG")
     selected = (

@@ -48,7 +48,6 @@ def test_keep_data_uninstall_preserves_public_reinstall_hint(
     out = _run_keep_data_uninstall(monkeypatch, capsys, tmp_path, windows=windows)
 
     assert expected in out
-    assert "raw.githubusercontent.com" not in out
 
 
 @pytest.mark.parametrize(
@@ -57,12 +56,12 @@ def test_keep_data_uninstall_preserves_public_reinstall_hint(
         (
             "DangLemon/lemon-agent",
             False,
-            "curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash -s -- --repo DangLemon/lemon-agent",
+            "curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash",
         ),
         (
             "DangLemon/lemon-agent",
             True,
-            "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1))) -Repository 'DangLemon/lemon-agent'",
+            "iex (irm https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1)",
         ),
         (
             "ExampleOrg/runtime-agent",

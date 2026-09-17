@@ -45,6 +45,14 @@ def test_internal_desktop_build_accepts_explicit_desktop_child_signal(monkeypatc
     assert internal_desktop_build() is True
 
 
+def test_internal_desktop_build_accepts_legacy_desktop_child_signal(monkeypatch):
+    monkeypatch.delenv("LEMON_DESKTOP_HARNESS_CONFIG", raising=False)
+    monkeypatch.delenv("LEMON_DESKTOP_INTERNAL", raising=False)
+    monkeypatch.setenv("HERMES_DESKTOP_INTERNAL", "1")
+
+    assert internal_desktop_build() is True
+
+
 def test_internal_desktop_build_prefers_nonblank_lemon_selector(tmp_path):
     valid = tmp_path / "lemon-internal.json"
     valid.write_text(VALID, encoding="utf-8")

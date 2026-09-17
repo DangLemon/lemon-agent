@@ -344,14 +344,14 @@ def test_import_guard_flags_missing_first_party_module(monkeypatch, tmp_path):
     [
         (None, False, "https://github.com/DangLemon/lemon-agent"),
         (
-            "DangLemon/lemon-agent",
+            "ExampleOrg/runtime-agent",
             False,
-            "curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | bash -s -- --repo DangLemon/lemon-agent",
+            "curl -fsSL https://raw.githubusercontent.com/ExampleOrg/runtime-agent/main/scripts/install.sh | bash -s -- --repo ExampleOrg/runtime-agent",
         ),
         (
-            "DangLemon/lemon-agent",
+            "ExampleOrg/runtime-agent",
             True,
-            "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1))) -Repository 'DangLemon/lemon-agent'",
+            "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/ExampleOrg/runtime-agent/main/scripts/install.ps1))) -Repository 'ExampleOrg/runtime-agent'",
         ),
     ],
 )
@@ -364,7 +364,7 @@ def test_dependency_sync_import_failure_reinstall_guidance_uses_configured_sourc
         monkeypatch.delenv("LEMON_UPDATE_REPOSITORY", raising=False)
         monkeypatch.delenv("LEMON_INSTALL_REPOSITORY", raising=False)
         monkeypatch.delenv("LEMON_DESKTOP_INTERNAL", raising=False)
-        monkeypatch.delenv("LEMON_DESKTOP_INTERNAL", raising=False)
+        monkeypatch.delenv("HERMES_DESKTOP_INTERNAL", raising=False)
         monkeypatch.delenv("LEMON_DESKTOP_INTERNAL_PACKAGE", raising=False)
     else:
         monkeypatch.setenv("LEMON_UPDATE_REPOSITORY", repository)

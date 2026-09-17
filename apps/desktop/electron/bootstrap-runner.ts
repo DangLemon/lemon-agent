@@ -156,7 +156,7 @@ function resolveBootstrapSourceRepository({
       ? environ.LEMON_DESKTOP_HARNESS_CONFIG.trim()
       : '')
 
-  const internalBuild = ['LEMON_DESKTOP_INTERNAL', 'LEMON_DESKTOP_INTERNAL', 'LEMON_DESKTOP_INTERNAL_PACKAGE'].some(
+  const internalBuild = ['LEMON_DESKTOP_INTERNAL', 'HERMES_DESKTOP_INTERNAL', 'LEMON_DESKTOP_INTERNAL_PACKAGE'].some(
     name => environ[name] === '1'
   )
 

@@ -46,7 +46,7 @@ def test_configured_repository_keeps_public_default_without_internal_env(monkeyp
     monkeypatch.delenv("LEMON_UPDATE_REPOSITORY", raising=False)
     monkeypatch.delenv("LEMON_INSTALL_REPOSITORY", raising=False)
     monkeypatch.delenv("LEMON_DESKTOP_INTERNAL", raising=False)
-    monkeypatch.delenv("LEMON_DESKTOP_INTERNAL", raising=False)
+    monkeypatch.delenv("HERMES_DESKTOP_INTERNAL", raising=False)
     monkeypatch.delenv("LEMON_DESKTOP_INTERNAL_PACKAGE", raising=False)
 
     assert update_cmd._configured_update_repository() == "DangLemon/lemon-agent"
@@ -60,7 +60,7 @@ def test_configured_repository_rejects_urls(monkeypatch):
 
 
 def test_configured_repository_disables_upstream_sync(monkeypatch, tmp_path: Path):
-    monkeypatch.setenv("LEMON_UPDATE_REPOSITORY", "DangLemon/lemon-agent")
+    monkeypatch.setenv("LEMON_UPDATE_REPOSITORY", "ExampleOrg/runtime-agent")
 
     with patch.object(update_cmd, "_has_upstream_remote") as has_upstream:
         assert update_cmd._sync_with_upstream_if_needed(["git"], tmp_path) is False

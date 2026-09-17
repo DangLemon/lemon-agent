@@ -33,8 +33,8 @@ def _cpe(cmd, returncode=2, stderr="", stdout="") -> subprocess.CalledProcessErr
     ("repository", "expected_url"),
     [
         (
-            "DangLemon/lemon-agent",
-            "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1))) -Repository 'DangLemon/lemon-agent'",
+            "ExampleOrg/runtime-agent",
+            "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/ExampleOrg/runtime-agent/main/scripts/install.ps1))) -Repository 'ExampleOrg/runtime-agent'",
         ),
         (None, "https://github.com/DangLemon/lemon-agent"),
     ],
@@ -46,7 +46,7 @@ def test_zip_failure_reinstall_guidance_uses_configured_repository(
         monkeypatch.delenv("LEMON_UPDATE_REPOSITORY", raising=False)
         monkeypatch.delenv("LEMON_INSTALL_REPOSITORY", raising=False)
         monkeypatch.delenv("LEMON_DESKTOP_INTERNAL", raising=False)
-        monkeypatch.delenv("LEMON_DESKTOP_INTERNAL", raising=False)
+        monkeypatch.delenv("HERMES_DESKTOP_INTERNAL", raising=False)
         monkeypatch.delenv("LEMON_DESKTOP_INTERNAL_PACKAGE", raising=False)
     else:
         monkeypatch.setenv("LEMON_UPDATE_REPOSITORY", repository)

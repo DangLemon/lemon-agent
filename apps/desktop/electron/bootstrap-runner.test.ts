@@ -378,6 +378,13 @@ test('resolveBootstrapSourceRepository keeps an internal package on Lemon when i
     'DangLemon/lemon-agent'
   )
   assert.equal(
+    resolveBootstrapSourceRepository({
+      resourcesPath: null,
+      env: { HERMES_DESKTOP_INTERNAL: '1' }
+    }),
+    'DangLemon/lemon-agent'
+  )
+  assert.equal(
     resolveBootstrapSourceRepository({ resourcesPath: null, env: {} }),
     'DangLemon/lemon-agent'
   )
