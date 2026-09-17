@@ -448,11 +448,11 @@ generic error toast. The card offers recovery actions matched to the failure:
   `lemon debug share --nous`; secrets are always redacted, the bundle is
   viewable by Nous staff only and auto-deletes after 14 days). On success you
   get a private view link to paste into your support thread, plus quick links
-  to GitHub Issues, Nous Portal Support, and Discord. On a remote or Cloud
+  to GitHub Issues and Nous Portal Support. On a remote or Cloud
   connection the backend bundles its own agent/gateway logs and the local
   Desktop log is attached alongside, so support sees both halves.
 - **Copy error details** — copies a compact plain-text summary (layer, code,
-  provider/model, error message) you can paste into a bug report or Discord.
+  provider/model, error message) you can paste into a bug report or GitHub issue.
 
 The layer comes from the same error classifier the agent's retry loop uses,
 so it reflects the real failure semantics, not a guess from the message text.
@@ -475,7 +475,7 @@ rm "$HOME/.lemon-ai/lemon-agent/.lemon-ai-bootstrap-complete"
 rm -rf "$HOME/.lemon-ai/lemon-agent/venv"
 
 # Reset a stuck macOS microphone prompt
-tccutil reset Microphone com.nousresearch.lemon-ai
+tccutil reset Microphone com.lemondigital.lemonai
 ```
 
 ### "The host key has CHANGED since you last connected" (SSH remote)
@@ -569,7 +569,7 @@ button, so it looks like there is nothing to re-check. If that happens, reset
 the stale grant once and re-grant:
 
 ```bash
-tccutil reset ScreenCapture com.nousresearch.lemon-ai   # repeat per service
+tccutil reset ScreenCapture com.lemondigital.lemonai   # repeat per service
 ```
 
 then toggle the fresh entry ON in System Settings and fully quit & relaunch
@@ -607,7 +607,7 @@ detected and never re-signed.
 One-time note: changing the signing identity (including the first update after
 this fix) changes the app's identity once, so macOS will re-prompt one final
 time. Grants are stable from then on. If a permission gets stuck, reset it with
-`tccutil reset All com.nousresearch.lemon-ai` and re-grant.
+`tccutil reset All com.lemondigital.lemonai` and re-grant.
 
 ## See also
 

@@ -10,7 +10,7 @@ const config: Config = {
   url: 'https://github.com/DangLemon/lemon-agent',
   baseUrl: '/docs/',
 
-  organizationName: 'NousResearch',
+  organizationName: 'DangLemon',
   projectName: 'lemon-agent',
 
   onBrokenLinks: 'warn',
@@ -154,8 +154,8 @@ const config: Config = {
           position: 'right',
         },
         {
-          href: 'https://discord.gg/NousResearch',
-          label: 'Discord',
+          href: 'https://github.com/DangLemon/lemon-agent/issues',
+          label: 'Issues',
           position: 'right',
         },
       ],
@@ -175,7 +175,7 @@ const config: Config = {
         {
           title: 'Community',
           items: [
-            { label: 'Discord', href: 'https://discord.gg/NousResearch' },
+            { label: 'GitHub Issues', href: 'https://github.com/DangLemon/lemon-agent/issues' },
             { label: 'GitHub Issues', href: 'https://github.com/DangLemon/lemon-agent/issues' },
             { label: 'Skills Hub', href: 'https://agentskills.io' },
           ],
@@ -185,11 +185,11 @@ const config: Config = {
           items: [
             { label: 'Desktop Download', href: 'https://github.com/DangLemon/lemon-agent/' },
             { label: 'GitHub', href: 'https://github.com/DangLemon/lemon-agent' },
-            { label: 'Nous Research', href: 'https://nousresearch.com' },
+            { label: 'Lemon Digital', href: 'https://github.com/DangLemon/lemon-agent' },
           ],
         },
       ],
-      copyright: `Built by <a href="https://nousresearch.com">Nous Research</a> · MIT License · ${new Date().getFullYear()}`,
+      copyright: `Built by <a href="https://github.com/DangLemon/lemon-agent">Lemon Digital</a> · MIT License · ${new Date().getFullYear()}`,
     },
     prism: {
       theme: prismThemes.github,

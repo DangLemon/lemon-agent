@@ -109,9 +109,9 @@ class TestMacOSManagedPythonSigning:
             "-",
             "--timestamp=none",
             "--identifier",
-            "com.nousresearch.lemon-ai.managed-python",
+            "com.lemondigital.lemonai.managed-python",
             "--requirements",
-            '=designated => identifier "com.nousresearch.lemon-ai.managed-python"',
+            '=designated => identifier "com.lemondigital.lemonai.managed-python"',
             str(python),
         ]
         assert calls[1][0] == [

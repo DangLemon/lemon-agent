@@ -234,8 +234,7 @@ export const ja = defineLocale({
     handoffLead: '続きは次の場所で:',
     links: {
       github: 'GitHub Issues',
-      portal: 'Nous Portal サポート',
-      discord: 'Discord'
+      portal: 'Nous Portal サポート'
     }
   },
 

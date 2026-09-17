@@ -225,8 +225,7 @@ export const zh = defineLocale({
     handoffLead: '在以下位置继续讨论:',
     links: {
       github: 'GitHub Issues',
-      portal: 'Nous Portal 支持',
-      discord: 'Discord'
+      portal: 'Nous Portal 支持'
     }
   },
 

@@ -244,7 +244,7 @@ fix(security): prevent shell injection in sudo password piping
 
 ## 社区
 
-- **Discord**：[discord.gg/NousResearch](https://discord.gg/NousResearch)
+- **GitHub Issues**：[DangLemon/lemon-agent](https://github.com/DangLemon/lemon-agent/issues)
 - **GitHub Discussions**：用于设计提案和架构讨论
 - **Skills Hub**：上传专业 skill 并与社区共享
 

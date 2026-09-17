@@ -19,8 +19,7 @@ export const ar = defineLocale({
     handoffLead: 'تابع النقاش في:',
     links: {
       github: 'GitHub Issues',
-      portal: 'دعم بوابة Nous',
-      discord: 'Discord'
+      portal: 'دعم بوابة Nous'
     }
   },
   common: {

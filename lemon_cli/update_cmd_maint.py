@@ -988,7 +988,7 @@ def _run_post_update_maintenance(
         print(
             "  ℹ macOS: if Lemon AI re-prompts for permissions you already "
             "granted (toggle shows ON), the stored grant is stale — run "
-            "`tccutil reset ScreenCapture com.nousresearch.lemon-ai` (repeat "
+            "`tccutil reset ScreenCapture com.lemondigital.lemonai` (repeat "
             "per affected service), toggle it ON in System Settings, then "
             "fully quit & relaunch once."
         )

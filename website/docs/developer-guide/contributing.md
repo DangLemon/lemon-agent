@@ -294,7 +294,7 @@ When you ask Lemon AI to review a PR in a repository that has `.agents/checks/`,
 
 ## Community
 
-- **Discord**: [discord.gg/NousResearch](https://discord.gg/NousResearch)
+- **GitHub Issues**: [DangLemon/lemon-agent](https://github.com/DangLemon/lemon-agent/issues)
 - **GitHub Discussions**: For design proposals and architecture discussions
 - **Skills Hub**: Upload specialized skills and share with the community
 

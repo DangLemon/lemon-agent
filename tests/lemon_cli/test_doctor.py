@@ -163,8 +163,8 @@ class TestMacOSFullDiskAccessBranding:
         out = capsys.readouterr().out
         assert "Full Disk Access and Lemon AI" in out
         assert "enable your terminal (and Lemon AI.app if you use Desktop)" in out
+        assert "Lemon AI will never" in out
         assert "With Lemon AI's stable signing identities" in out
-        assert "Lemon AI will never" not in out
 
     def test_ordinary_guidance_keeps_lemon_identity(self, monkeypatch, capsys):
         monkeypatch.setattr(doctor_mod.sys, "platform", "darwin")
@@ -180,7 +180,8 @@ class TestMacOSFullDiskAccessBranding:
         out = capsys.readouterr().out
         assert "Full Disk Access and Lemon AI" in out
         assert "enable your terminal (and Lemon AI.app if you use Desktop)" in out
-        assert "With Lemon AI' stable signing identities" in out
+        assert "Lemon AI will never" in out
+        assert "With Lemon AI's stable signing identities" in out
 
 
 class TestProviderEnvDetection:
@@ -1854,7 +1855,7 @@ class TestMacOSTCCGrants:
             doctor_platform,
             "_macos_desktop_dr",
             lambda app: (
-                'designated => identifier "com.nousresearch.lemon-ai" and cdhash H"97e692f3890f781fa0ad5ad6cb9d769cfaf42628"'
+                'designated => identifier "com.lemondigital.lemonai" and cdhash H"97e692f3890f781fa0ad5ad6cb9d769cfaf42628"'
             ),
         )
         doctor_platform.check_macos_tcc_grants()
@@ -1874,7 +1875,7 @@ class TestMacOSTCCGrants:
         monkeypatch.setattr(
             doctor_platform,
             "_macos_desktop_dr",
-            lambda app: 'designated => identifier "com.nousresearch.lemon-ai"',
+            lambda app: 'designated => identifier "com.lemondigital.lemonai"',
         )
         doctor_platform.check_macos_tcc_grants()
         out = capsys.readouterr().out
@@ -1883,7 +1884,7 @@ class TestMacOSTCCGrants:
         # Identifier-pinned is stable but not the strongest anchor — the check
         # should point at the cert-anchored upgrade path.
         assert "--setup-tcc-identity" in out
-        assert "tccutil reset ScreenCapture com.nousresearch.lemon-ai" in out
+        assert "tccutil reset ScreenCapture com.lemondigital.lemonai" in out
         assert "toggle" in out
         assert "relaunch Lemon AI once" in out
 
@@ -1924,7 +1925,7 @@ class TestMacOSTCCGrants:
             doctor_platform,
             "_macos_desktop_dr",
             lambda app: (
-                'designated => identifier "com.nousresearch.lemon-ai" and certificate root = H"aabbcc"'
+                'designated => identifier "com.lemondigital.lemonai" and certificate root = H"aabbcc"'
             ),
         )
         doctor_platform.check_macos_tcc_grants()
@@ -1932,7 +1933,7 @@ class TestMacOSTCCGrants:
         assert "TCC signing identity is stable" in out
         assert "certificate-anchored" in out
         assert "--setup-tcc-identity" not in out
-        assert "tccutil reset ScreenCapture com.nousresearch.lemon-ai" in out
+        assert "tccutil reset ScreenCapture com.lemondigital.lemonai" in out
 
     def test_warns_when_dr_unreadable(self, monkeypatch, capsys, tmp_path):
         """codesign failure → warn, never crash."""

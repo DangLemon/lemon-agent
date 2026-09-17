@@ -35,7 +35,7 @@ _RUNTIME_DIR_NAME = ".lemon-ai-runtime"
 _VENV_NAME = "venv"
 _ALT_VENV_NAME = ".venv"
 _REPAIR_LOCK_NAME = "runtime-repair.lock"
-_MACOS_MANAGED_PYTHON_IDENTIFIER = "com.nousresearch.lemon-ai.managed-python"
+_MACOS_MANAGED_PYTHON_IDENTIFIER = "com.lemondigital.lemonai.managed-python"
 
 _Provisioned = tuple[Path, Path, SQLiteRuntimeInfo]
 

@@ -759,12 +759,12 @@ def _make_signable_app(desktop_dir: Path) -> Path:
     )
 
     app = desktop_dir / "release" / "mac-arm64" / "Lemon AI.app"
-    _write_info_plist(app, "com.nousresearch.lemon-ai")
+    _write_info_plist(app, "com.lemondigital.lemonai")
     (app / "Contents" / "MacOS").mkdir(parents=True)
     (app / "Contents" / "MacOS" / "Lemon AI").write_text("", encoding="utf-8")
 
     helper = app / "Contents" / "Frameworks" / "Lemon AI Helper.app"
-    _write_info_plist(helper, "com.nousresearch.lemon-ai.helper")
+    _write_info_plist(helper, "com.lemondigital.lemonai.helper")
 
     native_dir = (
         app / "Contents" / "Resources" / "app.asar.unpacked" / "node_modules" / "pty"
@@ -1419,7 +1419,7 @@ def test_ordinary_desktop_user_facing_labels_keep_lemon_identity(monkeypatch):
 
     assert main_desktop._desktop_product_name() == "Lemon AI"
     assert main_desktop._desktop_app_name() == "Lemon AI Desktop"
-    assert main_desktop._desktop_bundle_identifier() == "com.nousresearch.lemon-ai"
+    assert main_desktop._desktop_bundle_identifier() == "com.lemondigital.lemonai"
     assert main_desktop._windows_desktop_executable_name() == "Lemon AI.exe"
 
 

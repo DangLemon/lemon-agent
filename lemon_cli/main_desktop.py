@@ -80,11 +80,7 @@ def _desktop_app_name() -> str:
 
 
 def _desktop_bundle_identifier() -> str:
-    return (
-        "com.lemondigital.lemonai"
-        if _internal_desktop_build()
-        else "com.nousresearch.lemon-ai"
-    )
+    return "com.lemondigital.lemonai"
 
 
 def _windows_desktop_executable_name() -> str:

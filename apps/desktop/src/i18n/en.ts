@@ -262,8 +262,7 @@ export const en: Translations = {
     handoffLead: 'Pick up the discussion in:',
     links: {
       github: 'GitHub Issues',
-      portal: 'Nous Portal Support',
-      discord: 'Discord'
+      portal: 'Nous Portal Support'
     }
   },
 
