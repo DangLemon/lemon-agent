@@ -115,7 +115,7 @@ let
           # variable, not a devShell variable: ``nix develop -c uv build``
           # must remain blocked.
           (final: prev: {
-            lemon-agent = prev.lemon-ai-agent.overrideAttrs (_old: {
+            lemon-agent = prev.lemon-agent.overrideAttrs (_old: {
               LEMON_NIX_BUILD = "1";
             });
           })
@@ -138,7 +138,7 @@ let
     lib.composeManyExtensions [
       editableOverlay
       (final: prev: {
-        lemon-agent = prev.lemon-ai-agent.overrideAttrs (old: {
+        lemon-agent = prev.lemon-agent.overrideAttrs (old: {
           # point straight at the real source instead of the filtered nix store copy
           src = workspaceRoot;
           nativeBuildInputs = old.nativeBuildInputs ++ final.resolveBuildSystem { editables = [ ]; };
