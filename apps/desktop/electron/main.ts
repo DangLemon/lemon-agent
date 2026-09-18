@@ -3205,7 +3205,13 @@ async function ensureUpdateOriginRepository(updateRoot, sourceRepository) {
   const decision = planUpdateOriginRepository({
     originUrl,
     sourceRepository: repository,
-    updateRootHasGit: directoryExists(path.join(updateRoot, '.git'))
+    updateRootHasGit: directoryExists(path.join(updateRoot, '.git')),
+    forceRemap:
+      INTERNAL_DESKTOP_BUILD ||
+      INTERNAL_DESKTOP_PACKAGE ||
+      ['LEMON_DESKTOP_INTERNAL', 'HERMES_DESKTOP_INTERNAL', 'LEMON_DESKTOP_INTERNAL_PACKAGE'].some(
+        name => process.env[name] === '1'
+      )
   })
 
   if (decision.action === 'none') {

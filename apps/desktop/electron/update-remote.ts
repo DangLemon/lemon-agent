@@ -108,10 +108,19 @@ function isNonDefaultRepository(sourceRepository) {
   return githubRepositoryCanonical(sourceRepository) !== OFFICIAL_REPO_CANONICAL
 }
 
-function planUpdateOriginRepository({ originUrl = '', sourceRepository, updateRootHasGit = true }) {
+function planUpdateOriginRepository({
+  originUrl = '',
+  sourceRepository,
+  updateRootHasGit = true,
+  forceRemap = false
+}) {
   const repository = validateGitHubRepositoryIdentity(sourceRepository)
 
-  if (!isNonDefaultRepository(repository) || !updateRootHasGit) {
+  // Public default-repo installs leave origin alone (developer forks, leftover
+  // Hermes remotes still fetch via fetchConfiguredRepository). Internal
+  // Desktop matches `lemon update`: pin origin to the configured repo even
+  // when that repo is DangLemon/lemon-agent.
+  if ((!isNonDefaultRepository(repository) && !forceRemap) || !updateRootHasGit) {
     return { action: 'none', originUrl, repository }
   }
 

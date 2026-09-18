@@ -152,6 +152,60 @@ test('update origin plan remaps mismatched origins to the configured repository'
   )
 })
 
+test('update origin plan leaves leftover hermes remotes on public default installs', () => {
+  assert.deepEqual(
+    planUpdateOriginRepository({
+      originUrl: 'https://github.com/NousResearch/hermes-agent.git',
+      sourceRepository: 'DangLemon/lemon-agent',
+      updateRootHasGit: true
+    }),
+    {
+      action: 'none',
+      originUrl: 'https://github.com/NousResearch/hermes-agent.git',
+      repository: 'DangLemon/lemon-agent'
+    }
+  )
+})
+
+test('update origin plan remaps leftover hermes remotes for internal default installs', () => {
+  assert.deepEqual(
+    planUpdateOriginRepository({
+      originUrl: 'https://github.com/NousResearch/hermes-agent.git',
+      sourceRepository: 'DangLemon/lemon-agent',
+      updateRootHasGit: true,
+      forceRemap: true
+    }),
+    {
+      action: 'set-url',
+      args: [
+        'remote',
+        'set-url',
+        'origin',
+        'https://github.com/DangLemon/lemon-agent.git'
+      ],
+      expectedUrl: 'https://github.com/DangLemon/lemon-agent.git',
+      originUrl: 'https://github.com/NousResearch/hermes-agent.git',
+      repository: 'DangLemon/lemon-agent'
+    }
+  )
+})
+
+test('internal origin remap still preserves matching official SSH remotes', () => {
+  assert.deepEqual(
+    planUpdateOriginRepository({
+      originUrl: 'git@github.com:DangLemon/lemon-agent.git',
+      sourceRepository: 'DangLemon/lemon-agent',
+      updateRootHasGit: true,
+      forceRemap: true
+    }),
+    {
+      action: 'none',
+      originUrl: 'git@github.com:DangLemon/lemon-agent.git',
+      repository: 'DangLemon/lemon-agent'
+    }
+  )
+})
+
 test('update origin plan adds a missing origin for a configured repository checkout', () => {
   assert.deepEqual(
     planUpdateOriginRepository({
