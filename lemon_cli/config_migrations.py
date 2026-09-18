@@ -566,11 +566,16 @@ def _migrate_to_41(results: Dict[str, Any], quiet: bool) -> None:
 
     agent = config.get("agent")
     if isinstance(agent, dict):
-        rewritten, did = _rewrite_hermes_toolset_list(agent.get("disabled_toolsets"))
-        if did:
-            agent["disabled_toolsets"] = rewritten
-            config["agent"] = agent
-            changed = True
+        # Pre-cutover hermes-cli in disabled_toolsets was an unknown no-op.
+        # Remapping it to lemon-cli would newly disable the native bundle.
+        disabled = agent.get("disabled_toolsets")
+        if isinstance(disabled, list):
+            from toolsets import is_hermes_cutover_alias
+            kept = [item for item in disabled if not (isinstance(item, str) and is_hermes_cutover_alias(item))]
+            if kept != disabled:
+                agent["disabled_toolsets"] = kept
+                config["agent"] = agent
+                changed = True
 
     if changed:
         _commit(

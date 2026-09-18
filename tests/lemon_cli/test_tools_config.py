@@ -83,6 +83,22 @@ def test_hermes_cli_cutover_alias_enables_native_tools(caplog):
     assert not any("#38798" in r.getMessage() for r in caplog.records)
 
 
+def test_disabled_hermes_cli_does_not_strip_native_tools():
+    """Pre-cutover disabled_toolsets: [hermes-cli] was a no-op and must stay one."""
+    import lemon_cli.tools_config as _tc
+    _tc._warned_invalid_platform_toolsets.discard("cli")
+    tools = _get_platform_tools(
+        {
+            "platform_toolsets": {"cli": ["lemon-cli"]},
+            "agent": {"disabled_toolsets": ["hermes-cli"]},
+        },
+        "cli",
+        include_default_mcp_servers=False,
+    )
+    assert "file" in tools
+    assert "terminal" in tools
+
+
 def test_partially_valid_platform_toolsets_no_runtime_warning(caplog):
     """When at least one configured toolset is valid, tools still resolve, so
     the runtime zero-tools warning must not fire (the migration-time check still

@@ -302,6 +302,24 @@ def test_pdf_attachment_is_inlined_as_extracted_text(tmp_path: Path, monkeypatch
     assert "binary file, not inlined" not in result.message
 
 
+def test_pdf_attachment_keeps_needs_ocr_error(tmp_path: Path, monkeypatch):
+    from agent.context_references import _inline_extractable_document
+    from tools.read_extract import ExtractionError
+
+    pdf = tmp_path / "scan.pdf"
+    pdf.write_bytes(b"%PDF-1.4 unused")
+
+    def _boom(_path):
+        raise ExtractionError("[NEEDS OCR: pages 1. Rendered to: `/tmp/page-1.png`.]")
+
+    monkeypatch.setattr("tools.read_extract.extract_document_text", _boom)
+    monkeypatch.setattr("tools.read_extract.is_extractable_document", lambda _p: True)
+    text = _inline_extractable_document(pdf)
+    assert text is not None
+    assert "NEEDS OCR" in text
+    assert "/tmp/page-1.png" in text
+
+
 @pytest.mark.parametrize(
     "value",
     [

@@ -434,13 +434,17 @@ def _iter_visible_entries(path: Path, cwd: Path, limit: int) -> list[Path]:
 def _inline_extractable_document(path: Path) -> str | None:
     """Render PDF/Office attachments as text so @file: is not a binary dead-end."""
     try:
-        from tools.read_extract import extract_document_text, is_extractable_document
+        from tools.read_extract import ExtractionError, extract_document_text, is_extractable_document
     except Exception:
         return None
     if not is_extractable_document(str(path)):
         return None
     try:
         text = extract_document_text(str(path))
+    except ExtractionError as exc:
+        # Scanned PDFs raise with NEEDS-OCR + rendered PNG paths; keep that in
+        # context instead of collapsing to the binary stub.
+        text = str(exc)
     except Exception:
         return None
     if not isinstance(text, str) or not text.strip():

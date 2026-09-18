@@ -125,13 +125,28 @@ class TestValidateToolset:
         assert validate_toolset("nonexistent") is False
 
     def test_hermes_cli_cutover_alias_matches_lemon_cli(self):
+        from toolsets import canonical_toolset_name, is_hermes_cutover_alias
+
         assert validate_toolset("hermes-cli") is True
         assert validate_toolset("hermes-nonexistent") is False
+        assert canonical_toolset_name("hermes-nonexistent") == "hermes-nonexistent"
+        assert canonical_toolset_name("hermes-foo") == "hermes-foo"
+        assert is_hermes_cutover_alias("hermes-cli") is True
+        assert is_hermes_cutover_alias("lemon-cli") is False
         assert resolve_toolset("hermes-cli") == resolve_toolset("lemon-cli")
         assert resolve_toolset("hermes-cli", include_registry=False) == resolve_toolset(
             "lemon-cli", include_registry=False
         )
         assert get_toolset("hermes-cli") is not None
+
+    def test_disabling_hermes_cli_does_not_strip_core_tools(self):
+        from model_tools import _apply_toolset_selection
+
+        tools = set(resolve_toolset("lemon-cli"))
+        before = set(tools)
+        _apply_toolset_selection(tools, ["hermes-cli"], quiet_mode=True, disable=True)
+        assert tools == before
+        assert "read_file" in tools
 
     def test_mcp_alias_uses_live_registry(self, monkeypatch):
         reg = ToolRegistry()

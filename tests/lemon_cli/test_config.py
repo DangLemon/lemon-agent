@@ -1681,8 +1681,8 @@ class TestHermesToolsetCutoverMigration:
                 "    - hermes-cli\n"
                 "  telegram:\n"
                 "    - hermes-telegram\n"
-                "  teams:\n"
-                "    - hermes-teams\n"
+                "  discord:\n"
+                "    - hermes-discord\n"
                 "known_builtin_toolsets:\n"
                 "  cli:\n"
                 "    - hermes-cli\n"
@@ -1698,13 +1698,14 @@ class TestHermesToolsetCutoverMigration:
         assert raw["_config_version"] == DEFAULT_CONFIG["_config_version"]
         assert raw["platform_toolsets"]["cli"] == ["lemon-cli"]
         assert raw["platform_toolsets"]["telegram"] == ["lemon-telegram"]
-        assert raw["platform_toolsets"]["teams"] == ["lemon-teams"]
+        assert raw["platform_toolsets"]["discord"] == ["lemon-discord"]
         assert raw["known_builtin_toolsets"]["cli"] == ["lemon-cli"]
         # toolsets=["lemon-cli"] equals the schema default, so the write invariant
         # may strip the key; either form means the Hermes name is gone.
         assert raw.get("toolsets", ["lemon-cli"]) == ["lemon-cli"]
         assert "hermes-cli" not in str(raw)
-        assert raw["agent"]["disabled_toolsets"] == ["lemon-cli"]
+        # Leftover hermes-cli in disabled_toolsets was a no-op; do not persist lemon-cli.
+        assert raw.get("agent", {}).get("disabled_toolsets", []) == []
 
     def test_noop_when_already_lemon_names(self, tmp_path):
         with patch.dict(os.environ, {"LEMON_HOME": str(tmp_path)}):

@@ -272,9 +272,10 @@ def _extract_pdf(path: str, display_path: Optional[str] = None) -> str:
             if needs_ocr is not None and isinstance(exc, needs_ocr):
                 return _ocr_scanned_pdf(mod, path, exc, display_path=shown)
             raise ExtractionError(f"{type(exc).__name__}: {exc}") from exc
+        extra, recovered = _ocr_empty_pages_block(path)
         body = _finalize_anydoc_text(
-            text, shown, lambda: _pdf_coverage_note(path, display_path=shown))
-        extra = _ocr_empty_pages_block(path)
+            text, shown,
+            lambda: _pdf_coverage_note(path, display_path=shown, recovered_pages=recovered))
         return extra + body if extra else body
     return _extract_pdf_local(path, display_path=shown)
 
@@ -284,8 +285,14 @@ def _extract_pdf_local(path: str, display_path: Optional[str] = None) -> str:
     texts = _pdf_page_texts(path)
     if texts and any(len(page.strip()) >= PDF_EMPTY_PAGE_CHARS for page in texts):
         filled = _fill_empty_pages_with_ocr(path, texts)
+        recovered = {
+            i + 1 for i, (original, current) in enumerate(zip(texts, filled))
+            if len(original.strip()) < PDF_EMPTY_PAGE_CHARS
+            and len(current.strip()) >= PDF_EMPTY_PAGE_CHARS
+        }
         return _finalize_anydoc_text(
-            "\n\n".join(filled), shown, lambda: _pdf_coverage_note(path, display_path=shown))
+            "\n\n".join(filled), shown,
+            lambda: _pdf_coverage_note(path, display_path=shown, recovered_pages=recovered))
     local = _local_ocr_pdf(path)
     if local:
         return local
@@ -313,23 +320,18 @@ def _extract_anydoc(path: str) -> str:
 
 
 def _extract_anydoc_bytes(data: bytes, path: str) -> str:
-    is_pdf = Path(path).suffix.lower() == ".pdf"
+    if Path(path).suffix.lower() == ".pdf":
+        with _temp_copy(data, ".pdf") as temp_path:
+            return _extract_pdf(temp_path, display_path=path)
     mod = _anydoc()
     if mod is None:
-        if is_pdf and _pdf_local_extract_available():
-            with _temp_copy(data, ".pdf") as temp_path:
-                return _extract_pdf_local(temp_path, display_path=path)
         raise ExtractionError(_anydoc_missing_error(path))
     _check_size(len(data), MAX_ANYDOC_BYTES)
     try:
         text = mod.to_markdown_bytes(data)
     except Exception as exc:
-        needs_ocr = getattr(mod, "NeedsOcrError", None)
-        if is_pdf and needs_ocr is not None and isinstance(exc, needs_ocr):
-            with _temp_copy(data, ".pdf") as temp_path:
-                return _ocr_scanned_pdf(mod, temp_path, exc, display_path=path)
         raise ExtractionError(f"{type(exc).__name__}: {exc}") from exc
-    return _finalize_anydoc_text(text, path, lambda: _pdf_coverage_note_from_bytes(data, path))
+    return _finalize_anydoc_text(text, path, lambda: "")
 
 
 # ── Scanned-PDF coverage: text-layer extractors return nothing for scanned pages, so a mostly
@@ -407,6 +409,8 @@ def _render_pdf_pages(path: str, pages: Optional[list[int]] = None) -> list[str]
     except OSError:
         return []
     wanted = _wanted_pdf_pages(pages)
+    if not wanted:
+        return []
     first, last = wanted[0], wanted[-1]
     contiguous = wanted == list(range(first, last + 1))
     files: list[Path] = []
@@ -445,26 +449,28 @@ def _local_ocr_pdf(path: str, pages: Optional[list[int]] = None) -> Optional[str
     return "\n\n".join(chunks).rstrip("\n") + "\n"
 
 
-def _ocr_empty_pages_block(path: str) -> str:
-    """Appendix of local tesseract text for pages whose text layer is empty."""
+def _ocr_empty_pages_block(path: str) -> tuple[str, set[int]]:
+    """Appendix of local tesseract text plus the 1-based pages it recovered."""
     texts = _pdf_page_texts(path)
     if not texts or not _local_ocr_available():
-        return ""
+        return "", set()
     filled = _fill_empty_pages_with_ocr(path, texts)
     chunks: list[str] = []
-    for index, (original, recovered) in enumerate(zip(texts, filled)):
+    recovered: set[int] = set()
+    for index, (original, recovered_text) in enumerate(zip(texts, filled)):
         if len(original.strip()) >= PDF_EMPTY_PAGE_CHARS:
             continue
-        recovered = recovered.strip()
-        if recovered:
-            chunks.append(f"--- OCR page {index + 1} ---\n{recovered}")
+        recovered_text = recovered_text.strip()
+        if recovered_text:
+            recovered.add(index + 1)
+            chunks.append(f"--- OCR page {index + 1} ---\n{recovered_text}")
     if not chunks:
-        return ""
+        return "", set()
     return (
         "[Local tesseract OCR of pages with no text layer]\n"
         + "\n\n".join(chunks)
         + "\n\n"
-    )
+    ), recovered
 
 
 def _fill_empty_pages_with_ocr(path: str, texts: list[str]) -> list[str]:
@@ -478,7 +484,11 @@ def _fill_empty_pages_with_ocr(path: str, texts: list[str]) -> list[str]:
         return list(texts)
     langs = _tesseract_langs()
     filled = list(texts)
-    for page_no, image in zip(target, images):
+    by_num = _pngs_by_page_number([Path(image) for image in images])
+    for page_no in target:
+        image = by_num.get(page_no)
+        if not image:
+            continue
         try:
             proc = subprocess.run(
                 ["tesseract", image, "stdout", "-l", langs],
@@ -531,14 +541,24 @@ def _gap_map(counts: list[int], texts: list[str], empty: list[int]) -> str:
     return "\n".join(lines)
 
 
-def _pdf_coverage_note(path: str, display_path: Optional[str] = None) -> str:
+def _pdf_coverage_note(
+    path: str, display_path: Optional[str] = None, recovered_pages: Optional[set[int]] = None,
+) -> str:
     """Warning header when many pages yielded no text, else ''. ``display_path`` (default ``path``,
-    which may be a host temp file) is what the recovery command shows."""
+    which may be a host temp file) is what the recovery command shows.
+
+    ``recovered_pages`` are 1-based pages already filled by local OCR — they are
+    not listed as missing and are not re-rendered.
+    """
     texts = _pdf_page_texts(path)
     if not texts or len(texts) < 2:
         return ""
+    recovered_pages = recovered_pages or set()
     counts = [len(page.strip()) for page in texts]
-    empty = [i + 1 for i, n in enumerate(counts) if n < PDF_EMPTY_PAGE_CHARS]
+    empty = [
+        i + 1 for i, n in enumerate(counts)
+        if n < PDF_EMPTY_PAGE_CHARS and (i + 1) not in recovered_pages
+    ]
     total = len(counts)
     n_empty = len(empty)
     enough = n_empty / total >= PDF_COVERAGE_MIN_RATIO or n_empty >= PDF_COVERAGE_ABSOLUTE_EMPTY

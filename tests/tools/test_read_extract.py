@@ -793,13 +793,14 @@ class TestLocalPdfRecovery(unittest.TestCase):
             pages = [1]
 
         class Mod:
-            def to_markdown_bytes(self, _data):
+            def to_markdown(self, _path):
                 raise NeedsOcrError("needs ocr")
 
         mod = Mod()
         mod.NeedsOcrError = NeedsOcrError
 
         with mock.patch.object(read_extract, "_anydoc", return_value=mod), \
+             mock.patch.object(read_extract.os.path, "getsize", return_value=10), \
              mock.patch.object(read_extract, "_ocr_scanned_pdf",
                                return_value="OCR from scan\n") as ocr:
             text = read_extract._extract_anydoc_bytes(
@@ -833,10 +834,45 @@ class TestLocalPdfRecovery(unittest.TestCase):
         with mock.patch.object(read_extract, "_pdf_page_texts", return_value=texts), \
              mock.patch.object(read_extract, "_local_ocr_available", return_value=True), \
              mock.patch.object(read_extract, "_fill_empty_pages_with_ocr", return_value=filled):
-            block = read_extract._ocr_empty_pages_block("/x/doc.pdf")
+            block, recovered = read_extract._ocr_empty_pages_block("/x/doc.pdf")
         self.assertIn("OCR page 2", block)
         self.assertIn("scanned line", block)
         self.assertNotIn("OCR page 1", block)
+        self.assertEqual(recovered, {2})
+
+    def test_fill_empty_pages_maps_by_page_number_not_zip_order(self):
+        from tools import read_extract
+
+        texts = ["enough text on page one xx", "", "", "enough on four xxxxx"]
+        with mock.patch.object(read_extract, "_local_ocr_available", return_value=True), \
+             mock.patch.object(read_extract, "_render_pdf_pages",
+                               return_value=["/tmp/page-3.png"]), \
+             mock.patch.object(read_extract.subprocess, "run") as run:
+            run.return_value = mock.Mock(returncode=0, stdout=b"from page three")
+            filled = read_extract._fill_empty_pages_with_ocr("/x/doc.pdf", texts)
+        self.assertEqual(filled[1], "")          # missing render must not steal page 3
+        self.assertEqual(filled[2], "from page three")
+
+    def test_render_pdf_pages_empty_wanted_does_not_crash(self):
+        from tools import read_extract
+
+        with mock.patch.object(read_extract, "_which", return_value="/usr/bin/pdftoppm"), \
+             mock.patch.object(read_extract, "_wanted_pdf_pages", return_value=[]):
+            self.assertEqual(read_extract._render_pdf_pages("/x/doc.pdf", [0]), [])
+
+    def test_coverage_note_skips_ocr_recovered_pages(self):
+        from tools import read_extract
+
+        texts = ["Section One with enough text", "", "", ""]
+        with mock.patch.object(read_extract, "_pdf_page_texts", return_value=texts), \
+             mock.patch.object(read_extract, "_render_pdf_pages",
+                               return_value=["/tmp/page-3.png"]) as render:
+            note = read_extract._pdf_coverage_note("/x/doc.pdf", recovered_pages={2})
+        self.assertIn("pages 3-4", note)
+        gap = note.split("Unreadable gaps", 1)[-1]
+        self.assertNotIn("page 2", gap)
+        render.assert_called_once()
+        self.assertEqual(render.call_args.args[1], [3, 4])
 
 
 class TestPdfCoverageNote(unittest.TestCase):
@@ -999,16 +1035,18 @@ class TestPdfCoverageNote(unittest.TestCase):
         temp file the scan ran against."""
         from tools import read_extract
         fake_mod = mock.Mock()
-        fake_mod.to_markdown_bytes.return_value = "# Title\n\nBody"
+        fake_mod.to_markdown.return_value = "# Title\n\nBody"
         seen = {}
 
-        def fake_note(path, display_path=None):
+        def fake_note(path, display_path=None, recovered_pages=None):
             seen["scan_path"] = path
             seen["display_path"] = display_path
             return f"[EXTRACTION COVERAGE WARNING: test '{display_path}']\n"
 
         with mock.patch.object(read_extract, "_anydoc",
                                return_value=fake_mod), \
+             mock.patch.object(read_extract, "_ocr_empty_pages_block",
+                               return_value=("", set())), \
              mock.patch.object(read_extract, "_pdf_coverage_note",
                                side_effect=fake_note):
             text = read_extract._extract_anydoc_bytes(

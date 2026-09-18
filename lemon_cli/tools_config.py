@@ -594,8 +594,13 @@ def _get_platform_tools(config: dict, platform: str, *, include_default_mcp_serv
     disabled_toolsets = (config.get("agent") or {}).get("disabled_toolsets")
     if disabled_toolsets:
         from agent.skill_utils import parse_config_string_list
-        disabled_names = [name.strip() for name in parse_config_string_list(disabled_toolsets) if name.strip()]
-        enabled_toolsets = _prune_toolsets_stripped_by_disabled(enabled_toolsets, disabled_names)
+        from toolsets import is_hermes_cutover_alias
+        disabled_names = [
+            name.strip() for name in parse_config_string_list(disabled_toolsets)
+            if name.strip() and not is_hermes_cutover_alias(name.strip())
+        ]
+        if disabled_names:
+            enabled_toolsets = _prune_toolsets_stripped_by_disabled(enabled_toolsets, disabled_names)
 
     if explicitly_configured and toolset_names:
         _warn_all_invalid_platform_toolsets(platform, platform_toolsets[platform])

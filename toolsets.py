@@ -265,10 +265,20 @@ def canonical_toolset_name(name: str) -> str:
     Homes copied from Hermes still persist ``hermes-cli`` (and ``hermes-telegram``,
     …) in ``platform_toolsets``. Those keys left the registry at the brand cutover,
     so ``resolve_toolset`` returned [] and the agent started with no native tools.
+
+    Only rewrite when the Lemon name exists in TOOLSETS — a custom/plugin
+    toolset named ``hermes-foo`` must not become a fake ``lemon-foo``.
     """
     if isinstance(name, str) and name.startswith("hermes-"):
-        return "lemon-" + name[len("hermes-"):]
+        candidate = "lemon-" + name[len("hermes-"):]
+        if candidate in TOOLSETS:
+            return candidate
     return name
+
+
+def is_hermes_cutover_alias(name: str) -> bool:
+    """True when *name* is a leftover Hermes composite that aliases a Lemon bundle."""
+    return isinstance(name, str) and name.startswith("hermes-") and canonical_toolset_name(name) != name
 
 
 def get_toolset(name: str, *, include_registry: bool = True) -> Optional[Dict[str, Any]]:
