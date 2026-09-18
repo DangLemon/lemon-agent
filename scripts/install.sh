@@ -485,6 +485,23 @@ repository_identity_key() {
     printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
 }
 
+is_predecessor_repository() {
+    # $1 = current origin identity, $2 = selected --repo.
+    # DangLemon/hermes-agent is the previous GitHub name of DangLemon/lemon-agent.
+    # Desktop first-run on a machine that already cloned the old name must
+    # retarget origin, not abort as if this were a foreign fork.
+    local current_key selected_key
+    current_key="$(repository_identity_key "$1")"
+    selected_key="$(repository_identity_key "$2")"
+    case "$selected_key" in
+        danglemon/lemon-agent)
+            [ "$current_key" = "danglemon/hermes-agent" ]
+            return $?
+            ;;
+    esac
+    return 1
+}
+
 ensure_managed_origin() {
     local current_url=""
     current_url="$(git config --get remote.origin.url 2>/dev/null || true)"
@@ -509,6 +526,16 @@ ensure_managed_origin() {
     fi
 
     if [ "$(repository_identity_key "$current_repo")" != "$(repository_identity_key "$REPOSITORY")" ]; then
+        if is_predecessor_repository "$current_repo" "$REPOSITORY"; then
+            log_info "Existing checkout origin $current_repo is a previous Lemon AI repository name."
+            log_info "Retargeting origin to $REPO_URL_HTTPS..."
+            if ! git remote set-url origin "$REPO_URL_HTTPS"; then
+                log_error "Could not retarget git origin from $current_repo to $REPOSITORY."
+                log_info "Set it manually with: git remote set-url origin $REPO_URL_HTTPS"
+                return 1
+            fi
+            return 0
+        fi
         log_error "Existing checkout origin $current_repo does not match selected --repo $REPOSITORY."
         log_info "No fetch was attempted, and local edits were left untouched."
         log_info "Use --repo $current_repo to update this checkout, or move it aside before installing $REPOSITORY."

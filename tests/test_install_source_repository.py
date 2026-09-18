@@ -650,6 +650,47 @@ def test_install_sh_existing_checkout_mismatched_origin_fails_before_update_and_
     assert origin_url(install_dir) == "https://github.com/OtherOrg/lemon-agent.git"
 
 
+def test_install_sh_predecessor_hermes_origin_retargets_to_lemon_agent(tmp_path: Path) -> None:
+    # Desktop first-run after the DangLemon/hermes-agent -> lemon-agent rename.
+    # Same git history, two GitHub names. The installer must rewrite origin and
+    # continue the update instead of aborting as a foreign fork.
+    lemon, _ = create_remote(tmp_path, "DangLemon/lemon-agent", marker="lemon")
+    gitconfig = write_gitconfig(
+        tmp_path,
+        {
+            "DangLemon/lemon-agent": lemon,
+            "DangLemon/hermes-agent": lemon,
+        },
+    )
+    install_dir = tmp_path / "install"
+    env = installer_env(tmp_path, gitconfig)
+    run(
+        [REAL_GIT or "git", "clone", "https://github.com/DangLemon/hermes-agent.git", str(install_dir)],
+        cwd=tmp_path,
+        env=env,
+    )
+    assert origin_url(install_dir) == "https://github.com/DangLemon/hermes-agent.git"
+
+    result = run_repository_stage(
+        tmp_path,
+        gitconfig=gitconfig,
+        install_dir=install_dir,
+        repository="DangLemon/lemon-agent",
+        check=True,
+    )
+
+    assert '"ok":true' in result.stdout.replace(" ", "")
+    assert "previous Lemon AI repository name" in result.stdout
+    assert origin_url(install_dir) == "https://github.com/DangLemon/lemon-agent.git"
+
+
+def test_install_ps1_predecessor_origin_helper_matches_posix() -> None:
+    source = INSTALL_PS1.read_text(encoding="utf-8")
+    assert "function Test-PredecessorRepository" in source
+    assert 'danglemon/lemon-agent' in source
+    assert 'danglemon/hermes-agent' in source
+
+
 def write_fake_clone_fail_tools(tmp_path: Path, archive_zip: Path) -> Path:
     bin_dir = tmp_path / "fake-bin"
     bin_dir.mkdir()

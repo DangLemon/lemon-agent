@@ -533,6 +533,21 @@ function Get-RepositoryIdentityKey {
     return $Value.ToLowerInvariant()
 }
 
+function Test-PredecessorRepository {
+    # DangLemon/hermes-agent is the previous GitHub name of DangLemon/lemon-agent.
+    # GUI first-run must retarget that origin instead of aborting as a foreign fork.
+    param(
+        [Parameter(Mandatory = $true)][string]$Current,
+        [Parameter(Mandatory = $true)][string]$Selected
+    )
+    $currentKey = Get-RepositoryIdentityKey $Current
+    $selectedKey = Get-RepositoryIdentityKey $Selected
+    return (
+        $selectedKey -eq "danglemon/lemon-agent" -and
+        $currentKey -eq "danglemon/hermes-agent"
+    )
+}
+
 if (-not (Test-RepositoryIdentity $Repository)) {
     throw "-Repository expects a safe GitHub owner/repo identity, got: $Repository"
 }
@@ -615,6 +630,15 @@ function Ensure-ManagedOrigin {
     }
 
     if ((Get-RepositoryIdentityKey $currentRepo) -ne (Get-RepositoryIdentityKey $Repository)) {
+        if (Test-PredecessorRepository -Current $currentRepo -Selected $Repository) {
+            Write-Info "Existing checkout origin $currentRepo is a previous Lemon AI repository name."
+            Write-Info "Retargeting origin to $RepoUrlHttps..."
+            & git -c windows.appendAtomically=false remote set-url origin $RepoUrlHttps
+            if ($LASTEXITCODE -ne 0) {
+                throw "Could not retarget git origin from $currentRepo to $Repository. Set it manually with: git remote set-url origin $RepoUrlHttps"
+            }
+            return
+        }
         throw "Existing checkout origin $currentRepo does not match selected -Repository $Repository. No fetch was attempted, and local edits were left untouched. Use -Repository $currentRepo to update this checkout, or move it aside before installing $Repository."
     }
 
@@ -747,6 +771,136 @@ function Invoke-NativeWithRelaxedErrorAction {
         $ErrorActionPreference = $prevEAP
     }
 }
+
+function Stop-ProcessesUnderDirectory {
+    # Best-effort: Windows first-run Retry often fails because a leftover
+    # git/ssh/python from the previous clone still has lemon-agent open
+    # ("The process cannot access the file because it is being used by
+    # another process"). Kill holders whose executable lives under $Dir,
+    # plus well-known clone tools whose command line names $Dir. Never
+    # match on powershell.exe command lines -- those include -InstallDir
+    # and would suicide the installer.
+    param([Parameter(Mandatory = $true)][string]$Dir)
+
+    if ($env:OS -ne "Windows_NT") { return }
+    if ([string]::IsNullOrWhiteSpace($Dir)) { return }
+    if (-not (Test-Path -LiteralPath $Dir)) { return }
+
+    $prefix = [System.IO.Path]::GetFullPath($Dir).TrimEnd('\') + '\'
+    $needle = $prefix.TrimEnd('\')
+    $holderNames = [System.Collections.Generic.HashSet[string]]::new(
+        [System.StringComparer]::OrdinalIgnoreCase
+    )
+    foreach ($name in @(
+        "git.exe", "git-remote-https.exe", "git-remote-ssh.exe",
+        "ssh.exe", "bash.exe", "sh.exe", "python.exe", "pythonw.exe",
+        "lemon.exe", "hermes.exe", "uv.exe"
+    )) {
+        $null = $holderNames.Add($name)
+    }
+
+    $myPid = $PID
+    try {
+        Get-CimInstance Win32_Process -ErrorAction Stop |
+            Where-Object {
+                # Do not `return` from this block -- in Windows PowerShell 5.1
+                # that exits Stop-ProcessesUnderDirectory itself.
+                $_.ProcessId -ne $myPid -and (
+                    (
+                        $_.ExecutablePath -and $_.ExecutablePath.StartsWith(
+                            $prefix, [System.StringComparison]::OrdinalIgnoreCase
+                        )
+                    ) -or (
+                        $_.Name -and $holderNames.Contains($_.Name) -and $_.CommandLine -and (
+                            $_.CommandLine.IndexOf(
+                                $needle, [System.StringComparison]::OrdinalIgnoreCase
+                            ) -ge 0
+                        )
+                    )
+                )
+            } |
+            ForEach-Object {
+                Write-Info "  stopping PID $($_.ProcessId) ($($_.Name)) holding $Dir"
+                & taskkill /F /T /PID $_.ProcessId 2>$null | Out-Null
+            }
+    } catch {
+        Write-Warn "Could not enumerate processes under ${Dir}: $($_.Exception.Message)"
+    }
+}
+
+function Move-DirectoryWithRetry {
+    # Directory.Move is atomic on the same volume. Windows Defender, Search,
+    # and a just-killed git.exe often keep the source open for a few hundred
+    # milliseconds, so a single Move-Item is exactly the first-run Retry
+    # brick. Retry with a bounded backoff after releasing holders.
+    param(
+        [Parameter(Mandatory = $true)][string]$Source,
+        [Parameter(Mandatory = $true)][string]$Destination,
+        [int]$Attempts = 8,
+        [int]$DelayMs = 250
+    )
+
+    if (-not (Test-Path -LiteralPath $Source)) { return $true }
+
+    try {
+        $here = (Get-Location).ProviderPath
+        $srcFull = [System.IO.Path]::GetFullPath($Source)
+        if ($here -and $here.StartsWith($srcFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $root = [System.IO.Path]::GetPathRoot($here)
+            if ($root) { Set-Location $root } else { Set-Location $env:USERPROFILE }
+        }
+    } catch { }
+
+    $lastErr = $null
+    for ($i = 1; $i -le $Attempts; $i++) {
+        Stop-ProcessesUnderDirectory -Dir $Source
+        if ($i -gt 1) {
+            Start-Sleep -Milliseconds ([Math]::Min(2000, $DelayMs * $i))
+        }
+        try {
+            [System.IO.Directory]::Move($Source, $Destination)
+            return $true
+        } catch {
+            $lastErr = $_
+            if ($i -eq 1 -or $i -eq $Attempts) {
+                Write-Warn "Move '$Source' -> '$Destination' attempt $i/$Attempts failed: $($_.Exception.Message)"
+            }
+        }
+    }
+    Write-Err "Could not move $Source aside : $lastErr"
+    return $false
+}
+
+function Remove-DirectoryWithRetry {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [int]$Attempts = 5
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) { return $true }
+
+    $lastErr = $null
+    for ($i = 1; $i -le $Attempts; $i++) {
+        Stop-ProcessesUnderDirectory -Dir $Path
+        if ($i -gt 1) {
+            Start-Sleep -Milliseconds ([Math]::Min(1500, 200 * $i))
+        }
+        try {
+            Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
+            return $true
+        } catch {
+            $lastErr = $_
+        }
+    }
+    Write-Warn "Could not remove ${Path}: $lastErr"
+    return $false
+}
+
+function New-IncomingCheckoutPath {
+    param([Parameter(Mandatory = $true)][string]$InstallDir)
+    return "$InstallDir.incoming-" + (Get-Date -Format "yyyyMMddHHmmss") + "-" + ([Guid]::NewGuid().ToString("N").Substring(0, 8))
+}
+
 function Discard-LockfileChurn {
     param([string]$Repo = $InstallDir)
 
@@ -2395,16 +2549,19 @@ function Install-Repository {
         # fall through to a fresh clone.
         $repoValid = $false
         if (Test-Path "$InstallDir\.git") {
-            Push-Location $InstallDir
+            # Probe with git -C so this powershell never cds into $InstallDir.
+            # Push-Location left the process (and often a child git.exe) holding
+            # the directory, which then made the broken-dir Move-Item fail with
+            # "being used by another process" on Retry.
             try {
                 # Reset $LASTEXITCODE before the probe so we don't pick up
                 # a stale 0 from an earlier git call in this session.
                 $global:LASTEXITCODE = 0
-                $revParseOut = & git -c windows.appendAtomically=false rev-parse --is-inside-work-tree 2>&1
+                $revParseOut = & git -c windows.appendAtomically=false -C $InstallDir rev-parse --is-inside-work-tree 2>&1
                 $revParseOk = ($LASTEXITCODE -eq 0) -and ($revParseOut -match "true")
 
                 $global:LASTEXITCODE = 0
-                $null = & git -c windows.appendAtomically=false status --short 2>&1
+                $null = & git -c windows.appendAtomically=false -C $InstallDir status --short 2>&1
                 $statusOk = ($LASTEXITCODE -eq 0)
 
                 # An interrupted previous clone leaves a repo with NO initial
@@ -2414,14 +2571,13 @@ function Install-Repository {
                 # (#40998). Require a resolvable HEAD so such partial checkouts
                 # are treated as broken and re-cloned fresh below.
                 $global:LASTEXITCODE = 0
-                $null = & git -c windows.appendAtomically=false rev-parse --verify HEAD 2>&1
+                $null = & git -c windows.appendAtomically=false -C $InstallDir rev-parse --verify HEAD 2>&1
                 $hasCommit = ($LASTEXITCODE -eq 0)
 
                 if ($revParseOk -and $statusOk -and $hasCommit) {
                     $repoValid = $true
                 }
             } catch {}
-            Pop-Location
         }
 
         if ($repoValid) {
@@ -2617,22 +2773,21 @@ function Install-Repository {
             # installer into the "update" branch forever. Move it aside rather
             # than deleting it -- never destroy a directory the user might still
             # want -- and fall through to a fresh clone.
-            $backupDir = "$InstallDir.broken-" + (Get-Date -Format "yyyyMMdd-HHmmss")
+            $backupDir = "$InstallDir.broken-" + (Get-Date -Format "yyyyMMdd-HHmmss") + "-" + ([Guid]::NewGuid().ToString("N").Substring(0, 8))
             Write-Warn "Existing directory at $InstallDir is not a valid git repo."
             Write-Warn "Moving it aside to $backupDir before re-cloning."
-            try {
-                Move-Item -LiteralPath $InstallDir -Destination $backupDir -ErrorAction Stop
-            } catch {
-                Write-Err "Could not move $InstallDir aside : $_"
-                Write-Info "Close any programs that might be using files in $InstallDir (editors,"
-                Write-Info "terminals, running lemon processes) and try again."
-                throw
+            if (-not (Move-DirectoryWithRetry -Source $InstallDir -Destination $backupDir)) {
+                # Don't abort: clone into a sibling below, then replace. A
+                # locked stub is the first-run Retry brick on Windows
+                # (Defender / leftover git.exe). Clone time often releases it.
+                Write-Warn "Could not park $InstallDir yet; cloning into a sibling, then replacing."
             }
         }
     }
 
     if (-not $didUpdate) {
         $cloneSuccess = $false
+        $incoming = $null
 
         # Fix Windows git "copy-fd: write returned: Invalid argument" error.
         # Git for Windows can fail on atomic file operations (hook templates,
@@ -2644,27 +2799,50 @@ function Install-Repository {
         $env:GIT_CONFIG_VALUE_0 = "false"
         git config --global windows.appendAtomically false 2>$null
 
-        # Try SSH first, then HTTPS, with -c flag for atomic write fix
-        Write-Info "Trying SSH clone..."
-        $env:GIT_SSH_COMMAND = "ssh -o BatchMode=yes -o ConnectTimeout=5"
-        try {
-            Invoke-NativeWithRelaxedErrorAction { git -c windows.appendAtomically=false clone --depth 1 --branch $Branch $RepoUrlSsh $InstallDir }
-            if ($LASTEXITCODE -eq 0) { $cloneSuccess = $true }
-        } catch { }
-        $env:GIT_SSH_COMMAND = $null
+        # Desktop/GUI bootstrap is -NonInteractive. SSH BatchMode fails on
+        # almost every consumer PC (no GitHub key) and still creates a partial
+        # $InstallDir that Retry then cannot rename ("being used by another
+        # process"). Clone into a sibling, HTTPS first in that mode, then
+        # replace the canonical path once the tree is complete.
+        if ($NonInteractive) {
+            $cloneAttempts = @(
+                @{ Url = $RepoUrlHttps; Label = "HTTPS"; Ssh = $false }
+                @{ Url = $RepoUrlSsh; Label = "SSH"; Ssh = $true }
+            )
+        } else {
+            $cloneAttempts = @(
+                @{ Url = $RepoUrlSsh; Label = "SSH"; Ssh = $true }
+                @{ Url = $RepoUrlHttps; Label = "HTTPS"; Ssh = $false }
+            )
+        }
 
-        if (-not $cloneSuccess) {
-            if (Test-Path $InstallDir) { Remove-Item -Recurse -Force $InstallDir -ErrorAction SilentlyContinue }
-            Write-Info "SSH failed, trying HTTPS..."
+        foreach ($attempt in $cloneAttempts) {
+            $candidate = New-IncomingCheckoutPath -InstallDir $InstallDir
+            Write-Info "Trying $($attempt.Label) clone..."
+            if ($attempt.Ssh) {
+                $env:GIT_SSH_COMMAND = "ssh -o BatchMode=yes -o ConnectTimeout=5"
+            }
             try {
-                Invoke-NativeWithRelaxedErrorAction { git -c windows.appendAtomically=false clone --depth 1 --branch $Branch $RepoUrlHttps $InstallDir }
-                if ($LASTEXITCODE -eq 0) { $cloneSuccess = $true }
-            } catch { }
+                $cloneUrl = $attempt.Url
+                Invoke-NativeWithRelaxedErrorAction {
+                    git -c windows.appendAtomically=false clone --depth 1 --branch $Branch $cloneUrl $candidate
+                }
+                if ($LASTEXITCODE -eq 0) {
+                    $incoming = $candidate
+                    $cloneSuccess = $true
+                    break
+                }
+            } finally {
+                $env:GIT_SSH_COMMAND = $null
+                if (-not $cloneSuccess) {
+                    Remove-DirectoryWithRetry -Path $candidate | Out-Null
+                }
+            }
         }
 
         # Fallback: download ZIP archive (bypasses git file I/O issues entirely)
         if (-not $cloneSuccess) {
-            if (Test-Path $InstallDir) { Remove-Item -Recurse -Force $InstallDir -ErrorAction SilentlyContinue }
+            $incoming = New-IncomingCheckoutPath -InstallDir $InstallDir
             Write-Warn "Git clone failed -- downloading ZIP archive instead..."
             try {
                 # Pick the ZIP URL for the most-specific ref the caller asked
@@ -2690,8 +2868,8 @@ function Install-Repository {
                 # GitHub ZIPs extract to repo-branch/ subdirectory
                 $extractedDir = Get-ChildItem $extractPath -Directory | Select-Object -First 1
                 if ($extractedDir) {
-                    New-Item -ItemType Directory -Force -Path (Split-Path $InstallDir) -ErrorAction SilentlyContinue | Out-Null
-                    Move-Item $extractedDir.FullName $InstallDir -Force
+                    New-Item -ItemType Directory -Force -Path (Split-Path $incoming) -ErrorAction SilentlyContinue | Out-Null
+                    Move-Item $extractedDir.FullName $incoming -Force
                     Write-Success "Downloaded and extracted"
 
                     # Initialize git repo so updates work later. A bare
@@ -2699,9 +2877,8 @@ function Install-Repository {
                     # then hard-fails with "could not determine git commit"
                     # (#50823 / #61657). Fetch the requested ref and force-check
                     # it out (-f) so untracked ZIP files cannot block checkout.
-                    Push-Location $InstallDir
-                    git -c windows.appendAtomically=false init 2>$null
-                    git -c windows.appendAtomically=false config windows.appendAtomically false 2>$null
+                    git -c windows.appendAtomically=false -C $incoming init 2>$null
+                    git -c windows.appendAtomically=false -C $incoming config windows.appendAtomically false 2>$null
                     # Pin autocrlf=false BEFORE the checkout below. Git for Windows
                     # defaults to core.autocrlf=true, which would renormalize the
                     # repo's LF text files to CRLF in the working tree during
@@ -2710,25 +2887,25 @@ function Install-Repository {
                     # `lemon update` (see the notes at the shared clone-path
                     # config below and install.ps1:1461-1469). The later pin on
                     # the shared path is idempotent and still covers git clones.
-                    git -c windows.appendAtomically=false config core.autocrlf false 2>$null
-                    git remote add origin $RepoUrlHttps 2>$null
+                    git -c windows.appendAtomically=false -C $incoming config core.autocrlf false 2>$null
+                    git -C $incoming remote add origin $RepoUrlHttps 2>$null
                     $fetchRef = if ($Commit) { $Commit } elseif ($Tag) { "refs/tags/$Tag" } else { $Branch }
                     Write-Info "Fetching $fetchRef so the ZIP checkout has a resolvable HEAD..."
                     $prevZipEAP = $ErrorActionPreference
                     $ErrorActionPreference = "Continue"
                     try {
-                        git -c windows.appendAtomically=false fetch --depth 1 origin $fetchRef 2>&1 | Out-Null
+                        git -c windows.appendAtomically=false -C $incoming fetch --depth 1 origin $fetchRef 2>&1 | Out-Null
                         if ($LASTEXITCODE -eq 0) {
                             if ($Commit -or $Tag) {
-                                git -c windows.appendAtomically=false checkout -f --detach FETCH_HEAD 2>&1 | Out-Null
+                                git -c windows.appendAtomically=false -C $incoming checkout -f --detach FETCH_HEAD 2>&1 | Out-Null
                             } else {
-                                git -c windows.appendAtomically=false checkout -f -B $Branch FETCH_HEAD 2>&1 | Out-Null
+                                git -c windows.appendAtomically=false -C $incoming checkout -f -B $Branch FETCH_HEAD 2>&1 | Out-Null
                             }
                             if ($LASTEXITCODE -eq 0) {
                                 Write-Success "ZIP checkout pinned to $fetchRef"
                             } else {
                                 # Checkout blocked, but FETCH_HEAD still has a SHA we can stamp with.
-                                $fetchSha = & git -c windows.appendAtomically=false rev-parse FETCH_HEAD 2>$null
+                                $fetchSha = & git -c windows.appendAtomically=false -C $incoming rev-parse FETCH_HEAD 2>$null
                                 if ($LASTEXITCODE -eq 0 -and $fetchSha) {
                                     if (-not $env:GITHUB_SHA) { $env:GITHUB_SHA = ("$fetchSha").Trim() }
                                     Write-Warn "ZIP checkout failed; seeded GITHUB_SHA from FETCH_HEAD for desktop stamp"
@@ -2742,7 +2919,6 @@ function Install-Repository {
                     } finally {
                         $ErrorActionPreference = $prevZipEAP
                     }
-                    Pop-Location
                     Write-Success "Git repo initialized for future updates"
 
                     $cloneSuccess = $true
@@ -2757,7 +2933,19 @@ function Install-Repository {
         }
 
         if (-not $cloneSuccess) {
-            throw "Failed to download repository (tried git clone SSH, HTTPS, and ZIP)"
+            throw "Failed to download repository (tried git clone HTTPS, SSH, and ZIP)"
+        }
+
+        if (Test-Path -LiteralPath $InstallDir) {
+            $backupDir = "$InstallDir.broken-" + (Get-Date -Format "yyyyMMdd-HHmmss") + "-" + ([Guid]::NewGuid().ToString("N").Substring(0, 8))
+            Write-Info "Replacing $InstallDir with the freshly cloned tree..."
+            if (-not (Move-DirectoryWithRetry -Source $InstallDir -Destination $backupDir)) {
+                Remove-DirectoryWithRetry -Path $incoming | Out-Null
+                throw "Could not replace $InstallDir because it is still in use. Close any programs using that folder (and leftover git.exe) and retry."
+            }
+        }
+        if (-not (Move-DirectoryWithRetry -Source $incoming -Destination $InstallDir)) {
+            throw "Cloned Lemon AI into $incoming but could not move it into $InstallDir"
         }
     }
 
