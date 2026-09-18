@@ -259,6 +259,18 @@ def _registry_generation() -> Tuple[int, int]:
     return (id(reg), getattr(reg, "_generation", 0)) if reg is not None else (0, 0)
 
 
+def canonical_toolset_name(name: str) -> str:
+    """Map pre-cutover Hermes composite names onto the Lemon names.
+
+    Homes copied from Hermes still persist ``hermes-cli`` (and ``hermes-telegram``,
+    …) in ``platform_toolsets``. Those keys left the registry at the brand cutover,
+    so ``resolve_toolset`` returned [] and the agent started with no native tools.
+    """
+    if isinstance(name, str) and name.startswith("hermes-"):
+        return "lemon-" + name[len("hermes-"):]
+    return name
+
+
 def get_toolset(name: str, *, include_registry: bool = True) -> Optional[Dict[str, Any]]:
     """Toolset definition, or None if unknown.
 
@@ -272,6 +284,7 @@ def get_toolset(name: str, *, include_registry: bool = True) -> Optional[Dict[st
     ``_get_platform_tools`` uses False so that a tool registered into a toolset but absent from a platform's
     static composite does not drop the whole toolset from inference. See issue #49622.
     """
+    name = canonical_toolset_name(name)
     toolset = TOOLSETS.get(name)
     if not include_registry:
         return {**toolset, "tools": list(toolset.get("tools", [])), "includes": list(toolset.get("includes", []))} if toolset else None
@@ -349,6 +362,7 @@ def resolve_toolset(name: str, visited: Set[str] = None, *, include_registry: bo
     registered into a toolset. Platform reverse-mapping uses False so a registry-added tool cannot drop the
     whole toolset from inference (see #49622 and ``_get_platform_tools``).
     """
+    name = canonical_toolset_name(name)
     external_call = visited is None
     if external_call:
         memo_key = (name, include_registry, *_registry_generation())
@@ -421,6 +435,7 @@ def get_toolset_names() -> List[str]:
 
 
 def validate_toolset(name: str) -> bool:
+    name = canonical_toolset_name(name)
     return (name in {"all", "*"} or name in TOOLSETS
             or name in _get_plugin_toolset_names() or name in _get_registry_toolset_aliases())
 

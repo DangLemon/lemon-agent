@@ -124,6 +124,15 @@ class TestValidateToolset:
     def test_invalid(self):
         assert validate_toolset("nonexistent") is False
 
+    def test_hermes_cli_cutover_alias_matches_lemon_cli(self):
+        assert validate_toolset("hermes-cli") is True
+        assert validate_toolset("hermes-nonexistent") is False
+        assert resolve_toolset("hermes-cli") == resolve_toolset("lemon-cli")
+        assert resolve_toolset("hermes-cli", include_registry=False) == resolve_toolset(
+            "lemon-cli", include_registry=False
+        )
+        assert get_toolset("hermes-cli") is not None
+
     def test_mcp_alias_uses_live_registry(self, monkeypatch):
         reg = ToolRegistry()
         reg.register(
