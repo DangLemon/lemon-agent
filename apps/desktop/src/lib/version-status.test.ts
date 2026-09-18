@@ -66,10 +66,10 @@ describe('resolveVersionStatus', () => {
 
   it('leads the tooltip with the apply message while applying', () => {
     expect(client({ applyMessage: 'Pulling…', applying: true, version: '0.4.2' }).tooltip).toBe(
-      'Pulling… · Hermes Desktop v0.4.2'
+      'Pulling… · Lemon AI v0.4.2'
     )
     expect(client({ applying: true, version: '0.4.2' }).tooltip).toBe(
-      `${copy.updateInProgress} · Hermes Desktop v0.4.2`
+      `${copy.updateInProgress} · Lemon AI v0.4.2`
     )
   })
 
@@ -79,7 +79,7 @@ describe('resolveVersionStatus', () => {
     expect(client({ applying: true, copy: lemonCopy, version: '0.21.0' }).tooltip).toBe(
       `${copy.updateInProgress} · Lemon AI v0.21.0`
     )
-    expect(client({ applying: true, copy: lemonCopy, version: '0.21.0' }).tooltip).not.toContain('Hermes Desktop')
+    expect(client({ applying: true, copy: lemonCopy, version: '0.21.0' }).tooltip).not.toContain('Hermes')
   })
 
   it('labels the backend target distinctly and never claims a client sha', () => {

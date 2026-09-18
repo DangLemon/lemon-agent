@@ -217,7 +217,7 @@ class GatewayAuthorizationMixin:
 
         Secondary-profile adapters live in ``_profile_adapters[profile]``; the primary profile owns
         ``self.adapters``. ``_profile_adapters`` is consulted BEFORE the active profile name: multiplex
-        turns override ``HERMES_HOME`` so ``_active_profile_name()`` reports the secondary profile
+        turns override ``LEMON_HOME`` so ``_active_profile_name()`` reports the secondary profile
         mid-turn, and treating it as primary would hand it the default bot.
         """
         if not platform:
@@ -227,7 +227,7 @@ class GatewayAuthorizationMixin:
             profile_adapters = self._profile_adapters_map()
             if profile_name in profile_adapters:
                 return profile_adapters[profile_name].get(platform)
-            # Identity captured at construction, not the per-turn HERMES_HOME-derived name.
+            # Identity captured at construction, not the per-turn LEMON_HOME-derived name.
             primary_profile = getattr(self, "_primary_profile_name", None)
             if not primary_profile:
                 with contextlib.suppress(Exception):

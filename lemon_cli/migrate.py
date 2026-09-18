@@ -1,0 +1,104 @@
+"""CLI handlers for Lemon AI migrations."""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import Any
+
+from lemon_cli.colors import Colors, color
+from lemon_cli.config import load_config
+
+
+def cmd_migrate(args: Any) -> int:
+    """Dispatcher for ``lemon migrate <subtype>``."""
+    migrate_type = getattr(args, "migrate_type", None)
+    if migrate_type == "xai":
+        return cmd_migrate_xai(args)
+    if migrate_type == "identity":
+        return cmd_migrate_identity(args)
+
+    print("usage: lemon migrate {identity,xai}", file=sys.stderr)
+    return 2
+
+
+def cmd_migrate_identity(args: Any) -> int:
+    """Apply or roll back the atomic default-home identity migration."""
+    from lemon_migration import migrate_default_home_once, rollback_default_home_migration
+
+    result = (
+        rollback_default_home_migration()
+        if bool(getattr(args, "rollback", False))
+        else migrate_default_home_once(ignore_rollback_guard=bool(getattr(args, "force", False)))
+    )
+    print(f"{result.state}: {result.legacy_home} -> {result.lemon_home}")
+    if result.detail:
+        print(result.detail)
+    return 1 if result.state in {"conflict", "error"} else 0
+
+
+def _fail(message: str) -> int:
+    print(f"  {color('✗', Colors.RED)} {message}", file=sys.stderr)
+    return 1
+
+
+def cmd_migrate_xai(args: Any) -> int:
+    """Run xAI May-15 model migration in dry-run or apply mode."""
+    from lemon_cli.xai_retirement import (
+        MIGRATION_GUIDE_URL, RETIREMENT_DATE, apply_migration, find_retired_xai_refs, format_issue)
+
+    apply = bool(getattr(args, "apply", False))
+    no_backup = bool(getattr(args, "no_backup", False))
+    issues = find_retired_xai_refs(load_config())
+
+    print()
+    print(color(f"◆ xAI Model Retirement Migration ({RETIREMENT_DATE})", Colors.CYAN, Colors.BOLD))
+    print()
+
+    if not issues:
+        print(f"  {color('✓', Colors.GREEN)} No retired xAI models in config — nothing to migrate.")
+        return 0
+
+    print(f"  Found {len(issues)} retired xAI model reference(s):")
+    print()
+    for issue in issues:
+        print(f"    {color('⚠', Colors.YELLOW)} {format_issue(issue)}")
+    print()
+    print(f"    {color('→', Colors.CYAN)} Migration guide: {MIGRATION_GUIDE_URL}")
+    print()
+
+    config_path = _resolve_config_path()
+
+    if not apply:
+        print(color("Dry-run mode — no changes written.", Colors.DIM))
+        print(color(
+            "Re-run with `lemon migrate xai --apply` to rewrite "
+            f"{config_path} in-place (backup created automatically).",
+            Colors.DIM))
+        return 0
+
+    if not config_path or not config_path.exists():
+        return _fail(f"Could not locate config.yaml (looked at: {config_path})")
+
+    try:
+        result = apply_migration(config_path=config_path, issues=issues, backup=not no_backup)
+    except Exception as exc:
+        return _fail(f"Migration failed: {exc}")
+
+    if not result.config_changed:
+        print(f"  {color('⚠', Colors.YELLOW)} No changes written.")
+        return 0
+
+    if result.backup_path is not None:
+        print(f"  {color('✓', Colors.GREEN)} Backup: {result.backup_path}")
+    print(
+        f"  {color('✓', Colors.GREEN)} Updated {len(result.issues_resolved)} "
+        f"slot(s) in {result.file_path}")
+    print()
+    print(color("Run `lemon doctor` to confirm no retired xAI models remain.", Colors.DIM))
+    return 0
+
+
+def _resolve_config_path() -> Path:
+    """Best-effort: locate the active config.yaml on disk."""
+    from lemon_cli.config import get_lemon_home
+    return get_lemon_home() / "config.yaml"

@@ -5,8 +5,8 @@ import { useState } from 'react'
 import { useSessionView } from '@/app/chat/session-view'
 import { Codicon } from '@/components/ui/codicon'
 import { DropdownMenuItem, dropdownMenuRow } from '@/components/ui/dropdown-menu'
-import type { HermesGateway } from '@/hermes'
 import { useI18n } from '@/i18n'
+import type { LemonGateway } from '@/lemon'
 import { modelOptionsQueryKey, reconcileSelectionAfterCatalogRefresh, requestModelOptions } from '@/lib/model-options'
 import { currentPickerSelection } from '@/lib/model-status-label'
 import { DEFAULT_REASONING_EFFORT } from '@/lib/reasoning-effort'
@@ -21,7 +21,7 @@ import {
   setCurrentReasoningEffort
 } from '@/store/session'
 import { sessionTileDelegate } from '@/store/session-states'
-import type { ModelOptionsResponse } from '@/types/hermes'
+import type { ModelOptionsResponse } from '@/types/lemon'
 
 import { ModelCatalogMenu, type ModelMenuController } from './model-catalog-menu'
 
@@ -36,7 +36,7 @@ export interface ModelSelection {
 }
 
 interface ModelMenuPanelProps {
-  gateway?: HermesGateway
+  gateway?: LemonGateway
   ownerConnectionId?: string
   onSelectModel: (selection: ModelSelection) => Promise<boolean> | void
   profile?: string

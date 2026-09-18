@@ -31,8 +31,8 @@ import { $layoutTree, closeTreePane, moveTreePane, setTreeGroupTabStrip } from '
 import { $workspaceOwnerLabels, workspaceOwnerTitle } from '@/components/pane-shell/workspace-scope'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { transcribeAudio } from '@/hermes'
 import { useI18n } from '@/i18n'
+import { transcribeAudio } from '@/lemon'
 import type { ChatMessage } from '@/lib/chat-messages'
 import { NEW_SESSION_TITLE, sessionTitle } from '@/lib/chat-runtime'
 import { transcribeAudioClientDirect } from '@/lib/voice-client-direct'
@@ -61,7 +61,7 @@ import {
   type SessionTile,
   sessionTileDelegate
 } from '@/store/session-states'
-import type { SessionInfo } from '@/types/hermes'
+import type { SessionInfo } from '@/types/lemon'
 
 import type { SessionDragPayload } from './composer/inline-refs'
 import { type ComposerScope, ComposerScopeProvider } from './composer/scope'

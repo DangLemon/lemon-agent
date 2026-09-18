@@ -3,16 +3,16 @@
  * build time. The pipeline every non-bundled plugin takes:
  *
  *   source (plain ESM js) -> [integrity check] -> bare-specifier rewrite
- *   (`@hermes/plugin-sdk` / `react*` -> live shim blobs, see sdk/runtime.ts)
- *   -> blob `import()` -> validate default HermesPlugin -> register(ctx)
+ *   (`@lemon-ai/plugin-sdk` / `react*` -> live shim blobs, see sdk/runtime.ts)
+ *   -> blob `import()` -> validate default LemonPlugin -> register(ctx)
  *
  * Loading the same plugin id again disposes the previous registrations first
  * (agent rewrites a plugin file -> clean reload). Failures toast + log; a
  * broken plugin can never take the app down.
  *
  * Sources today: the in-repo runtime example (`?raw`, proves the pipeline)
- * and the two on-disk doors — `<hermes home>/desktop-plugins/<name>/plugin.js`
- * and the unified agent-plugin half `<hermes home>/plugins/<name>/desktop/
+ * and the two on-disk doors — `<lemon home>/desktop-plugins/<name>/plugin.js`
+ * and the unified agent-plugin half `<lemon home>/plugins/<name>/desktop/
  * plugin.js` — the doors the agent writes through.
  *
  * SECURITY — this is NOT a capability boundary. A loaded plugin is evaluated
@@ -28,17 +28,17 @@
  * trust seam.
  */
 
-import { replaceHermesBrandTerms } from '@/lib/app-brand'
+import { replaceLemonBrandTerms } from '@/lib/app-brand'
 import { installPluginSdk, sdkImportMap } from '@/sdk/runtime'
 import { notifyError } from '@/store/notifications'
 
-import { createPluginContext, type HermesPlugin } from './plugin'
+import { createPluginContext, type LemonPlugin } from './plugin'
 import { $pluginRecords, dropPlugin, pluginActive, type PluginKind, publishPlugin } from './plugins-store'
 
 interface LoadOptions {
   /** Root-level default-enable CAP: `false` ships the plugin opt-in (inventory
    *  row, off until the user toggles) even if the plugin says otherwise. The
-   *  unified agent-plugin root sets this so `~/.hermes/plugins` keeps its
+   *  unified agent-plugin root sets this so `~/.lemon-ai/plugins` keeps its
    *  installed-but-inert posture (GHSA-mcfc-hp25-cjv7) on the desktop side too. */
   defaultEnabled?: boolean
   /** Absolute plugin.js path (disk plugins) — recorded for reveal/inventory. */
@@ -57,7 +57,7 @@ const loaded = new Map<string, (() => void)[]>()
 // literal or comment (e.g. `notify('react')`) is never touched.
 const importSpecifierRe = () => /(from\s*|import\s*\(\s*|import\s+)(['"])([^'"]+)\2/g
 
-/** Rewrite ONLY mapped import specifiers (@hermes/plugin-sdk, react*) to their
+/** Rewrite ONLY mapped import specifiers (@lemon-ai/plugin-sdk, react*) to their
  *  live shim blob URLs — never occurrences inside strings/comments. */
 function rewriteSpecifiers(source: string): string {
   const map = sdkImportMap()
@@ -123,13 +123,13 @@ export async function loadRuntimePlugin(
     if (unsupported.length > 0) {
       throw new Error(
         `unsupported import${unsupported.length > 1 ? 's' : ''}: ${unsupported.join(', ')} — ` +
-          `runtime plugins may only import @hermes/plugin-sdk and react`
+          `runtime plugins may only import @lemon-ai/plugin-sdk and react`
       )
     }
 
     const url = URL.createObjectURL(new Blob([rewriteSpecifiers(source)], { type: 'text/javascript' }))
 
-    let mod: { default?: HermesPlugin }
+    let mod: { default?: LemonPlugin }
 
     try {
       mod = await import(/* @vite-ignore */ url)
@@ -140,11 +140,11 @@ export async function loadRuntimePlugin(
     const plugin = mod.default
 
     if (!plugin?.id || typeof plugin.register !== 'function') {
-      throw new Error(`${origin} has no valid default HermesPlugin export`)
+      throw new Error(`${origin} has no valid default LemonPlugin export`)
     }
 
     // A disk/runtime copy of a plugin that now ships BUNDLED (e.g. a
-    // standalone install of hermes-bots predating its adoption in-tree) must
+    // standalone install of lemon-bots predating its adoption in-tree) must
     // not register a second time: contributions would double up and the two
     // copies would fight over storage. The bundled copy wins; the disk copy
     // is skipped — but VISIBLY: a silent skip left the stale folder
@@ -211,9 +211,9 @@ export async function loadRuntimePlugin(
 
 // ---------------------------------------------------------------------------
 // The on-disk plugin door — TWO roots, one pipeline:
-//  - `<hermes home>/desktop-plugins/<name>/plugin.js` — the standalone door
+//  - `<lemon home>/desktop-plugins/<name>/plugin.js` — the standalone door
 //    (agent- or user-written desktop-only plugins);
-//  - `<hermes home>/plugins/<name>/desktop/plugin.js` — the desktop HALF of a
+//  - `<lemon home>/plugins/<name>/desktop/plugin.js` — the desktop HALF of a
 //    unified agent-plugin package: the same installed folder that carries the
 //    Python plugin (plugin.yaml / plugin.json) ships its desktop UI beside it,
 //    so one feature is ONE install instead of two co-dependent plugins.
@@ -241,10 +241,10 @@ interface DiskRoot {
 }
 
 /** Both scan roots, resolved fresh each pass (Electron-local, never the
- *  backend's hermes_home — #66899). `agentPluginsRoot` is optional: older
+ *  backend's lemon_home — #66899). `agentPluginsRoot` is optional: older
  *  shells predate it and the unified-package half simply doesn't scan. */
 async function diskRoots(): Promise<DiskRoot[]> {
-  const desktop = window.hermesDesktop
+  const desktop = window.lemonDesktop
 
   if (!desktop) {
     return []
@@ -260,7 +260,7 @@ async function diskRoots(): Promise<DiskRoot[]> {
   const unified = await desktop.agentPluginsRoot?.()
 
   if (unified) {
-    // Opt-in by default: `~/.hermes/plugins` is installed-but-inert until the
+    // Opt-in by default: `~/.lemon-ai/plugins` is installed-but-inert until the
     // user allowlists the Python half (plugins.enabled), so the desktop half
     // matches that posture — inventoried in Settings → Plugins, off until
     // toggled. The standalone desktop-plugins door keeps its default-on trust.
@@ -309,7 +309,7 @@ class PluginSourceOversizeError extends Error {}
  *  the preview read, which silently truncates at 512 KiB — there the read
  *  fails loudly instead of handing a partial file to the evaluator. */
 async function readPluginSourceText(file: string): Promise<string> {
-  const desktop = window.hermesDesktop!
+  const desktop = window.lemonDesktop!
 
   if (desktop.readPluginSource) {
     return (await desktop.readPluginSource(file)).text
@@ -319,8 +319,8 @@ async function readPluginSourceText(file: string): Promise<string> {
 
   if (result.truncated) {
     throw new PluginSourceOversizeError(
-      replaceHermesBrandTerms(
-        "plugin.js exceeds this shell's 512 KiB read limit — update Hermes Desktop to load larger plugins"
+      replaceLemonBrandTerms(
+        "plugin.js exceeds this shell's 512 KiB read limit — update Lemon AI to load larger plugins"
       )
     )
   }
@@ -385,7 +385,7 @@ async function loadDiskPlugin(entry: DiskPlugin): Promise<boolean> {
 }
 
 async function resolveDiskPluginEntry(
-  desktop: Window['hermesDesktop'],
+  desktop: Window['lemonDesktop'],
   folderPath: string,
   segments: readonly string[]
 ): Promise<string | null> {
@@ -416,7 +416,7 @@ async function resolveDiskPluginEntry(
 }
 
 async function scanDiskPlugins(): Promise<void> {
-  const desktop = window.hermesDesktop
+  const desktop = window.lemonDesktop
 
   // Re-entrancy guard: the 5s poll must not overlap a slow in-flight scan
   // (reads/loads can exceed the interval).
@@ -520,7 +520,7 @@ export const discoverRuntimePlugins = scanDiskPlugins
 /** Start the self-maintaining disk door: initial scan, per-file hot reload,
  *  fs-watched folder reconciliation (poll fallback on older shells). Idempotent. */
 export function watchRuntimePlugins(): void {
-  const desktop = window.hermesDesktop
+  const desktop = window.lemonDesktop
 
   if (watching || !desktop) {
     return

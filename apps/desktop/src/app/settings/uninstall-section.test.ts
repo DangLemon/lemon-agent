@@ -6,16 +6,16 @@ import { lemonAppBrand, upstreamAppBrand } from '@/lib/app-brand'
 import { uninstallCopyForBrand, uninstallOptionsForBrand } from './uninstall-section'
 
 describe('uninstallCopyForBrand', () => {
-  it('preserves upstream Hermes uninstall copy by default', () => {
+  it('preserves upstream Lemon AI uninstall copy by default', () => {
     const copy = uninstallCopyForBrand(upstreamAppBrand)
 
-    expect(copy.heading).toBe('Uninstall Hermes')
+    expect(copy.heading).toBe('Uninstall Lemon AI')
     expect(copy.options[0].description).toBe(
-      'Remove this desktop app. The Hermes agent, your config, and chats all stay.'
+      'Remove this desktop app. The Lemon AI agent, your config, and chats all stay.'
     )
   })
 
-  it('replaces Hermes user-visible nouns for Lemon AI', () => {
+  it('replaces Lemon AI user-visible nouns for Lemon AI', () => {
     const copy = uninstallCopyForBrand(lemonAppBrand)
 
     const combined = [
@@ -57,7 +57,7 @@ describe('uninstallOptionsForBrand', () => {
 
     expect(option?.mode).toBe('gui')
     expect(option?.title).toBe('Uninstall Chat GUI only')
-    expect(option?.description).toBe('Remove this desktop app. The Lemon AI, your config, and chats all stay.')
+    expect(option?.description).toBe('Remove this desktop app. The Lemon AI agent, your config, and chats all stay.')
     expect(option?.description).not.toContain('Gỡ')
     expect(option?.description).not.toContain('Hermes')
   })

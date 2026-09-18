@@ -109,17 +109,17 @@ test('the trailing "· detail" is split off as a secondary meta line, not inline
 })
 
 test('noticeToToast preserves backend notice text for the internal desktop app', () => {
-  vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+  vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
 
   const toast = noticeToToast({
     key: 'credits.depleted',
     kind: 'sticky',
     level: 'error',
-    text: "✕ Hermes credit access paused · Run 'hermes model' against Hermes-4.5 with ~/.hermes/.env."
+    text: "✕ Lemon AI credit access paused · Run 'lemon model' against Hermes-4.5 with ~/.lemon-ai/.env."
   })
 
-  expect(toast?.message).toBe('Hermes credit access paused')
-  expect(toast?.meta).toBe("Run 'hermes model' against Hermes-4.5 with ~/.hermes/.env.")
+  expect(toast?.message).toBe('Lemon AI credit access paused')
+  expect(toast?.meta).toBe("Run 'lemon model' against Hermes-4.5 with ~/.lemon-ai/.env.")
 })
 
 test('splitMeta splits on the first space-middot-space only', () => {
@@ -249,20 +249,20 @@ test('the urgent pair maps to a global native input carrying the text as its bod
 })
 
 test('native credit notices preserve backend notice body and brand only the static title', () => {
-  vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+  vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
 
   const notice = nativeNoticeInput(
     {
       key: 'credits.depleted',
       kind: 'sticky',
       level: 'error',
-      text: "✕ Hermes credit access paused · run 'hermes model' with Hermes-4.5 and ~/.hermes/.env"
+      text: "✕ Lemon AI credit access paused · run 'lemon model' with Hermes-4.5 and ~/.lemon-ai/.env"
     },
-    'Hermes credits'
+    'Lemon AI credits'
   )
 
   expect(notice).toMatchObject({
-    body: "✕ Hermes credit access paused · run 'hermes model' with Hermes-4.5 and ~/.hermes/.env",
+    body: "✕ Lemon AI credit access paused · run 'lemon model' with Hermes-4.5 and ~/.lemon-ai/.env",
     title: 'Lemon AI credits'
   })
 })

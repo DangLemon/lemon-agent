@@ -17,10 +17,13 @@
     "jsx": "react-jsx",
     "paths": {
       "@/*": ["./src/*"],
-      "@hermes/plugin-sdk": ["./src/sdk/index.ts"],
-      "@hermes/shared/billing": ["../shared/src/billing-types.ts"],
-      "@hermes/shared/translucency": ["../shared/src/translucency.ts"],
-      "@hermes/shared": ["../shared/src/index.ts"]
+      "@lemon-ai/plugin-sdk": ["./src/sdk/index.ts"],
+      "@lemon-ai/shared/billing": ["../shared/src/billing-types.ts"],
+      "@lemon-ai/shared/billing-policy": ["../shared/src/billing-policy.ts"],
+      "@lemon-ai/shared/charge-settlement": ["../shared/src/charge-settlement.ts"],
+      "@lemon-ai/shared/skin": ["../shared/src/skin.ts"],
+      "@lemon-ai/shared/translucency": ["../shared/src/translucency.ts"],
+      "@lemon-ai/shared": ["../shared/src/index.ts"]
     }
   },
   "include": ["src", "../shared/src"],

@@ -49,7 +49,7 @@ import {
   useQuery,
   useQueryClient,
   useValue
-} from '@hermes/plugin-sdk'
+} from '@lemon-ai/plugin-sdk'
 import {
   type CSSProperties,
   type DragEvent as ReactDragEvent,

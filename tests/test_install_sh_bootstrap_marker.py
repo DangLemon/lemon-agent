@@ -1,6 +1,6 @@
 """install.sh must stamp the desktop bootstrap-complete marker.
 
-The marker at ``$INSTALL_DIR/.hermes-bootstrap-complete`` is what the desktop
+The marker at ``$INSTALL_DIR/.lemon-ai-bootstrap-complete`` is what the desktop
 app (apps/desktop/electron/main.ts) and the macOS launcher fast path
 (apps/bootstrap-installer) use to decide "a real install finished here."
 install.sh never wrote it, so a CLI-installed Mac/Linux box re-ran first-run
@@ -43,9 +43,14 @@ def write_internal_harness_config(path):
 def run_manifest_trace(tmp_path, env_updates):
     env = os.environ.copy()
     env["HOME"] = str(tmp_path / "home")
+    env.pop("LEMON_DESKTOP_INTERNAL", None)
     env.pop("HERMES_DESKTOP_INTERNAL", None)
-    env.pop("LEMON_AI_DESKTOP_HARNESS_CONFIG", None)
+    env.pop("LEMON_DESKTOP_HARNESS_CONFIG", None)
     env.pop("HERMES_DESKTOP_HARNESS_CONFIG", None)
+    env.pop("LEMON_DESKTOP_HOME_OVERRIDE", None)
+    env.pop("HERMES_DESKTOP_HOME_OVERRIDE", None)
+    env.pop("LEMON_HOME", None)
+    env.pop("HERMES_HOME", None)
     env.update(env_updates)
 
     result = subprocess.run(
@@ -65,8 +70,8 @@ def run_manifest_trace(tmp_path, env_updates):
             "DEFAULT_REPOSITORY",
             "REPOSITORY",
             "RUNTIME_DIR_NAME",
-            "DEFAULT_HERMES_HOME",
-            "HERMES_HOME",
+            "DEFAULT_LEMON_HOME",
+            "LEMON_HOME",
         ):
             prefix = f"{name}="
             if body.startswith(prefix):
@@ -100,7 +105,7 @@ write_bootstrap_marker
 
 
 def make_checkout(tmp_path):
-    install_dir = tmp_path / "hermes-agent"
+    install_dir = tmp_path / "lemon-agent"
     install_dir.mkdir()
     subprocess.run(["git", "init", "-q"], cwd=install_dir, check=True)
     subprocess.run(
@@ -119,7 +124,7 @@ def test_marker_matches_the_schema_the_desktop_validates(tmp_path):
     result = run_write_marker(install_dir)
     assert result.returncode == 0, result.stderr
 
-    marker = install_dir / ".hermes-bootstrap-complete"
+    marker = install_dir / ".lemon-ai-bootstrap-complete"
     assert marker.is_file(), "install.sh must stamp the bootstrap marker"
 
     payload = json.loads(marker.read_text())
@@ -135,8 +140,8 @@ def test_marker_publish_leaves_no_temp_sibling(tmp_path):
 
     run_write_marker(install_dir)
 
-    assert (install_dir / ".hermes-bootstrap-complete").is_file()
-    assert not (install_dir / ".hermes-bootstrap-complete.tmp").exists()
+    assert (install_dir / ".lemon-ai-bootstrap-complete").is_file()
+    assert not (install_dir / ".lemon-ai-bootstrap-complete.tmp").exists()
 
 
 def test_explicit_commit_pin_wins_over_head(tmp_path):
@@ -145,7 +150,7 @@ def test_explicit_commit_pin_wins_over_head(tmp_path):
 
     run_write_marker(install_dir, commit=pinned)
 
-    payload = json.loads((install_dir / ".hermes-bootstrap-complete").read_text())
+    payload = json.loads((install_dir / ".lemon-ai-bootstrap-complete").read_text())
     assert payload["pinnedCommit"] == pinned
 
 
@@ -165,17 +170,17 @@ def test_lemon_harness_selector_uses_lemon_install_defaults(tmp_path):
 
     result, assignments = run_manifest_trace(
         tmp_path,
-        {"LEMON_AI_DESKTOP_HARNESS_CONFIG": str(harness)},
+        {"LEMON_DESKTOP_HARNESS_CONFIG": str(harness)},
     )
 
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["protocol_version"] == 1
     assert assignments["INTERNAL_DESKTOP_BUILD"] == "true"
-    assert assignments["DEFAULT_REPOSITORY"] == "DangLemon/hermes-agent"
-    assert assignments["REPOSITORY"] == "DangLemon/hermes-agent"
+    assert assignments["DEFAULT_REPOSITORY"] == "DangLemon/lemon-agent"
+    assert assignments["REPOSITORY"] == "DangLemon/lemon-agent"
     assert assignments["RUNTIME_DIR_NAME"] == "lemon-agent"
-    assert assignments["DEFAULT_HERMES_HOME"].endswith("/.lemon-ai")
-    assert assignments["HERMES_HOME"].endswith("/.lemon-ai")
+    assert assignments["DEFAULT_LEMON_HOME"].endswith("/.lemon-ai")
+    assert assignments["LEMON_HOME"].endswith("/.lemon-ai")
 
 
 def test_legacy_harness_selector_still_uses_lemon_install_defaults(tmp_path):
@@ -189,9 +194,9 @@ def test_legacy_harness_selector_still_uses_lemon_install_defaults(tmp_path):
 
     assert result.returncode == 0, result.stderr
     assert assignments["INTERNAL_DESKTOP_BUILD"] == "true"
-    assert assignments["DEFAULT_REPOSITORY"] == "DangLemon/hermes-agent"
+    assert assignments["DEFAULT_REPOSITORY"] == "DangLemon/lemon-agent"
     assert assignments["RUNTIME_DIR_NAME"] == "lemon-agent"
-    assert assignments["HERMES_HOME"].endswith("/.lemon-ai")
+    assert assignments["LEMON_HOME"].endswith("/.lemon-ai")
 
 
 def test_no_marker_written_when_head_cannot_be_resolved(tmp_path):
@@ -202,7 +207,7 @@ def test_no_marker_written_when_head_cannot_be_resolved(tmp_path):
     result = run_write_marker(install_dir)
 
     assert result.returncode == 0, "an unresolvable HEAD must not fail the install"
-    assert not (install_dir / ".hermes-bootstrap-complete").exists()
+    assert not (install_dir / ".lemon-ai-bootstrap-complete").exists()
 
 
 def test_missing_install_dir_is_not_fatal(tmp_path):

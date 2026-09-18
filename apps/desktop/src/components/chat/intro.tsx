@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 import { type ComposerTarget, requestComposerFocus, requestComposerInsert } from '@/app/chat/composer/focus'
 import { useI18n } from '@/i18n'
-import { appBrand, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { appBrand, replaceLemonBrandTerms } from '@/lib/app-brand'
 import { BarChart3, Clipboard, FileText, NotebookTabs } from '@/lib/icons'
 import { capitalize, normalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
@@ -39,7 +39,7 @@ const FALLBACK_COPY: IntroCopy[] = [
     body: "Bring the code, question, or stuck part. I'll read the room before making changes."
   },
   {
-    headline: 'What should Hermes look at?',
+    headline: 'What should Lemon AI look at?',
     body: "Send the task, failing path, or half-formed plan. I'll help turn it into action."
   },
   {
@@ -137,7 +137,7 @@ function neutralCopy(): IntroCopy[] {
   return INTRO_COPY_BY_PERSONALITY.none || INTRO_COPY_BY_PERSONALITY.default || FALLBACK_COPY
 }
 
-function fallbackCopyForPersonality(personalityKey: string, displayName = 'Hermes Agent'): IntroCopy[] {
+function fallbackCopyForPersonality(personalityKey: string, displayName = 'Lemon AI'): IntroCopy[] {
   if (NEUTRAL_PERSONALITIES.has(personalityKey)) {
     return neutralCopy()
   }
@@ -172,7 +172,7 @@ function pickCopy(copies: IntroCopy[], seed = 0): IntroCopy {
   return copies[Math.abs(seed) % copies.length] || FALLBACK_COPY[0]
 }
 
-function resolveCopy(personality?: string, seed?: number, displayName = 'Hermes Agent'): IntroCopy {
+function resolveCopy(personality?: string, seed?: number, displayName = 'Lemon AI'): IntroCopy {
   const personalityKey = normalizeKey(personality)
 
   const copies = NEUTRAL_PERSONALITIES.has(personalityKey)
@@ -189,8 +189,8 @@ export function Intro({ composerDisabled = false, composerTarget = 'active', per
   const copy = resolveCopy(personality, mountSeed + (seed ?? 0), brand.displayName)
 
   const displayCopy = {
-    body: replaceHermesBrandTerms(copy.body, brand),
-    headline: replaceHermesBrandTerms(copy.headline, brand)
+    body: replaceLemonBrandTerms(copy.body, brand),
+    headline: replaceLemonBrandTerms(copy.headline, brand)
   }
 
   const internalCopy = t.internalWorkspace

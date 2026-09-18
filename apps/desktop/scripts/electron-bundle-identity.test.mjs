@@ -7,8 +7,8 @@ import { test } from 'vitest'
 
 import { prepareElectronBundleDefines, resolveElectronBundleDefines } from './electron-bundle-identity.mjs'
 
-const packagedKey = ['process', 'env', 'HERMES_DESKTOP_IS_PACKAGED'].join('.')
-const internalPackageKey = ['process', 'env', 'HERMES_DESKTOP_INTERNAL_PACKAGE'].join('.')
+const packagedKey = ['process', 'env', 'LEMON_DESKTOP_IS_PACKAGED'].join('.')
+const internalPackageKey = ['process', 'env', 'LEMON_DESKTOP_INTERNAL_PACKAGE'].join('.')
 
 const validResource = {
   schemaVersion: 1,
@@ -38,7 +38,7 @@ test('production bundle bakes immutable internal-package identity from the Lemon
   withHarnessConfig(configPath => {
     assert.deepEqual(
       resolveElectronBundleDefines({
-        env: { LEMON_AI_DESKTOP_HARNESS_CONFIG: configPath },
+        env: { LEMON_DESKTOP_HARNESS_CONFIG: configPath },
         isDev: false
       }),
       {
@@ -49,11 +49,11 @@ test('production bundle bakes immutable internal-package identity from the Lemon
   })
 })
 
-test('production bundle remains compatible with the legacy Hermes selector', () => {
+test('production bundle remains compatible with the legacy Lemon AI selector', () => {
   withHarnessConfig(configPath => {
     assert.equal(
       resolveElectronBundleDefines({
-        env: { HERMES_DESKTOP_HARNESS_CONFIG: configPath },
+        env: { LEMON_DESKTOP_HARNESS_CONFIG: configPath },
         isDev: false
       })[internalPackageKey],
       JSON.stringify('1')
@@ -72,21 +72,21 @@ test('ordinary development bundle leaves package identity to the runtime environ
   assert.deepEqual(resolveElectronBundleDefines({ env: {}, isDev: true }), {})
 })
 
-test('Hermes installer brand keeps inherited Lemon selectors out of the bundle', () => {
+test('Lemon AI installer brand still bakes internal identity from a valid harness', () => {
   withHarnessConfig(configPath => {
     assert.deepEqual(resolveElectronBundleDefines({
-      env: { HERMES_INSTALLER_BRAND: 'hermes', LEMON_AI_DESKTOP_HARNESS_CONFIG: configPath },
+      env: { LEMON_INSTALLER_BRAND: 'lemon', LEMON_DESKTOP_HARNESS_CONFIG: configPath },
       isDev: false
     }), {
       [packagedKey]: 'true',
-      [internalPackageKey]: JSON.stringify('')
+      [internalPackageKey]: JSON.stringify('1')
     })
   })
 })
 
 test('internal development bundle bakes Lemon identity before Electron reads userData', () => {
   withHarnessConfig(configPath => {
-    assert.deepEqual(resolveElectronBundleDefines({ env: { LEMON_AI_DESKTOP_HARNESS_CONFIG: configPath }, isDev: true }), {
+    assert.deepEqual(resolveElectronBundleDefines({ env: { LEMON_DESKTOP_HARNESS_CONFIG: configPath }, isDev: true }), {
       [internalPackageKey]: JSON.stringify('1')
     })
   })
@@ -99,7 +99,7 @@ test('clean development bundle materializes the Lemon harness for the Electron r
     try {
       assert.deepEqual(
         prepareElectronBundleDefines({
-          env: { LEMON_AI_DESKTOP_HARNESS_CONFIG: configPath },
+          env: { LEMON_DESKTOP_HARNESS_CONFIG: configPath },
           isDev: true,
           buildDir
         }),
@@ -119,6 +119,6 @@ test('clean development bundle materializes the Lemon harness for the Electron r
 test('fresh desktop launch pins the sandbox home ahead of live Windows registry aliases', () => {
   const source = fs.readFileSync(new URL('./test-desktop.mjs', import.meta.url), 'utf8')
 
-  assert.match(source, /env\.HERMES_DESKTOP_HOME_OVERRIDE = hermesHome/)
-  assert.match(source, /env\.HERMES_DESKTOP_RUNTIME_DIR_NAME = PRIMARY_IDENTITY\.runtimeRootDirName/)
+  assert.match(source, /env\.LEMON_DESKTOP_HOME_OVERRIDE = lemonHome/)
+  assert.match(source, /env\.LEMON_DESKTOP_RUNTIME_DIR_NAME = PRIMARY_IDENTITY\.runtimeRootDirName/)
 })

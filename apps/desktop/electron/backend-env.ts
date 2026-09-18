@@ -61,54 +61,54 @@ function appendUniquePathEntries(entries, { delimiter = path.delimiter } = {}) {
 }
 
 /**
- * Hermes-managed Node.js directories, in preferred lookup order.
+ * Lemon AI-managed Node.js directories, in preferred lookup order.
  *
  * There are two on-disk layouts. `scripts/install.ps1` unpacks portable Node
- * straight into `%LOCALAPPDATA%\hermes\node` (node.exe at the root, no `bin\`);
+ * straight into `%LOCALAPPDATA%\Lemon AI\node` (node.exe at the root, no `bin\`);
  * `scripts/install.sh` and the node-bootstrap helper use the POSIX
- * `$HERMES_HOME/node/bin`. Emit BOTH on every platform so mixed and migrated
+ * `$LEMON_HOME/node/bin`. Emit BOTH on every platform so mixed and migrated
  * installs resolve, leading with the layout native to the current platform.
  *
  * This is the single source of truth for the ordering rule on the Node side —
  * `main.ts` imports it rather than keeping its own copy. Mirrors
- * `iter_hermes_node_dirs()` in hermes_constants.py, which the Electron main
+ * `iter_lemon_node_dirs()` in lemon_constants.py, which the Electron main
  * process cannot import.
  */
-function hermesManagedNodePathEntries(
-  hermesHome,
+function lemonManagedNodePathEntries(
+  lemonHome,
   { platform = process.platform, pathModule = pathModuleForPlatform(platform) }: any = {}
 ) {
-  if (!hermesHome) {
+  if (!lemonHome) {
     return []
   }
 
-  const root = pathModule.join(hermesHome, 'node')
+  const root = pathModule.join(lemonHome, 'node')
   const bin = pathModule.join(root, 'bin')
 
   return platform === 'win32' ? [root, bin] : [bin, root]
 }
 
 function buildDesktopBackendPath({
-  hermesHome,
+  lemonHome,
   venvRoot,
   currentPath = '',
   platform = process.platform,
   pathModule = pathModuleForPlatform(platform)
 }: any = {}) {
   const delimiter = delimiterForPlatform(platform)
-  const hermesNodeDirs = hermesManagedNodePathEntries(hermesHome, { platform, pathModule })
+  const lemonNodeDirs = lemonManagedNodePathEntries(lemonHome, { platform, pathModule })
   const venvBin = venvRoot ? pathModule.join(venvRoot, platform === 'win32' ? 'Scripts' : 'bin') : null
   const saneEntries = platform === 'win32' ? [] : POSIX_SANE_PATH_ENTRIES
 
-  return appendUniquePathEntries([hermesNodeDirs, venvBin, currentPath, saneEntries], { delimiter })
+  return appendUniquePathEntries([lemonNodeDirs, venvBin, currentPath, saneEntries], { delimiter })
 }
 
-function normalizeHermesHomeRoot(hermesHome, { pathModule = pathModuleForPlatform(process.platform) }: any = {}) {
-  if (!hermesHome) {
-    return hermesHome
+function normalizeLemonHomeRoot(lemonHome, { pathModule = pathModuleForPlatform(process.platform) }: any = {}) {
+  if (!lemonHome) {
+    return lemonHome
   }
 
-  const resolved = pathModule.resolve(String(hermesHome))
+  const resolved = pathModule.resolve(String(lemonHome))
   const parent = pathModule.dirname(resolved)
 
   if (pathModule.basename(parent).toLowerCase() === 'profiles') {
@@ -119,7 +119,7 @@ function normalizeHermesHomeRoot(hermesHome, { pathModule = pathModuleForPlatfor
 }
 
 function buildDesktopBackendEnv({
-  hermesHome,
+  lemonHome,
   pythonPathEntries = [],
   venvRoot,
   managedDir,
@@ -132,17 +132,17 @@ function buildDesktopBackendEnv({
   const key = pathEnvKey(currentEnv, platform)
 
   return {
-    ...(managedDir ? { HERMES_MANAGED_DIR: String(managedDir) } : {}),
+    ...(managedDir ? { LEMON_MANAGED_DIR: String(managedDir) } : {}),
     PYTHONPATH: appendUniquePathEntries([...pythonPathEntries, currentPythonPath], { delimiter }),
     // Force PEP 540 UTF-8 mode in the spawned Python backend so its stdio and
     // subprocess defaults are UTF-8 even on non-UTF-8 Windows locales (GBK,
-    // cp1252, ...). hermes_bootstrap sets this inside the child too, but only
+    // cp1252, ...). lemon_bootstrap sets this inside the child too, but only
     // after import — anything emitted earlier (interpreter startup errors,
     // pre-bootstrap tracebacks) still decodes with the locale default without
     // this. User's explicit setting wins. Re-port of PR #56499 (echoriver89).
     PYTHONUTF8: currentEnv?.PYTHONUTF8 ?? '1',
     [key]: buildDesktopBackendPath({
-      hermesHome,
+      lemonHome,
       venvRoot,
       currentPath: currentPathValue(currentEnv, platform),
       platform,
@@ -156,8 +156,8 @@ export {
   buildDesktopBackendEnv,
   buildDesktopBackendPath,
   delimiterForPlatform,
-  hermesManagedNodePathEntries,
-  normalizeHermesHomeRoot,
+  lemonManagedNodePathEntries,
+  normalizeLemonHomeRoot,
   pathEnvKey,
   POSIX_SANE_PATH_ENTRIES
 }

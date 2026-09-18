@@ -16,7 +16,7 @@ import { Loader } from '@/components/ui/loader'
 import { Progress } from '@/components/ui/progress'
 import type { DesktopUpdateBlocker, DesktopUpdateCommit, DesktopUpdateStage, DesktopUpdateStatus } from '@/global'
 import { useI18n } from '@/i18n'
-import { appBrandForEnv, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { appBrandForEnv, replaceLemonBrandTerms } from '@/lib/app-brand'
 import { buildCommitChangelog, type CommitGroup } from '@/lib/commit-changelog'
 import { AlertCircle, Check, Copy, Terminal } from '@/lib/icons'
 import { brandUpdateCopy, resolveUpdateCopy, type UpdateTarget } from '@/lib/update-copy'
@@ -55,7 +55,7 @@ function useBrandedUpdatesCopy() {
 function brandRuntimeUpdateText(value: unknown, preserveValues: readonly unknown[] = []): string {
   const text = typeof value === 'string' ? value : String(value ?? '')
 
-  return replaceHermesBrandTerms(text, appBrandForEnv(), preserveValues)
+  return replaceLemonBrandTerms(text, appBrandForEnv(), preserveValues)
 }
 
 export function UpdatesOverlay() {

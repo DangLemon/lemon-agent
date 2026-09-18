@@ -17,10 +17,10 @@ import tui_gateway.server as srv
 
 @pytest.fixture
 def home(tmp_path, monkeypatch):
-    hermes_home = tmp_path / ".hermes"
-    hermes_home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-    return hermes_home
+    lemon_home = tmp_path / ".lemon-ai"
+    lemon_home.mkdir()
+    monkeypatch.setenv("LEMON_HOME", str(lemon_home))
+    return lemon_home
 
 
 def _configure(ui_meta, expected=None):

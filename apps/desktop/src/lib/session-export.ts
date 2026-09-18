@@ -1,6 +1,6 @@
-import type { SessionInfo } from '@/hermes'
-import { getAllSessionMessages } from '@/hermes'
 import { translateNow } from '@/i18n'
+import type { SessionInfo } from '@/lemon'
+import { getAllSessionMessages } from '@/lemon'
 import { notify, notifyError } from '@/store/notifications'
 
 interface ExportSessionParams {

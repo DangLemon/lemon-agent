@@ -2,7 +2,7 @@
  * Consume the detached update hand-off's result file (#82328 follow-up).
  *
  * scripts/desktop-update/windows.ps1 runs hidden/detached — the user never sees its
- * console. It writes HERMES_HOME/.hermes-update-result.json on every exit
+ * console. It writes LEMON_HOME/.lemon-ai-update-result.json on every exit
  * path; the relaunched Desktop reads it exactly once on boot and surfaces
  * failures (a silent failed update looks identical to "nothing happened",
  * which is how the 2026-08-09 'closed the app then nothing' report was
@@ -13,7 +13,7 @@
  * manual:true results are exempt from the freshness window. They are the
  * durable action-required channel — on a browserless Linux box with no
  * working notifier, the boot dialog is the FIRST and ONLY place the message
- * ever surfaces, and the user may not reopen Hermes within 30 minutes.
+ * ever surfaces, and the user may not reopen Lemon AI within 30 minutes.
  * Dropping it as stale strands exactly the machine it exists to serve. It is
  * still consumed once (the file is unlinked before any age check), so it
  * cannot resurface on a later boot.
@@ -23,7 +23,7 @@ import fs from 'fs'
 import path from 'path'
 
 export const HANDOFF_RESULT_MAX_AGE_MS = 30 * 60 * 1000
-export const HERMES_HANDOFF_RESULT_NAME = '.hermes-update-result.json'
+export const LEMON_HANDOFF_RESULT_NAME = '.lemon-ai-update-result.json'
 
 export interface HandoffResult {
   ok: boolean
@@ -42,32 +42,32 @@ function uniqueNames(names: Array<string | null | undefined>) {
 }
 
 export function handoffResultPath(
-  hermesHome: string,
-  { resultName = HERMES_HANDOFF_RESULT_NAME }: { resultName?: string } = {}
+  lemonHome: string,
+  { resultName = LEMON_HANDOFF_RESULT_NAME }: { resultName?: string } = {}
 ): string {
-  return path.join(hermesHome, resultName)
+  return path.join(lemonHome, resultName)
 }
 
 function handoffResultCandidatePaths(
-  hermesHome: string,
+  lemonHome: string,
   {
-    resultName = HERMES_HANDOFF_RESULT_NAME,
+    resultName = LEMON_HANDOFF_RESULT_NAME,
     legacyResultNames = []
   }: { resultName?: string; legacyResultNames?: string[] } = {}
 ) {
-  return uniqueNames([resultName, ...legacyResultNames]).map(name => handoffResultPath(hermesHome, { resultName: name }))
+  return uniqueNames([resultName, ...legacyResultNames]).map(name => handoffResultPath(lemonHome, { resultName: name }))
 }
 
 export function readAndConsumeHandoffResult(
-  hermesHome: string,
+  lemonHome: string,
   {
     now = Date.now,
     maxAgeMs = HANDOFF_RESULT_MAX_AGE_MS,
-    resultName = HERMES_HANDOFF_RESULT_NAME,
+    resultName = LEMON_HANDOFF_RESULT_NAME,
     legacyResultNames = []
   }: { now?: () => number; maxAgeMs?: number; resultName?: string; legacyResultNames?: string[] } = {}
 ): HandoffResult | null {
-  for (const file of handoffResultCandidatePaths(hermesHome, { resultName, legacyResultNames })) {
+  for (const file of handoffResultCandidatePaths(lemonHome, { resultName, legacyResultNames })) {
     let raw: string
 
     try {

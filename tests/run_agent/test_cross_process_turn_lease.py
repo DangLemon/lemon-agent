@@ -12,7 +12,7 @@ import pytest
 from agent import relay_runtime
 from agent.session_persistence import _db_flush_row, _db_flush_write
 from agent.turn_facade_lease import admit_durable_turn_lease
-from hermes_state import SessionDB
+from lemon_state import SessionDB
 from run_agent import AIAgent
 
 

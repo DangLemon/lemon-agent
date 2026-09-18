@@ -1,17 +1,17 @@
 """Sticker description cache for Telegram.
 
 Stickers are described via the vision tool once and cached by file_unique_id
-(``~/.hermes/sticker_cache.json``) so the same image is never re-analyzed.
+(``~/.lemon-ai/sticker_cache.json``) so the same image is never re-analyzed.
 """
 
 import json
 import time
 from typing import Optional
 
-from hermes_cli.config import get_hermes_home
+from lemon_cli.config import get_lemon_home
 from utils import atomic_json_write
 
-CACHE_PATH = get_hermes_home() / "sticker_cache.json"
+CACHE_PATH = get_lemon_home() / "sticker_cache.json"
 
 # Kept concise to save tokens.
 STICKER_VISION_PROMPT = (

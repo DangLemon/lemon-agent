@@ -133,11 +133,11 @@ n.cook(force=True)
 actual = str(n.width) + 'x' + str(n.height)
 ```
 
-## 5. Hermes Configuration
+## 5. Lemon AI Configuration
 
 ### Config location
 
-`$HERMES_HOME/config.yaml` (defaults to `~/.hermes/config.yaml` when `HERMES_HOME` is unset)
+`$LEMON_HOME/config.yaml` (defaults to `~/.lemon-ai/config.yaml` when `LEMON_HOME` is unset)
 
 ### MCP entry format
 
@@ -150,7 +150,7 @@ mcpServers:
 
 ### After config changes
 
-Restart the Hermes session for changes to take effect. The MCP connection is
+Restart the Lemon AI session for changes to take effect. The MCP connection is
 established at session startup.
 
 ### Verifying MCP tools are available

@@ -168,7 +168,7 @@ class TestStartRun:
                     "/v1/runs",
                     data="{this body must never be parsed",
                     headers={
-                        "Authorization": "HermesRoom invalid-token",
+                        "Authorization": "LemonRoom invalid-token",
                         "Content-Type": "application/json",
                     },
                 )
@@ -202,13 +202,13 @@ class TestStartRun:
                 status = await status_resp.json()
                 assert status["run_id"] == data["run_id"]
                 assert status["status"] in {"queued", "running", "completed"}
-                assert status["object"] == "hermes.run"
+                assert status["object"] == "lemon.run"
 
     @pytest.mark.asyncio
     async def test_start_binds_chat_id_for_delegation_wake_target(self, adapter):
         """/v1/runs must bind the raw session id as the api_server chat_id
         (like every other agent-entry route does via _run_agent): the async
-        delegation dispatch reads HERMES_SESSION_CHAT_ID to pick its wake
+        delegation dispatch reads LEMON_SESSION_CHAT_ID to pick its wake
         self-post target, and an empty binding forces background delegations
         on this route back to synchronous execution."""
         app = _create_runs_app(adapter)
@@ -485,7 +485,7 @@ class TestSteerRun:
 
         assert resp.status == 200
         assert payload == {
-            "object": "hermes.run.steer",
+            "object": "lemon.run.steer",
             "run_id": "run_123",
             "accepted": True,
         }
@@ -1279,12 +1279,12 @@ class TestRunIdempotency:
                 first_headers = {
                     "Authorization": "Bearer sk-secret",
                     "Idempotency-Key": "memory-scope",
-                    "X-Hermes-Session-Key": "memory-a",
+                    "X-Lemon-Session-Key": "memory-a",
                 }
                 second_headers = {
                     "Authorization": "Bearer sk-secret",
                     "Idempotency-Key": "memory-scope",
-                    "X-Hermes-Session-Key": "memory-b",
+                    "X-Lemon-Session-Key": "memory-b",
                 }
                 first = await cli.post(
                     "/v1/runs", json={"input": "same"}, headers=first_headers
@@ -1313,7 +1313,7 @@ class TestRunIdempotency:
                 headers = {
                     "Authorization": "Bearer sk-secret",
                     "Idempotency-Key": "lost-acceptance",
-                    "X-Hermes-Session-Key": "memory-a",
+                    "X-Lemon-Session-Key": "memory-a",
                 }
                 first = await cli.post(
                     "/v1/runs", json={"input": "same"}, headers=headers
@@ -1331,7 +1331,7 @@ class TestRunIdempotency:
                 assert replay.status == 202
                 assert replay_body["run_id"] == first_body["run_id"]
                 assert replay_body["replayed"] is True
-                assert replay.headers["X-Hermes-Session-Key"] == "memory-a"
+                assert replay.headers["X-Lemon-Session-Key"] == "memory-a"
 
     @pytest.mark.asyncio
     async def test_direct_status_hydrates_after_adapter_restart(
@@ -1554,9 +1554,9 @@ class TestHostedRoomRuns:
     async def test_invitation_uses_validated_app_managed_local_catalog(
         self, auth_adapter, monkeypatch
     ):
-        monkeypatch.setenv("HERMES_DESKTOP", "1")
+        monkeypatch.setenv("LEMON_DESKTOP", "1")
         monkeypatch.setenv(
-            "HERMES_ROOM_LINK_URL", "https://peer.example.test/hermes"
+            "LEMON_ROOM_LINK_URL", "https://peer.example.test/lemon"
         )
         app = _create_runs_app(auth_adapter)
         async with TestClient(TestServer(app)) as cli:
@@ -1577,7 +1577,7 @@ class TestHostedRoomRuns:
         assert body["catalog"]["link_modes"] == ["direct"]
         assert body["catalog"]["endpoint"] == {
             "available": True,
-            "url": "https://peer.example.test/hermes",
+            "url": "https://peer.example.test/lemon",
             "transport_security": "tls",
         }
         assert body["expires_at"] == body["status_expires_at"]
@@ -1646,7 +1646,7 @@ class TestHostedRoomRuns:
             refreshed = await cli.post(
                 "/v1/room-members/grants/refresh",
                 json={"ttl_seconds": 300},
-                headers={"Authorization": f"HermesRoom {old_grant}"},
+                headers={"Authorization": f"LemonRoom {old_grant}"},
             )
             body = await refreshed.json()
         assert refreshed.status == 200
@@ -1693,7 +1693,7 @@ class TestHostedRoomRuns:
             status_refresh = await cli.post(
                 "/v1/room-members/grants/refresh",
                 json={"ttl_seconds": 300},
-                headers={"Authorization": f"HermesRoom {status_only}"},
+                headers={"Authorization": f"LemonRoom {status_only}"},
             )
             status_refresh_body = await status_refresh.json()
         assert status_refresh.status == 401
@@ -1718,7 +1718,7 @@ class TestHostedRoomRuns:
             denied = await cli.post(
                 "/v1/room-members/grants/refresh",
                 json={},
-                headers={"Authorization": f"HermesRoom {fully_expired}"},
+                headers={"Authorization": f"LemonRoom {fully_expired}"},
             )
             denied_body = await denied.json()
         assert denied.status == 401
@@ -1769,7 +1769,7 @@ class TestHostedRoomRuns:
             refused = await cli.post(
                 "/v1/room-members/grants/refresh",
                 json={"ttl_seconds": 300},
-                headers={"Authorization": f"HermesRoom {drifted}"},
+                headers={"Authorization": f"LemonRoom {drifted}"},
             )
             refused_body = await refused.json()
         assert refused.status == 403
@@ -1803,7 +1803,7 @@ class TestHostedRoomRuns:
             denied = await cli.post(
                 "/v1/room-members/grants/refresh",
                 json={},
-                headers={"Authorization": f"HermesRoom {revoked}"},
+                headers={"Authorization": f"LemonRoom {revoked}"},
             )
             denied_body = await denied.json()
         assert denied.status == 401
@@ -1856,7 +1856,7 @@ class TestHostedRoomRuns:
 
         def request(token):
             return SimpleNamespace(
-                headers={"Authorization": f"HermesRoom {token}"},
+                headers={"Authorization": f"LemonRoom {token}"},
                 method="POST",
                 path="/v1/runs",
             )
@@ -1900,22 +1900,22 @@ class TestHostedRoomRuns:
             first = await cli.post(
                 "/v1/room-members/grants/revoke",
                 json={},
-                headers={"Authorization": f"HermesRoom {old_grant}"},
+                headers={"Authorization": f"LemonRoom {old_grant}"},
             )
             repeated = await cli.post(
                 "/v1/room-members/grants/revoke",
                 json={},
-                headers={"Authorization": f"HermesRoom {old_grant}"},
+                headers={"Authorization": f"LemonRoom {old_grant}"},
             )
             denied = await cli.get(
                 "/v1/room-members/capabilities",
-                headers={"Authorization": f"HermesRoom {old_grant}"},
+                headers={"Authorization": f"LemonRoom {old_grant}"},
             )
             denied_run = await cli.post(
                 "/v1/runs",
                 data="{never parsed",
                 headers={
-                    "Authorization": f"HermesRoom {old_grant}",
+                    "Authorization": f"LemonRoom {old_grant}",
                     "Content-Type": "application/json",
                 },
             )
@@ -1943,7 +1943,7 @@ class TestHostedRoomRuns:
             )
             repaired = await cli.get(
                 "/v1/room-members/capabilities",
-                headers={"Authorization": f"HermesRoom {future_grant}"},
+                headers={"Authorization": f"LemonRoom {future_grant}"},
             )
         assert first.status == repeated.status == 200
         assert denied.status == 403
@@ -1988,7 +1988,7 @@ class TestHostedRoomRuns:
                 method,
                 f"/v1/runs/run_ownerless{suffix}",
                 json={} if method == "POST" else None,
-                headers={"Authorization": f"HermesRoom {grant}"},
+                headers={"Authorization": f"LemonRoom {grant}"},
             )
         assert response.status == 404
 
@@ -2021,7 +2021,7 @@ class TestHostedRoomRuns:
             catalog = invitation_body["catalog"]
             probe = await cli.get(
                 "/v1/room-members/capabilities",
-                headers={"Authorization": f"HermesRoom {grant}"},
+                headers={"Authorization": f"LemonRoom {grant}"},
             )
             probe_body = await probe.json()
             assert probe.status == 200
@@ -2061,7 +2061,7 @@ class TestHostedRoomRuns:
                     "/v1/runs",
                     json={"input": prompt, "hosted_room_dispatch": dispatch},
                     headers={
-                        "Authorization": f"HermesRoom {grant}",
+                        "Authorization": f"LemonRoom {grant}",
                         "Idempotency-Key": "room:task-room-1:1",
                     },
                 )
@@ -2071,7 +2071,7 @@ class TestHostedRoomRuns:
                 for _ in range(40):
                     status = await cli.get(
                         f"/v1/runs/{run_id}",
-                        headers={"Authorization": f"HermesRoom {grant}"},
+                        headers={"Authorization": f"LemonRoom {grant}"},
                     )
                     status_body = await status.json()
                     if status_body.get("status") == "completed":
@@ -2135,7 +2135,7 @@ class TestHostedRoomRuns:
                     "/v1/runs",
                     json={"input": prompt, "hosted_room_dispatch": dispatch},
                     headers={
-                        "Authorization": f"HermesRoom {invitation_body['grant']}",
+                        "Authorization": f"LemonRoom {invitation_body['grant']}",
                         "Idempotency-Key": "room:task-room-1:1",
                     },
                 )

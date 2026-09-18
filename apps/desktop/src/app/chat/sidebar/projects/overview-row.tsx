@@ -3,8 +3,8 @@ import { useRef } from 'react'
 
 import { type NewSessionSplitHandler, startNewSessionDrag } from '@/app/chat/new-session-drag'
 import { Codicon } from '@/components/ui/codicon'
-import type { SessionInfo } from '@/hermes'
 import { useI18n } from '@/i18n'
+import type { SessionInfo } from '@/lemon'
 import { cn } from '@/lib/utils'
 
 import {

@@ -1,7 +1,7 @@
 /**
  * bootstrap-runner.ts
  *
- * Drives apps/desktop's first-launch install of Hermes Agent by spawning
+ * Drives apps/desktop's first-launch install of Lemon AI by spawning
  * scripts/install.ps1 stage-by-stage and streaming progress events back to
  * the renderer.
  *
@@ -9,10 +9,10 @@
  *   import { runBootstrap }from './bootstrap-runner'
  *   const result = await runBootstrap({
  *     installStamp,        // INSTALL_STAMP from main.ts (may be null in dev)
- *     activeRoot,          // ACTIVE_HERMES_ROOT
+ *     activeRoot,          // ACTIVE_LEMON_ROOT
  *     sourceRepoRoot,      // SOURCE_REPO_ROOT (for dev install.ps1 lookup)
- *     hermesHome,          // HERMES_HOME
- *     logRoot,             // HERMES_HOME/logs
+ *     lemonHome,          // LEMON_HOME
+ *     logRoot,             // LEMON_HOME/logs
  *     emit: ev => {...}    // event sink (sender.send or similar)
  *   })
  *
@@ -44,8 +44,8 @@ const IS_WINDOWS = process.platform === 'win32'
 
 const HARNESS_RESOURCE_FILENAME = 'lemon-ai-harness.json'
 const LEGACY_HARNESS_RESOURCE_FILENAME = 'internal-desktop-harness.json'
-const DEFAULT_SOURCE_REPOSITORY = 'NousResearch/hermes-agent'
-const INTERNAL_SOURCE_REPOSITORY = 'DangLemon/hermes-agent'
+const DEFAULT_SOURCE_REPOSITORY = 'DangLemon/lemon-agent'
+const INTERNAL_SOURCE_REPOSITORY = 'DangLemon/lemon-agent'
 
 const SOURCE_REPOSITORY_RE =
   /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?\/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?$/
@@ -139,24 +139,24 @@ function resolveBootstrapSourceRepository({
     return packaged
   }
 
-  const explicitRepository = environ.HERMES_UPDATE_REPOSITORY || environ.HERMES_INSTALL_REPOSITORY
+  const explicitRepository = environ.LEMON_UPDATE_REPOSITORY || environ.LEMON_INSTALL_REPOSITORY
 
   if (explicitRepository) {
     return validateSourceRepository(explicitRepository)
   }
 
   const lemonSelected =
-    typeof environ.LEMON_AI_DESKTOP_HARNESS_CONFIG === 'string'
-      ? environ.LEMON_AI_DESKTOP_HARNESS_CONFIG.trim()
+    typeof environ.LEMON_DESKTOP_HARNESS_CONFIG === 'string'
+      ? environ.LEMON_DESKTOP_HARNESS_CONFIG.trim()
       : ''
 
   const selected =
     lemonSelected ||
-    (typeof environ.HERMES_DESKTOP_HARNESS_CONFIG === 'string'
-      ? environ.HERMES_DESKTOP_HARNESS_CONFIG.trim()
+    (typeof environ.LEMON_DESKTOP_HARNESS_CONFIG === 'string'
+      ? environ.LEMON_DESKTOP_HARNESS_CONFIG.trim()
       : '')
 
-  const internalBuild = ['LEMON_AI_DESKTOP_INTERNAL', 'HERMES_DESKTOP_INTERNAL', 'HERMES_DESKTOP_INTERNAL_PACKAGE'].some(
+  const internalBuild = ['LEMON_DESKTOP_INTERNAL', 'HERMES_DESKTOP_INTERNAL', 'LEMON_DESKTOP_INTERNAL_PACKAGE'].some(
     name => environ[name] === '1'
   )
 
@@ -202,7 +202,7 @@ function resolveCheckoutHead(activeRoot: string | null | undefined, opts: { exec
 /** Prefer a real pin already written by install.ps1's bootstrap-marker stage. */
 function readExistingPinnedCommit(
   activeRoot: string | null | undefined,
-  { markerNames = ['.hermes-bootstrap-complete'] }: { markerNames?: string[] } = {}
+  { markerNames = ['.lemon-ai-bootstrap-complete'] }: { markerNames?: string[] } = {}
 ): string | null {
   if (!activeRoot) {
     return null
@@ -312,18 +312,18 @@ function resolveLocalInstallScript(sourceRepoRoot) {
   }
 }
 
-function bootstrapCacheDir(hermesHome) {
-  return path.join(hermesHome, 'bootstrap-cache')
+function bootstrapCacheDir(lemonHome) {
+  return path.join(lemonHome, 'bootstrap-cache')
 }
 
 // The install.sh / install.ps1 that ships inside the already-installed agent
-// checkout under ~/.hermes/hermes-agent. Used as a last-resort fallback when
+// checkout under ~/.lemon-ai/lemon-agent. Used as a last-resort fallback when
 // the pinned commit can't be fetched from GitHub (e.g. a locally-built desktop
 // app stamped to an unpushed HEAD).
-function installedAgentInstallScript(hermesHome, { activeRoot = null, runtimeRootDirNames = ['hermes-agent'] } = {}) {
+function installedAgentInstallScript(lemonHome, { activeRoot = null, runtimeRootDirNames = ['lemon-agent'] } = {}) {
   const roots = [
     activeRoot,
-    ...(hermesHome ? runtimeRootDirNames.map(name => path.join(hermesHome, name)) : [])
+    ...(lemonHome ? runtimeRootDirNames.map(name => path.join(lemonHome, name)) : [])
   ].filter(Boolean)
 
   for (const root of Array.from(new Set(roots))) {
@@ -353,9 +353,9 @@ function hasExistingGitCheckout(activeRoot) {
   }
 }
 
-function cachedScriptPath(hermesHome, commit, sourceRepository = DEFAULT_SOURCE_REPOSITORY) {
+function cachedScriptPath(lemonHome, commit, sourceRepository = DEFAULT_SOURCE_REPOSITORY) {
   return path.join(
-    bootstrapCacheDir(hermesHome),
+    bootstrapCacheDir(lemonHome),
     `install-${sourceRepositoryCachePrefix(sourceRepository)}${commit}.${process.platform === 'win32' ? 'ps1' : 'sh'}`
   )
 }
@@ -450,9 +450,9 @@ function downloadInstallScript(ref, destPath, sourceRepository = DEFAULT_SOURCE_
 async function resolveInstallScript({
   installStamp,
   sourceRepoRoot,
-  hermesHome,
+  lemonHome,
   activeRoot = null,
-  runtimeRootDirNames = ['hermes-agent'],
+  runtimeRootDirNames = ['lemon-agent'],
   sourceRepository = resolveBootstrapSourceRepository(),
   emit,
   _download = downloadInstallScript
@@ -482,7 +482,7 @@ async function resolveInstallScript({
     )
   }
 
-  const cached = cachedScriptPath(hermesHome, installRef.cacheKey, installSourceRepository)
+  const cached = cachedScriptPath(lemonHome, installRef.cacheKey, installSourceRepository)
   const resolvedCommit = installRef.pinned ? installRef.ref : null
 
   try {
@@ -516,7 +516,7 @@ async function resolveInstallScript({
     // write-build-stamp.mjs fromLocalGit). Fall back to the installer that
     // ships inside the already-installed agent checkout so dev/self-builds can
     // still bootstrap instead of dying with a fatal 404.
-    const installed = installedAgentInstallScript(hermesHome, { activeRoot, runtimeRootDirNames })
+    const installed = installedAgentInstallScript(lemonHome, { activeRoot, runtimeRootDirNames })
 
     if (installed) {
       emit({
@@ -596,7 +596,7 @@ function resolveWindowsPowerShell() {
 }
 
 function installerRuntimeEnv({
-  hermesHome,
+  lemonHome,
   desktopHarnessConfigPath,
   bootstrapMarkerName,
   desktopInternal = false,
@@ -605,18 +605,16 @@ function installerRuntimeEnv({
   runtimeDirName
 }: any = {}): Record<string, string | undefined> {
   const env = {
-    HERMES_BOOTSTRAP_MARKER_NAME: bootstrapMarkerName || process.env['HERMES_BOOTSTRAP_MARKER_NAME'] || undefined,
-    HERMES_DESKTOP_HARNESS_CONFIG:
-      desktopHarnessConfigPath || process.env['HERMES_DESKTOP_HARNESS_CONFIG'] || undefined,
-    LEMON_AI_DESKTOP_HARNESS_CONFIG:
-      desktopHarnessConfigPath || process.env['LEMON_AI_DESKTOP_HARNESS_CONFIG'] || undefined,
-    HERMES_HOME: hermesHome || process.env.HERMES_HOME || ''
+    LEMON_BOOTSTRAP_MARKER_NAME: bootstrapMarkerName || process.env['LEMON_BOOTSTRAP_MARKER_NAME'] || undefined,
+    LEMON_DESKTOP_HARNESS_CONFIG:
+      desktopHarnessConfigPath || process.env['LEMON_DESKTOP_HARNESS_CONFIG'] || undefined,
+    LEMON_HOME: lemonHome || process.env.LEMON_HOME || ''
   }
 
   if (desktopInternal || internalDesktop) {
-    env['HERMES_DESKTOP_INTERNAL'] = '1'
-    env['HERMES_DESKTOP_HOME_OVERRIDE'] = desktopHomeOverride || hermesHome || ''
-    env['HERMES_DESKTOP_RUNTIME_DIR_NAME'] = runtimeDirName || undefined
+    env['LEMON_DESKTOP_INTERNAL'] = '1'
+    env['LEMON_DESKTOP_HOME_OVERRIDE'] = desktopHomeOverride || lemonHome || ''
+    env['LEMON_DESKTOP_RUNTIME_DIR_NAME'] = runtimeDirName || undefined
   }
 
   return env
@@ -629,7 +627,7 @@ function spawnPowerShell(
     emit,
     stageName,
     abortSignal,
-    hermesHome,
+    lemonHome,
     desktopHarnessConfigPath,
     bootstrapMarkerName,
     desktopInternal,
@@ -648,11 +646,11 @@ function spawnPowerShell(
         stdio: ['ignore', 'pipe', 'pipe'],
         env: {
           ...process.env,
-          // Pass HERMES_HOME through so install.ps1 respects the caller's
+          // Pass LEMON_HOME through so install.ps1 respects the caller's
           // choice rather than re-computing the default. Internal builds also
           // pass the harness resource so installer-driven rebuilds keep Lemon identity.
           ...installerRuntimeEnv({
-            hermesHome,
+            lemonHome,
             desktopHarnessConfigPath,
             bootstrapMarkerName,
             desktopInternal,
@@ -755,7 +753,7 @@ function spawnBash(
     emit,
     stageName,
     abortSignal,
-    hermesHome,
+    lemonHome,
     desktopHarnessConfigPath,
     bootstrapMarkerName,
     desktopInternal,
@@ -769,7 +767,7 @@ function spawnBash(
       env: {
         ...process.env,
         ...installerRuntimeEnv({
-          hermesHome,
+          lemonHome,
           desktopHarnessConfigPath,
           bootstrapMarkerName,
           desktopInternal,
@@ -893,11 +891,11 @@ function buildPinArgs(installStamp, { pinCommit = true, sourceRepository = DEFAU
 function buildPosixPinArgs({
   installStamp,
   activeRoot,
-  hermesHome,
+  lemonHome,
   pinCommit = true,
   sourceRepository = DEFAULT_SOURCE_REPOSITORY
 }) {
-  const args = ['--dir', activeRoot, '--hermes-home', hermesHome]
+  const args = ['--dir', activeRoot, '--lemon-home', lemonHome]
   const installSourceRepository = validateSourceRepository(sourceRepository)
 
   if (installSourceRepository !== DEFAULT_SOURCE_REPOSITORY) {
@@ -919,7 +917,7 @@ async function fetchManifest({
   scriptPath,
   installerKind,
   emit,
-  hermesHome,
+  lemonHome,
   activeRoot,
   installStamp,
   pinCommit,
@@ -933,20 +931,20 @@ async function fetchManifest({
   const isPosix = installerKind === 'posix'
 
   const args = isPosix
-    ? ['--manifest', ...buildPosixPinArgs({ installStamp, activeRoot, hermesHome, pinCommit, sourceRepository })]
+    ? ['--manifest', ...buildPosixPinArgs({ installStamp, activeRoot, lemonHome, pinCommit, sourceRepository })]
     : [
         '-Manifest',
         '-InstallDir',
         activeRoot,
-        '-HermesHome',
-        hermesHome,
+        '-LemonHome',
+        lemonHome,
         ...buildPinArgs(installStamp, { pinCommit, sourceRepository })
       ]
 
   const result = await (isPosix ? spawnBash : spawnPowerShell)(scriptPath, args, {
     emit,
     stageName: '__manifest__',
-    hermesHome,
+    lemonHome,
     desktopHarnessConfigPath,
     bootstrapMarkerName,
     desktopInternal,
@@ -1008,7 +1006,7 @@ async function runStage({
   installerKind,
   stage,
   emit,
-  hermesHome,
+  lemonHome,
   activeRoot,
   abortSignal,
   installStamp,
@@ -1031,7 +1029,7 @@ async function runStage({
         stage.name,
         '--non-interactive',
         '--json',
-        ...buildPosixPinArgs({ installStamp, activeRoot, hermesHome, pinCommit, sourceRepository })
+        ...buildPosixPinArgs({ installStamp, activeRoot, lemonHome, pinCommit, sourceRepository })
       ]
     : [
         '-Stage',
@@ -1040,8 +1038,8 @@ async function runStage({
         '-Json',
         '-InstallDir',
         activeRoot,
-        '-HermesHome',
-        hermesHome,
+        '-LemonHome',
+        lemonHome,
         ...buildPinArgs(installStamp, { pinCommit, sourceRepository })
       ]
 
@@ -1049,7 +1047,7 @@ async function runStage({
     emit,
     stageName: stage.name,
     abortSignal,
-    hermesHome,
+    lemonHome,
     desktopHarnessConfigPath,
     bootstrapMarkerName,
     desktopInternal,
@@ -1134,7 +1132,7 @@ async function runBootstrap(opts) {
     activeRoot,
     sourceRepoRoot,
     sourceRepository = resolveBootstrapSourceRepository(),
-    hermesHome,
+    lemonHome,
     logRoot,
     onEvent,
     abortSignal,
@@ -1151,7 +1149,7 @@ async function runBootstrap(opts) {
   const effectiveRuntimeRootDirNames =
     Array.isArray(runtimeRootDirNames) && runtimeRootDirNames.length > 0
       ? runtimeRootDirNames
-      : [runtimeDirName || (desktopInternal ? 'lemon-agent' : 'hermes-agent')]
+      : [runtimeDirName || (desktopInternal ? 'lemon-agent' : 'lemon-agent')]
 
   const installSourceRepository = validateSourceRepository(sourceRepository)
 
@@ -1170,7 +1168,7 @@ async function runBootstrap(opts) {
     return { ok: false, cancelled: true }
   }
 
-  const runLog = openRunLog(logRoot || path.join(hermesHome, 'logs'))
+  const runLog = openRunLog(logRoot || path.join(lemonHome, 'logs'))
 
   // Tee every event to the runLog AND the caller's onEvent. This gives us a
   // forensic trail per bootstrap run AND lets the renderer subscribe live.
@@ -1218,7 +1216,7 @@ async function runBootstrap(opts) {
     const scriptInfo = await resolveInstallScript({
       installStamp,
       sourceRepoRoot,
-      hermesHome,
+      lemonHome,
       activeRoot,
       runtimeRootDirNames: effectiveRuntimeRootDirNames,
       sourceRepository: installSourceRepository,
@@ -1232,7 +1230,7 @@ async function runBootstrap(opts) {
       scriptPath: scriptInfo.path,
       installerKind,
       emit,
-      hermesHome,
+      lemonHome,
       activeRoot,
       installStamp,
       pinCommit,
@@ -1266,7 +1264,7 @@ async function runBootstrap(opts) {
         installerKind,
         stage,
         emit,
-        hermesHome,
+        lemonHome,
         activeRoot,
         abortSignal,
         installStamp,

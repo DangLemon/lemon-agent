@@ -65,7 +65,7 @@ export interface QuitPrompt {
  * are the app replacing itself, not the user walking away, and a modal there
  * would strand the detached script waiting on a PID that never exits.
  */
-export function quitPromptFor(work: ActiveWork, quittingForHandoff: boolean, appName = 'Hermes'): null | QuitPrompt {
+export function quitPromptFor(work: ActiveWork, quittingForHandoff: boolean, appName = 'Lemon AI'): null | QuitPrompt {
   if (quittingForHandoff || work.count < 1) {
     return null
   }

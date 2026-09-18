@@ -17,12 +17,12 @@ describe('MarkdownTextContent remote images', () => {
     throw new Error(`unexpected path ${path}`)
   })
 
-  let originalDesktop: typeof window.hermesDesktop
+  let originalDesktop: typeof window.lemonDesktop
 
   beforeEach(() => {
     api.mockClear()
-    originalDesktop = window.hermesDesktop
-    Object.defineProperty(window, 'hermesDesktop', {
+    originalDesktop = window.lemonDesktop
+    Object.defineProperty(window, 'lemonDesktop', {
       configurable: true,
       value: { api }
     })
@@ -32,22 +32,21 @@ describe('MarkdownTextContent remote images', () => {
   afterEach(() => {
     cleanup()
     $connection.set(null)
-    Object.defineProperty(window, 'hermesDesktop', {
+    Object.defineProperty(window, 'lemonDesktop', {
       configurable: true,
       value: originalDesktop
     })
   })
 
-  it('passes the gateway bridge data URL through Streamdown to the zoomable image', async () => {
+  it('streams a gateway-local raster image through the media protocol', async () => {
     render(<MarkdownTextContent isRunning={false} text={`![Remote preview](${REMOTE_IMAGE_PATH})`} />)
 
     const image = await screen.findByRole('img', { name: 'Remote preview' })
 
-    expect(image.getAttribute('src')).toBe(REMOTE_IMAGE_DATA_URL)
-    expect(api).toHaveBeenCalledWith({
-      path: '/api/fs/read-data-url?path=%2Fhome%2Fuser%2Fproject%2Fimages%2Fremote-preview.png',
-      profile: 'remote-work'
-    })
+    expect(image.getAttribute('src')).toBe(
+      'lemon-media://remote/%2Fhome%2Fuser%2Fproject%2Fimages%2Fremote-preview.png?profile=remote-work'
+    )
+    expect(api).not.toHaveBeenCalled()
   })
 })
 

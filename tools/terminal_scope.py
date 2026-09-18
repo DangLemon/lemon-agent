@@ -20,7 +20,7 @@ from typing import Any, Dict, Iterator, Optional
 logger = logging.getLogger(__name__)
 
 # None = no scope bound (process-env behavior); dict = complete policy; Refusal = resolution failed.
-_terminal_scope_var: ContextVar = ContextVar("hermes_terminal_scope", default=None)
+_terminal_scope_var: ContextVar = ContextVar("lemon_terminal_scope", default=None)
 
 # Keys whose default lives in terminal_tool.py, not DEFAULT_CONFIG (which wins on overlap);
 # without them the projection is not total.
@@ -86,17 +86,17 @@ def terminal_env(name: str, default: str = "") -> str:
     return default if value is None else str(value)
 
 
-def build_profile_terminal_scope(hermes_home: "Any") -> Dict[str, str]:
+def build_profile_terminal_scope(lemon_home: "Any") -> Dict[str, str]:
     """Build the COMPLETE effective ``TERMINAL_*`` policy for a profile home.
 
     Projection: ``DEFAULT_CONFIG['terminal']`` <- profile ``.env`` TERMINAL_* <- profile
     ``config.yaml`` ``terminal:``. Total by construction, so a bound scope never widens back to
     ambient authority. Raises :class:`TerminalPolicyUnavailable` if a present file is unreadable.
     """
-    from hermes_cli.config import TERMINAL_CONFIG_ENV_MAP
-    from hermes_cli.config_defaults import DEFAULT_CONFIG
+    from lemon_cli.config import TERMINAL_CONFIG_ENV_MAP
+    from lemon_cli.config_defaults import DEFAULT_CONFIG
 
-    home = Path(hermes_home)
+    home = Path(lemon_home)
     scope: Dict[str, str] = {}
 
     def _apply(mapping: Dict[str, Any]) -> None:
@@ -129,7 +129,7 @@ def build_profile_terminal_scope(hermes_home: "Any") -> Dict[str, str]:
     except Exception as exc:
         raise TerminalPolicyUnavailable(f"cannot resolve terminal config in {home}: {exc}") from exc
     if config_exists:
-        from hermes_cli.config import fast_safe_load
+        from lemon_cli.config import fast_safe_load
 
         try:
             with open(config_path, encoding="utf-8") as f:
@@ -142,19 +142,19 @@ def build_profile_terminal_scope(hermes_home: "Any") -> Dict[str, str]:
     return scope
 
 
-def install_profile_terminal_scope(hermes_home: "Any") -> Token:
+def install_profile_terminal_scope(lemon_home: "Any") -> Token:
     """Build AND install a profile's policy; on failure install the refusal scope. Never raises."""
     try:
-        return set_terminal_scope(build_profile_terminal_scope(hermes_home))
+        return set_terminal_scope(build_profile_terminal_scope(lemon_home))
     except TerminalPolicyUnavailable as exc:
         logger.warning("terminal policy unavailable: %s", exc)
         return _terminal_scope_var.set(TerminalPolicyRefusal(str(exc)))
 
 
 @contextmanager
-def install_and_reset_profile_terminal_scope(hermes_home: "Any") -> Iterator[None]:
+def install_and_reset_profile_terminal_scope(lemon_home: "Any") -> Iterator[None]:
     """Install the profile's terminal policy for a bounded turn/fire. Never raises."""
-    token = install_profile_terminal_scope(hermes_home)
+    token = install_profile_terminal_scope(lemon_home)
     try:
         yield
     finally:

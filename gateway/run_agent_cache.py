@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from agent.interrupt_compat import _accepts_keyword
 from gateway.config import Platform
 from gateway.session import SessionSource, build_session_context_prompt
-from hermes_cli.config import cfg_get
+from lemon_cli.config import cfg_get
 
 if TYPE_CHECKING:  # string annotations only; never imported at runtime (cycle)
     from gateway.run import GatewayRunner  # noqa: F401
@@ -378,7 +378,7 @@ class GatewayAgentCacheMixin:
         with suppress(Exception):
             interrupt_event = getattr(adapter, "_active_sessions", {}).get(session_key)
             if interrupt_event is not None:
-                interrupt_event._hermes_run_generation = int(generation)
+                interrupt_event._lemon_run_generation = int(generation)
 
     async def _interrupt_and_clear_session(
         self, session_key: str, source: SessionSource, *, interrupt_reason: str,
@@ -544,8 +544,8 @@ class GatewayAgentCacheMixin:
             from gateway.session import _slack_tools_loaded
             slack_tools = "1" if _slack_tools_loaded() else "0"
         try:
-            from hermes_constants import display_hermes_home
-            home_display = str(display_hermes_home())
+            from lemon_constants import display_lemon_home
+            home_display = str(display_lemon_home())
         except Exception:
             home_display = ""
         key_tuple = (
@@ -790,7 +790,7 @@ class GatewayAgentCacheMixin:
                 logger.debug("Pressure release failed for %s: %s", key, _e)
             del agent
         with suppress(Exception):
-            from hermes_cli.mem_trim import trim_memory
+            from lemon_cli.mem_trim import trim_memory
             trim_memory(force=True, reason="agent_cache_pressure")
 
     def _enforce_agent_cache_cap(self) -> None:

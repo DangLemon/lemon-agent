@@ -47,7 +47,7 @@ export interface HarnessBuildConstants {
 }
 
 const BASE_ALLOWED_ROUTES = ['/', '/artifacts', '/settings', '/skills'] as const
-const INTERNAL_HARNESS_EXCLUDED_PANES = new Set(['hermes-bots:pane'])
+const INTERNAL_HARNESS_EXCLUDED_PANES = new Set(['lemon-bots:pane'])
 
 const SESSION_RESERVED_ROUTES = [
   ...BASE_ALLOWED_ROUTES,
@@ -78,22 +78,22 @@ function envBoolean(env: HarnessEnv, key: string, fallback: boolean): boolean {
 
 export function harnessEnvFromBuildConstants(constants: Partial<HarnessBuildConstants> = {}): HarnessEnv {
   return {
-    VITE_HERMES_DESKTOP_HARNESS: constants.harness ?? '',
-    VITE_HERMES_HARNESS_SHOW_AGENTS: constants.showAgents ?? 'false',
-    VITE_HERMES_HARNESS_SHOW_CRON: constants.showCron ?? 'true',
-    VITE_HERMES_HARNESS_SHOW_MESSAGING: constants.showMessaging ?? 'false',
-    VITE_HERMES_HARNESS_SHOW_TERMINAL: constants.showTerminal ?? 'true',
-    VITE_HERMES_HARNESS_SHOW_WEBHOOKS: constants.showWebhooks ?? 'false'
+    VITE_LEMON_DESKTOP_HARNESS: constants.harness ?? '',
+    VITE_LEMON_HARNESS_SHOW_AGENTS: constants.showAgents ?? 'false',
+    VITE_LEMON_HARNESS_SHOW_CRON: constants.showCron ?? 'true',
+    VITE_LEMON_HARNESS_SHOW_MESSAGING: constants.showMessaging ?? 'false',
+    VITE_LEMON_HARNESS_SHOW_TERMINAL: constants.showTerminal ?? 'true',
+    VITE_LEMON_HARNESS_SHOW_WEBHOOKS: constants.showWebhooks ?? 'false'
   }
 }
 
 const HARNESS_RUNTIME_GLOBAL_BY_CONSTANT: Record<keyof HarnessBuildConstants, string> = {
-  harness: '__HERMES_DESKTOP_HARNESS__',
-  showAgents: '__HERMES_HARNESS_SHOW_AGENTS__',
-  showCron: '__HERMES_HARNESS_SHOW_CRON__',
-  showMessaging: '__HERMES_HARNESS_SHOW_MESSAGING__',
-  showTerminal: '__HERMES_HARNESS_SHOW_TERMINAL__',
-  showWebhooks: '__HERMES_HARNESS_SHOW_WEBHOOKS__'
+  harness: '__LEMON_DESKTOP_HARNESS__',
+  showAgents: '__LEMON_HARNESS_SHOW_AGENTS__',
+  showCron: '__LEMON_HARNESS_SHOW_CRON__',
+  showMessaging: '__LEMON_HARNESS_SHOW_MESSAGING__',
+  showTerminal: '__LEMON_HARNESS_SHOW_TERMINAL__',
+  showWebhooks: '__LEMON_HARNESS_SHOW_WEBHOOKS__'
 }
 
 function buildConstantValue(name: keyof HarnessBuildConstants, compiledValue: string, fallback: string): string {
@@ -112,48 +112,48 @@ function buildConstantValue(name: keyof HarnessBuildConstants, compiledValue: st
 
 export function internalCompanyBuildEnv(): HarnessEnv {
   return harnessEnvFromBuildConstants({
-    harness: buildConstantValue('harness', typeof __HERMES_DESKTOP_HARNESS__ === 'string' ? __HERMES_DESKTOP_HARNESS__ : '', ''),
+    harness: buildConstantValue('harness', typeof __LEMON_DESKTOP_HARNESS__ === 'string' ? __LEMON_DESKTOP_HARNESS__ : '', ''),
     showAgents: buildConstantValue(
       'showAgents',
-      typeof __HERMES_HARNESS_SHOW_AGENTS__ === 'string' ? __HERMES_HARNESS_SHOW_AGENTS__ : '',
+      typeof __LEMON_HARNESS_SHOW_AGENTS__ === 'string' ? __LEMON_HARNESS_SHOW_AGENTS__ : '',
       'false'
     ),
     showCron: buildConstantValue(
       'showCron',
-      typeof __HERMES_HARNESS_SHOW_CRON__ === 'string' ? __HERMES_HARNESS_SHOW_CRON__ : '',
+      typeof __LEMON_HARNESS_SHOW_CRON__ === 'string' ? __LEMON_HARNESS_SHOW_CRON__ : '',
       'true'
     ),
     showMessaging: buildConstantValue(
       'showMessaging',
-      typeof __HERMES_HARNESS_SHOW_MESSAGING__ === 'string' ? __HERMES_HARNESS_SHOW_MESSAGING__ : '',
+      typeof __LEMON_HARNESS_SHOW_MESSAGING__ === 'string' ? __LEMON_HARNESS_SHOW_MESSAGING__ : '',
       'false'
     ),
     showTerminal: buildConstantValue(
       'showTerminal',
-      typeof __HERMES_HARNESS_SHOW_TERMINAL__ === 'string' ? __HERMES_HARNESS_SHOW_TERMINAL__ : '',
+      typeof __LEMON_HARNESS_SHOW_TERMINAL__ === 'string' ? __LEMON_HARNESS_SHOW_TERMINAL__ : '',
       'true'
     ),
     showWebhooks: buildConstantValue(
       'showWebhooks',
-      typeof __HERMES_HARNESS_SHOW_WEBHOOKS__ === 'string' ? __HERMES_HARNESS_SHOW_WEBHOOKS__ : '',
+      typeof __LEMON_HARNESS_SHOW_WEBHOOKS__ === 'string' ? __LEMON_HARNESS_SHOW_WEBHOOKS__ : '',
       'false'
     )
   })
 }
 
 export function internalCompanyExpectedFromEnv(env: HarnessEnv): boolean {
-  const profile = envString(env, 'VITE_HERMES_DESKTOP_HARNESS').toLowerCase()
+  const profile = envString(env, 'VITE_LEMON_DESKTOP_HARNESS').toLowerCase()
 
   return profile === 'internal'
 }
 
 export function harnessUiFlagsFromEnv(env: HarnessEnv): HarnessUiFlags {
   return {
-    agents: envBoolean(env, 'VITE_HERMES_HARNESS_SHOW_AGENTS', false),
-    cron: envBoolean(env, 'VITE_HERMES_HARNESS_SHOW_CRON', true),
-    messaging: envBoolean(env, 'VITE_HERMES_HARNESS_SHOW_MESSAGING', false),
-    terminal: envBoolean(env, 'VITE_HERMES_HARNESS_SHOW_TERMINAL', true),
-    webhooks: envBoolean(env, 'VITE_HERMES_HARNESS_SHOW_WEBHOOKS', false)
+    agents: envBoolean(env, 'VITE_LEMON_HARNESS_SHOW_AGENTS', false),
+    cron: envBoolean(env, 'VITE_LEMON_HARNESS_SHOW_CRON', true),
+    messaging: envBoolean(env, 'VITE_LEMON_HARNESS_SHOW_MESSAGING', false),
+    terminal: envBoolean(env, 'VITE_LEMON_HARNESS_SHOW_TERMINAL', true),
+    webhooks: envBoolean(env, 'VITE_LEMON_HARNESS_SHOW_WEBHOOKS', false)
   }
 }
 

@@ -16,8 +16,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterator, List, Optional
 
-from hermes_constants import get_hermes_home
-from hermes_time import now as _hermes_now
+from lemon_constants import get_lemon_home
+from lemon_time import now as _lemon_now
 
 # Optional test override. Production resolves the path at transaction time so dashboard operations
 # that temporarily enter another profile cannot leak that profile's records into the import-time
@@ -44,7 +44,7 @@ def prepare_ledger(
     conn: sqlite3.Connection, *, db_label: str, synchronous_full: bool = True
 ) -> None:
     """Row factory + busy timeout + WAL (with fallback) + optional ``synchronous=FULL``."""
-    from hermes_state_wal import apply_wal_with_fallback
+    from lemon_state_wal import apply_wal_with_fallback
 
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA busy_timeout=5000")
@@ -75,7 +75,7 @@ def ledger_transaction(
 # --- executions ledger --------------------------------------------------------------------------
 
 def _connect() -> sqlite3.Connection:
-    return open_ledger(EXECUTIONS_FILE or (get_hermes_home().resolve() / "cron" / "executions.db"))
+    return open_ledger(EXECUTIONS_FILE or (get_lemon_home().resolve() / "cron" / "executions.db"))
 
 
 def _initialize_schema(conn: sqlite3.Connection) -> None:
@@ -98,7 +98,7 @@ def _initialize_schema(conn: sqlite3.Connection) -> None:
              error TEXT
            )"""
     )
-    from hermes_cli.sqlite_util import add_column_if_missing
+    from lemon_cli.sqlite_util import add_column_if_missing
 
     add_column_if_missing(
         conn, "executions", "handoff_pending",
@@ -174,7 +174,7 @@ def _prune_unlocked(conn: sqlite3.Connection) -> None:
 
 def create_execution(job_id: str, *, source: str) -> Dict[str, Any]:
     """Persist a claimed attempt before executor/provider dispatch."""
-    now = _hermes_now().isoformat()
+    now = _lemon_now().isoformat()
     execution_id = uuid.uuid4().hex
     pid = os.getpid()
     with _transaction() as conn:
@@ -217,7 +217,7 @@ def adopt_claimed_execution(execution_id: str) -> Optional[Dict[str, Any]]:
     """
     pid = os.getpid()
     process_started_at = _process_start_time(pid)
-    now = _hermes_now().isoformat()
+    now = _lemon_now().isoformat()
     with _transaction() as conn:
         cur = conn.execute(
             """UPDATE executions
@@ -236,7 +236,7 @@ def adopt_claimed_execution(execution_id: str) -> Optional[Dict[str, Any]]:
 
 def mark_execution_running(execution_id: str) -> Optional[Dict[str, Any]]:
     """Transition one claimed attempt to running exactly once."""
-    now = _hermes_now().isoformat()
+    now = _lemon_now().isoformat()
     with _transaction() as conn:
         cur = conn.execute(
             """UPDATE executions
@@ -258,7 +258,7 @@ def finish_execution(
     delivery_outcome: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Write a terminal result once; terminal attempts cannot be rewritten."""
-    now = _hermes_now().isoformat()
+    now = _lemon_now().isoformat()
     status = "completed" if success else "failed"
     detail = None if success else (str(error) if error else "unknown failure")
     with _transaction() as conn:
@@ -280,7 +280,7 @@ def finish_execution(
 
 def recover_interrupted_executions() -> int:
     """Mark provably abandoned attempts unknown without scheduling retries."""
-    now = _hermes_now().isoformat()
+    now = _lemon_now().isoformat()
     changed = 0
     recovered: List[Dict[str, Any]] = []
     with _transaction() as conn:

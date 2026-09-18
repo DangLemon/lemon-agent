@@ -18,10 +18,10 @@ logger = logging.getLogger("tools.code_execution_tool")
 _IS_WINDOWS = platform.system() == "Windows"
 
 # Scrub order: secret-substring block first; whatever is left must match a safe
-# prefix, the exact-name HERMES_ allowlist, or (Windows) an OS-essential name.
-# The broad "HERMES_" prefix is deliberately NOT safe — it leaked config vars
-# without a secret substring (HERMES_BASE_URL, HERMES_KANBAN_DB, *_WEBHOOK).
-# HERMES_RPC_SOCKET / HERMES_RPC_DIR / TZ / HOME are injected after scrubbing.
+# prefix, the exact-name LEMON_ allowlist, or (Windows) an OS-essential name.
+# The broad "LEMON_" prefix is deliberately NOT safe — it leaked config vars
+# without a secret substring (LEMON_BASE_URL, LEMON_KANBAN_DB, *_WEBHOOK).
+# LEMON_RPC_SOCKET / LEMON_RPC_DIR / TZ / HOME are injected after scrubbing.
 _SAFE_ENV_PREFIXES = ("PATH", "HOME", "USER", "LANG", "LC_", "TERM", "TMPDIR", "TMP", "TEMP", "SHELL",
                       "LOGNAME", "XDG_", "PYTHONPATH", "VIRTUAL_ENV", "CONDA")
 # "PASS" is intentionally absent: it false-positives on BYPASS_CACHE /
@@ -30,11 +30,11 @@ _SECRET_SUBSTRINGS = ("KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL", "PASSW
                       "WEBHOOK", "CREDS", "BEARER", "APIKEY")
 
 # Non-secret runtime-location flags that repo-root modules a sandbox script
-# imports may read at import time. HERMES_DELEGATED_CHILD_CONTEXT must ride
-# along or a child that imports Hermes code loses the Kanban mutation guard
-# while still inheriting HERMES_HOME.
-_HERMES_CHILD_ALLOWED = frozenset({
-    "HERMES_HOME", "HERMES_PROFILE", "HERMES_CONFIG", "HERMES_ENV", "HERMES_DELEGATED_CHILD_CONTEXT",
+# imports may read at import time. LEMON_DELEGATED_CHILD_CONTEXT must ride
+# along or a child that imports Lemon AI code loses the Kanban mutation guard
+# while still inheriting LEMON_HOME.
+_LEMON_CHILD_ALLOWED = frozenset({
+    "LEMON_HOME", "LEMON_PROFILE", "LEMON_CONFIG", "LEMON_ENV", "LEMON_DELEGATED_CHILD_CONTEXT",
 })
 
 # Windows-only: without these the CRT itself fails — socket.socket() raises
@@ -55,7 +55,7 @@ def _scrub_child_env(source_env, is_passthrough=None, is_windows=None):
     Rules, in order: (1) passthrough vars (skill/config-declared) resolve
     through the active profile secret scope — an absent scoped value is
     omitted; (2) secret-substring names are blocked; (3) safe prefixes pass;
-    (4) operational HERMES_* pass by exact name; (5) on Windows the
+    (4) operational LEMON_* pass by exact name; (5) on Windows the
     OS-essential allowlist passes by exact name.
     """
     try:
@@ -68,9 +68,9 @@ def _scrub_child_env(source_env, is_passthrough=None, is_windows=None):
     if is_windows is None:
         is_windows = _IS_WINDOWS
     scrubbed = {}
-    # Non-secret HERMES_* vars no allowlist admits are dropped on purpose; a script importing a
+    # Non-secret LEMON_* vars no allowlist admits are dropped on purpose; a script importing a
     # repo module that reads one would see it silently unset — log the drop, point at the opt-in.
-    _dropped_hermes = []
+    _dropped_lemon = []
     for k, v in source_env.items():
         if is_passthrough(k):
             resolved = resolve_passthrough_value(k, v)
@@ -80,18 +80,18 @@ def _scrub_child_env(source_env, is_passthrough=None, is_windows=None):
         if any(s in k.upper() for s in _SECRET_SUBSTRINGS):
             continue
         if (any(k.startswith(p) for p in _SAFE_ENV_PREFIXES)
-                or k in _HERMES_CHILD_ALLOWED
+                or k in _LEMON_CHILD_ALLOWED
                 or (is_windows and k.upper() in _WINDOWS_ESSENTIAL_ENV_VARS)):
             scrubbed[k] = v
-        elif k.startswith("HERMES_"):
-            _dropped_hermes.append(k)
-    if _dropped_hermes:
+        elif k.startswith("LEMON_"):
+            _dropped_lemon.append(k)
+    if _dropped_lemon:
         logger.debug(
-            "execute_code: dropped %d non-allowlisted HERMES_* var(s) from the "
+            "execute_code: dropped %d non-allowlisted LEMON_* var(s) from the "
             "sandbox child env (%s). This is intentional hardening (#27303); if "
             "a sandbox script legitimately needs one, declare it via "
             "env_passthrough in the skill/config so it passes by explicit opt-in.",
-            len(_dropped_hermes), ", ".join(sorted(_dropped_hermes)),
+            len(_dropped_lemon), ", ".join(sorted(_dropped_lemon)),
         )
     # delegate_task children are marked by a ContextVar, not os.environ, and the sandbox crosses
     # a process boundary: strip dispatcher-owned Kanban vars AFTER the scrub so an explicit
@@ -108,40 +108,40 @@ def _scrub_child_env(source_env, is_passthrough=None, is_windows=None):
 def _build_child_env(*, rpc_endpoint: str, rpc_token: str, tmpdir: str,
                      child_python: str) -> Dict[str, str]:
     """Build the scrubbed child environment both execution paths share."""
-    from hermes_constants import apply_subprocess_home_env
+    from lemon_constants import apply_subprocess_home_env
     child_env = _scrub_child_env(os.environ)
-    child_env["HERMES_RPC_SOCKET"] = rpc_endpoint
-    child_env["HERMES_RPC_TOKEN"] = rpc_token
+    child_env["LEMON_RPC_SOCKET"] = rpc_endpoint
+    child_env["LEMON_RPC_TOKEN"] = rpc_token
     child_env["PYTHONDONTWRITEBYTECODE"] = "1"
     # Force UTF-8 stdio and default file encoding: on Windows sys.stdout is bound to the console
     # code page (cp1252) and print("→") raises; harmless under a C/POSIX locale (containers).
     child_env["PYTHONIOENCODING"] = "utf-8"
     child_env["PYTHONUTF8"] = "1"
-    # Only TZ reaches the child; HERMES_TIMEZONE is an internal setting.
-    _tz_name = os.getenv("HERMES_TIMEZONE", "").strip()
+    # Only TZ reaches the child; LEMON_TIMEZONE is an internal setting.
+    _tz_name = os.getenv("LEMON_TIMEZONE", "").strip()
     if _tz_name:
         child_env["TZ"] = _tz_name
-    child_env.pop("HERMES_TIMEZONE", None)
+    child_env.pop("LEMON_TIMEZONE", None)
     apply_subprocess_home_env(child_env)
-    # PYTHONPATH: the staging dir (hermes_tools.py) must always be importable even when project
-    # mode changes CWD. Hermes's root is added ONLY when the child runs in Hermes's Python env —
-    # exposing Hermes's site-packages to an external interpreter can mix incompatible compiled
-    # extensions (3.12 NumPy under a 3.9 venv). Inherited Hermes-owned entries are stripped first.
-    # Before re-injecting PYTHONPATH, strip Hermes-owned entries that leaked through _scrub_child_env
-    # (PYTHONPATH is in _SAFE_ENV_PREFIXES so it passes the scrub). They are redundant for same-Hermes-
+    # PYTHONPATH: the staging dir (lemon_tools.py) must always be importable even when project
+    # mode changes CWD. Lemon AI's root is added ONLY when the child runs in Lemon AI's Python env —
+    # exposing Lemon AI's site-packages to an external interpreter can mix incompatible compiled
+    # extensions (3.12 NumPy under a 3.9 venv). Inherited Lemon AI-owned entries are stripped first.
+    # Before re-injecting PYTHONPATH, strip Lemon AI-owned entries that leaked through _scrub_child_env
+    # (PYTHONPATH is in _SAFE_ENV_PREFIXES so it passes the scrub). They are redundant for same-Lemon AI-
     # environment children and may be incompatible with external interpreters (project mode can select a
     # different venv), so they must not shadow or poison the child's sys.path (#74817).
-    from tools.environments.local_pythonpath import _strip_hermes_owned_pythonpath
-    _strip_hermes_owned_pythonpath(child_env)
+    from tools.environments.local_pythonpath import _strip_lemon_owned_pythonpath
+    _strip_lemon_owned_pythonpath(child_env)
     _existing_pp = child_env.get("PYTHONPATH", "")
     _pp_parts = [tmpdir]
-    if _uses_hermes_python_environment(child_python):
+    if _uses_lemon_python_environment(child_python):
         _pp_parts.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     elif child_python not in _external_env_logged:
-        # Surface once per interpreter so "import hermes_constants fails" is diagnosable.
+        # Surface once per interpreter so "import lemon_constants fails" is diagnosable.
         _external_env_logged.add(child_python)
-        logger.info("execute_code: child interpreter %s is outside the Hermes "
-                    "environment; hermes root omitted from PYTHONPATH", child_python)
+        logger.info("execute_code: child interpreter %s is outside the Lemon AI "
+                    "environment; lemon root omitted from PYTHONPATH", child_python)
     if _existing_pp:
         _pp_parts.append(_existing_pp)
     child_env["PYTHONPATH"] = os.pathsep.join(_pp_parts)
@@ -154,7 +154,7 @@ _PROBE_CACHE_MAX = 32
 _usable_python_cache: dict = {}
 _python_prefix_cache: dict = {}
 
-# Interpreter paths already reported as outside the Hermes environment.
+# Interpreter paths already reported as outside the Lemon AI environment.
 _external_env_logged: set = set()
 
 
@@ -204,10 +204,10 @@ def _python_environment_prefix(python_path: str) -> str:
     return ""
 
 
-def _uses_hermes_python_environment(python_path: str) -> bool:
-    """Whether *python_path* belongs to Hermes's active Python environment. Short-circuits when
+def _uses_lemon_python_environment(python_path: str) -> bool:
+    """Whether *python_path* belongs to Lemon AI's active Python environment. Short-circuits when
     it IS the running interpreter (by path or realpath — covers ``uv run`` venvs) so no probe
-    runs on the default strict path and a flaky probe can never drop the hermes root."""
+    runs on the default strict path and a flaky probe can never drop the lemon root."""
     if python_path == sys.executable or os.path.realpath(python_path) == os.path.realpath(sys.executable):
         return True
     return _python_environment_prefix(python_path) == os.path.realpath(sys.prefix)

@@ -481,13 +481,13 @@ describe('assistant-ui streaming renderer', () => {
 
     const { container } = render(<StreamingHarness onControls={registerControls} />)
 
-    expect(screen.getByRole('status', { name: 'Hermes is loading a response' })).toBeTruthy()
+    expect(screen.getByRole('status', { name: 'Lemon AI is loading a response' })).toBeTruthy()
 
     await waitFor(() => {
       expect(container.textContent).toContain('first chunk')
     })
     expect(container.textContent).not.toContain('second chunk')
-    expect(screen.queryByRole('status', { name: 'Hermes is loading a response' })).toBeNull()
+    expect(screen.queryByRole('status', { name: 'Lemon AI is loading a response' })).toBeNull()
 
     // Producer-gated, not wall-clock-gated: the old test slept 80ms and
     // assumed a 500ms timer could not fire before the assertion. On a loaded
@@ -761,6 +761,42 @@ describe('assistant-ui streaming renderer', () => {
     })
     expect(container.querySelector('[data-slot="aui_generated-image"]')).toBeTruthy()
     expect(screen.queryByRole('status', { name: /rendering image/i })).toBeNull()
+  })
+
+  it('previews a generated local image file in the tool slot instead of exposing the path', async () => {
+    const originalDesktop = window.lemonDesktop
+
+    Object.defineProperty(window, 'lemonDesktop', {
+      configurable: true,
+      value: { ...(originalDesktop ?? {}) }
+    })
+
+    try {
+      const localPath = '/Users/me/.lemon-ai/cache/images/cat.png'
+
+      const { container } = render(
+        <MessageHarness
+          message={assistantImageMessage(false, {
+            host_image: localPath,
+            image: localPath,
+            success: true
+          })}
+        />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByRole('img', { name: 'Generated image' }).getAttribute('src')).toBe(
+          'lemon-media://stream/%2FUsers%2Fme%2F.lemon-ai%2Fcache%2Fimages%2Fcat.png'
+        )
+      })
+      expect(container.querySelector('[data-slot="aui_generated-image"]')).toBeTruthy()
+      expect(container.textContent).not.toContain(localPath)
+    } finally {
+      Object.defineProperty(window, 'lemonDesktop', {
+        configurable: true,
+        value: originalDesktop
+      })
+    }
   })
 
   it('uses the normal tool row for failed image generations instead of dropping their error payload', async () => {

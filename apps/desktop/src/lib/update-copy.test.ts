@@ -5,9 +5,9 @@ import { brandUpdateCopy, resolveUpdateCopy } from './update-copy'
 
 const copy = {
   availableTitle: 'New update available',
-  availableBody: 'A new version of Hermes is ready to install.',
+  availableBody: 'A new version of Lemon AI is ready to install.',
   availableTitleBackend: 'Backend update available',
-  availableBodyBackend: 'A newer version of the connected Hermes backend is ready to install.',
+  availableBodyBackend: 'A newer version of the connected Lemon AI backend is ready to install.',
   availableBodyNoChangelog: 'A newer version is ready. Release notes aren’t available for this install type.'
 }
 
@@ -15,7 +15,7 @@ describe('resolveUpdateCopy', () => {
   it('client target with commits: client title + client body', () => {
     const r = resolveUpdateCopy({ target: 'client', shownItems: 5, copy })
     expect(r.title).toBe('New update available')
-    expect(r.body).toBe('A new version of Hermes is ready to install.')
+    expect(r.body).toBe('A new version of Lemon AI is ready to install.')
   })
 
   it('backend target with commits: names the backend in title and body', () => {
@@ -44,12 +44,12 @@ describe('resolveUpdateCopy', () => {
       {
         ...copy,
         applyingBody:
-          'The Hermes updater takes over in its own window and reopens Hermes automatically when it’s done.',
-        applyingClose: 'This window will close while the update runs, then Hermes reopens on its own.',
-        blockerTitle: 'Close local previews to update Hermes?',
+          'The Lemon AI updater takes over in its own window and reopens Lemon AI automatically when it’s done.',
+        applyingClose: 'This window will close while the update runs, then Lemon AI reopens on its own.',
+        blockerTitle: 'Close local previews to update Lemon AI?',
         stages: {
-          update: 'Updating Hermes…',
-          restart: 'Restarting Hermes…'
+          update: 'Updating Lemon AI…',
+          restart: 'Restarting Lemon AI…'
         }
       },
       lemonAppBrand

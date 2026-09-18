@@ -1,6 +1,6 @@
 """Session-backed MCP OAuth flows for the gateway (mcp.servers.oauth.*): ``start`` spawns a
 worker and returns ``{session_id, auth_url, flow}``; ``poll`` reports ``{status}`` until tokens
-land. Reuses ``hermes mcp login``'s probe under ``force_interactive_oauth`` plus
+land. Reuses ``lemon mcp login``'s probe under ``force_interactive_oauth`` plus
 ``DashboardOAuthFlow``; the only new piece is a loopback listener feeding ``deliver_callback``.
 Remote backends host the listener (``client_redirect_uri``) and relay via
 ``deliver_callback_flow``."""
@@ -57,7 +57,7 @@ def _start_loopback_listener(flow) -> "http.server.HTTPServer":
                 self.end_headers()
                 return
             qs = parse_qs(parsed.query)
-            body = b"<h1>Authorization received</h1><p>You can close this tab and return to Hermes.</p>"
+            body = b"<h1>Authorization received</h1><p>You can close this tab and return to Lemon AI.</p>"
             status = 200
             try:
                 flow.deliver_callback(
@@ -82,17 +82,17 @@ def _start_loopback_listener(flow) -> "http.server.HTTPServer":
 
 
 def _probe_with_rollback(
-    server_name: str, cfg: dict, hermes_home: str, flow, reconnect_live: bool) -> None:
+    server_name: str, cfg: dict, lemon_home: str, flow, reconnect_live: bool) -> None:
     """Run the OAuth probe; on ANY failure restore the prior token file + manager entry."""
-    from hermes_cli.mcp_config import _oauth_tokens_present, _probe_single_server, _save_mcp_server
-    from tools.mcp_oauth import HermesTokenStorage
+    from lemon_cli.mcp_config import _oauth_tokens_present, _probe_single_server, _save_mcp_server
+    from tools.mcp_oauth import LemonTokenStorage
     from tools.mcp_oauth_manager import get_manager
     manager = get_manager()
-    storage = HermesTokenStorage(server_name)
+    storage = LemonTokenStorage(server_name)
     backup = storage.snapshot()
     previous_entry = None
     try:
-        previous_entry = manager.remove(server_name, hermes_home=hermes_home)
+        previous_entry = manager.remove(server_name, lemon_home=lemon_home)
         timeout = max(float(cfg.get("connect_timeout", 0) or 0), 315)
         tools = _probe_single_server(server_name, cfg, connect_timeout=timeout)
         if not _oauth_tokens_present(server_name):
@@ -108,15 +108,15 @@ def _probe_with_rollback(
             reconnect_mcp_server(server_name)
     except Exception:
         storage.restore(backup, only_if_absent=True)
-        manager.restore_entry(server_name, previous_entry, hermes_home=hermes_home)
+        manager.restore_entry(server_name, previous_entry, lemon_home=lemon_home)
         raise
 
 
 def _worker(
-        session_id: str, hermes_home: str, server_name: str, cfg: dict, reconnect_live: bool) -> None:
+        session_id: str, lemon_home: str, server_name: str, cfg: dict, reconnect_live: bool) -> None:
     """Drive the interactive MCP OAuth probe under the shared dashboard bridge (same wrapping
     as ``web_server._run_dashboard_mcp_oauth``), keyed to our session record."""
-    from hermes_constants import reset_hermes_home_override, set_hermes_home_override
+    from lemon_constants import reset_lemon_home_override, set_lemon_home_override
     rec = _sessions.get(session_id)
     flow = rec["flow"] if rec else None
     try:
@@ -124,14 +124,14 @@ def _worker(
             build_profile_secret_scope, reset_secret_scope, set_secret_scope)
         from tools.mcp_dashboard_oauth import dashboard_oauth_flow
         from tools.mcp_oauth import force_interactive_oauth
-        home_token = set_hermes_home_override(hermes_home)
-        secret_token = set_secret_scope(build_profile_secret_scope(Path(hermes_home)))
+        home_token = set_lemon_home_override(lemon_home)
+        secret_token = set_secret_scope(build_profile_secret_scope(Path(lemon_home)))
         try:
             with force_interactive_oauth(), dashboard_oauth_flow(flow):
-                _probe_with_rollback(server_name, cfg, hermes_home, flow, reconnect_live)
+                _probe_with_rollback(server_name, cfg, lemon_home, flow, reconnect_live)
         finally:
             reset_secret_scope(secret_token)
-            reset_hermes_home_override(home_token)
+            reset_lemon_home_override(home_token)
     except Exception as exc:
         msg = str(exc)
         with suppress(Exception):
@@ -149,7 +149,7 @@ def _worker(
 
 
 def start_flow(
-    hermes_home: str, server_name: str, cfg: dict, *, reconnect_live: bool = False,
+    lemon_home: str, server_name: str, cfg: dict, *, reconnect_live: bool = False,
     url_timeout: float = 30.0, client_redirect_uri: Optional[str] = None) -> Dict[str, Any]:
     """Begin an MCP OAuth flow and return ``{session_id, auth_url, flow}``; blocks up to
     ``url_timeout`` for the authorization URL. With ``client_redirect_uri`` (invalid values
@@ -165,12 +165,12 @@ def start_flow(
         active = [r for r in _sessions.values() if not r["flow"].worker_done]
         if len(active) >= _MAX_PENDING:
             raise RuntimeError("Too many MCP OAuth flows are already in progress")
-        if any(r["server_name"] == server_name and r["hermes_home"] == hermes_home for r in active):
+        if any(r["server_name"] == server_name and r["lemon_home"] == lemon_home for r in active):
             raise RuntimeError(f"MCP OAuth for '{server_name}' is already in progress")
 
     session_id = secrets.token_urlsafe(24)
     flow = DashboardOAuthFlow(
-        flow_id=session_id, server_name=server_name, profile=None, hermes_home=hermes_home,
+        flow_id=session_id, server_name=server_name, profile=None, lemon_home=lemon_home,
         redirect_uri="",  # set below once the loopback port is known
         reconnect_live=reconnect_live)
     # Client-hosted listener: a 127.0.0.1 port here would be unreachable from the browser.
@@ -178,12 +178,12 @@ def start_flow(
     flow.redirect_uri = (
         client_redirect_uri or f"http://127.0.0.1:{httpd.server_address[1]}/callback")
     rec = {
-        "session_id": session_id, "server_name": server_name, "hermes_home": hermes_home,
+        "session_id": session_id, "server_name": server_name, "lemon_home": lemon_home,
         "flow": flow, "httpd": httpd, "created_at": time.time()}
     with _sessions_lock:
         _sessions[session_id] = rec
     threading.Thread(
-        target=_worker, args=(session_id, hermes_home, server_name, dict(cfg), reconnect_live),
+        target=_worker, args=(session_id, lemon_home, server_name, dict(cfg), reconnect_live),
         daemon=True, name=f"mcp-oauth-{server_name}").start()
     try:
         auth_url = None

@@ -83,7 +83,7 @@ def test_module_level_schedule_uses_shared_default():
     assert _wait_until(lambda: hits)
     h.cancel()
     thread = periodic_scheduler._DEFAULT._thread
-    assert thread is not None and thread.name == "hermes-periodic-scheduler"
+    assert thread is not None and thread.name == "lemon-periodic-scheduler"
     # Scheduling more timers on the shared default adds no OS threads.
     before = threading.active_count()
     handles = [schedule(lambda: None, 0.01) for _ in range(20)]

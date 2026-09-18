@@ -10,6 +10,7 @@ import { WIDGET_SHELL_CLASS } from '@/components/chat/widget-shell'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
 import { Input } from '@/components/ui/input'
+import { useI18n } from '@/i18n'
 import {
   addMcpServer,
   createMcpOAuthClient,
@@ -19,8 +20,7 @@ import {
   type McpCatalogEntry,
   removeMcpServer,
   setMcpServerEnabled
-} from '@/hermes'
-import { useI18n } from '@/i18n'
+} from '@/lemon'
 import { triggerHaptic } from '@/lib/haptics'
 import { AlertCircle, CheckCircle2, Loader2 } from '@/lib/icons'
 import { brandFor, brandGlyphStyle } from '@/lib/mcp-brands'
@@ -281,7 +281,7 @@ function McpSetupPending({ args }: ToolCallMessagePartProps) {
           cancelled: () => cancelRef.current || !oauthScopeGuard(),
           cancel: oauthClient.cancel,
           relayCallback: oauthClient.relayCallback,
-          openExternal: url => window.hermesDesktop.openExternal(url)
+          openExternal: url => window.lemonDesktop.openExternal(url)
         })
 
         triggerHaptic('submit')
@@ -331,7 +331,7 @@ function McpSetupPending({ args }: ToolCallMessagePartProps) {
             cancelled: () => cancelRef.current || !oauthScopeGuard(),
             cancel: oauthClient.cancel,
             relayCallback: oauthClient.relayCallback,
-            openExternal: url => window.hermesDesktop.openExternal(url)
+            openExternal: url => window.lemonDesktop.openExternal(url)
           })
         } catch (error) {
           await removeMcpServer(known.name).catch(() => {

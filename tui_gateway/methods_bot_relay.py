@@ -18,12 +18,12 @@ method = _registry.method
 
 def _relay_root() -> Path:
     """Install root shared by every profile (relay state is install-wide)."""
-    home = Path(os.getenv("HERMES_HOME") or os.path.expanduser("~/.hermes"))
+    home = Path(os.getenv("LEMON_HOME") or os.path.expanduser("~/.lemon-ai"))
     return home.parent.parent if home.parent.name == "profiles" else home
 
 
 # Per-attempt turn timeout and attempt ceiling for bot_relay.deliver. The Desktop client mirrors
-# both (apps/desktop/src/plugins/hermes-bots/relay.ts: RELAY_TURN_ATTEMPT_MS / RELAY_TURN_MAX_ATTEMPTS)
+# both (apps/desktop/src/plugins/lemon-bots/relay.ts: RELAY_TURN_ATTEMPT_MS / RELAY_TURN_MAX_ATTEMPTS)
 # and its relay-deliver-budget test reads these two lines, so a change here must be deliberate (#93911).
 TURN_ATTEMPT_TIMEOUT_SECONDS = 600
 TURN_MAX_ATTEMPTS = 2  # first attempt + the policy-gated re-run
@@ -61,7 +61,7 @@ def _(rid, params: dict, _root=_relay_root) -> dict:
 @method("bot_relay.deliver")
 def _(rid, params: dict, _root=_relay_root, _run=_run_delivery) -> dict:
     """Deliver a relayed DM (``profile``, attribution-prefixed ``message``) into a Bot Chat ON THIS
-    GATEWAY via the one-turn ``hermes -p <profile> chat -c "Bot Chat"`` transport local DMs use →
+    GATEWAY via the one-turn ``lemon -p <profile> chat -c "Bot Chat"`` transport local DMs use →
     ``{reply}``. Blocking by design (Desktop relay worker; the RPC pool keeps it off the reader)."""
     import tempfile
     profile = str(params.get("profile") or "").strip()
@@ -77,7 +77,7 @@ def _(rid, params: dict, _root=_relay_root, _run=_run_delivery) -> dict:
         known = {"default"}
         if (root / "profiles").is_dir():
             known.update(c.name for c in (root / "profiles").iterdir() if c.is_dir())
-        resolved = "default" if profile.lower() == "hermes" else profile
+        resolved = "default" if profile.lower() == "lemon" else profile
         if resolved not in known:
             return _err(rid, 4092, f"no profile '{profile}' on this gateway")
 
@@ -106,7 +106,7 @@ def _(rid, params: dict, _root=_relay_root, _run=_run_delivery) -> dict:
         def _detail(p) -> str:
             return (p.stderr or p.stdout or "").strip()[-500:]
 
-        fd, tmp = tempfile.mkstemp(prefix="hermes-relay-dm-", suffix=".txt", text=True)
+        fd, tmp = tempfile.mkstemp(prefix="lemon-relay-dm-", suffix=".txt", text=True)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(message)

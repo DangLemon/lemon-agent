@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "profile": "internal",
-  "sourceRepository": "DangLemon/hermes-agent",
+  "sourceRepository": "DangLemon/lemon-agent",
   "ui": {
     "agents": false,
     "cron": true,

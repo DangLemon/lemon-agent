@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { useI18n } from '@/i18n'
 import {
   createWebhook,
   deleteWebhook,
@@ -28,8 +29,7 @@ import {
   setWebhookEnabled,
   type WebhookRoute,
   type WebhooksResponse
-} from '@/hermes'
-import { useI18n } from '@/i18n'
+} from '@/lemon'
 import { AlertTriangle, Globe, Plus, RefreshCw } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { notify, notifyError } from '@/store/notifications'

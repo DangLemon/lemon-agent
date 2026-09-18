@@ -20,5 +20,9 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}"],
+    // ChatPage (and other jsdom files) pay a large first-import + effect
+    // connect cost. Vitest's 5s default times out the waitFor(WebSocket)
+    // on saturated CI runners before the socket is constructed.
+    testTimeout: 15_000,
   },
 });

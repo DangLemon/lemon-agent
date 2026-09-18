@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Code Execution Tool -- Programmatic Tool Calling (PTC).
 
-The LLM writes a Python script that calls Hermes tools via RPC, collapsing
+The LLM writes a Python script that calls Lemon AI tools via RPC, collapsing
 multi-step tool chains into one inference turn; only the script's stdout returns
 to the LLM. Local backend: a persistent per-conversation session kernel
 (tools/code_kernel.py) over a Unix socket (loopback TCP on Windows). Remote
@@ -33,7 +33,7 @@ from tools.code_execution_rpc import _rpc_poll_loop
 
 logger = logging.getLogger(__name__)
 
-# Loopback TCP replaces AF_UNIX on Windows, so execute_code runs on every platform Hermes does.
+# Loopback TCP replaces AF_UNIX on Windows, so execute_code runs on every platform Lemon AI does.
 SANDBOX_AVAILABLE = True
 
 # Tools allowed inside the sandbox; ∩ the session's enabled tools decides which stubs are generated.
@@ -83,12 +83,12 @@ def _spill_full_stdout(stdout_text: str) -> Optional[str]:
     reruns coalesce; the dir rides the cache/web remote bind-mount list (credential_files)."""
     try:
         import hashlib
-        from hermes_constants import get_hermes_dir
+        from lemon_constants import get_lemon_dir
         from tools.spill_safety import write_text_exclusive
         if len(stdout_text) > MAX_SPILLED_STDOUT_BYTES:
             stdout_text = (stdout_text[:MAX_SPILLED_STDOUT_BYTES]
                            + f"\n\n[... spill capped at {MAX_SPILLED_STDOUT_BYTES:,} bytes ...]")
-        cache_dir = get_hermes_dir("cache/exec", "exec_spill")
+        cache_dir = get_lemon_dir("cache/exec", "exec_spill")
         cache_dir.mkdir(parents=True, exist_ok=True)
         digest = hashlib.sha256(stdout_text.encode("utf-8", errors="replace")).hexdigest()[:12]
         path = cache_dir / f"stdout-{digest}.txt"
@@ -113,7 +113,7 @@ def check_sandbox_requirements() -> bool:
     return config.get("env_type") != "vercel_sandbox" or _check_vercel_sandbox_requirements(config)
 
 
-# ---- hermes_tools.py code generator ----
+# ---- lemon_tools.py code generator ----
 
 # Per-tool stub templates: (signature, docstring, args_dict_expr — the JSON payload sent over RPC).
 _TOOL_STUBS = {
@@ -141,7 +141,7 @@ _TOOL_STUBS = {
 }
 
 
-def _missing_hermes_tools_import_hint(m, enabled_tools) -> str:
+def _missing_lemon_tools_import_hint(m, enabled_tools) -> str:
     missing = m.group(1)
     if missing in {"json_parse", "shell_quote", "retry"}:
         return (f"{missing} is a BUILT-IN helper in the sandbox — no import "
@@ -153,10 +153,10 @@ def _missing_hermes_tools_import_hint(m, enabled_tools) -> str:
 
 
 # (regex, formatter(match, enabled_tools)) — first match wins. Production mining (state.db) ranked
-# these as the top execute_code failure classes: hermes_tools import misuse, importing the built-in
+# these as the top execute_code failure classes: lemon_tools import misuse, importing the built-in
 # helpers, treating tool results as strings, importing third-party packages absent from the sandbox.
 _FAILURE_HINT_RULES = (
-    (r"cannot import name '(\w+)' from 'hermes_tools'", _missing_hermes_tools_import_hint),
+    (r"cannot import name '(\w+)' from 'lemon_tools'", _missing_lemon_tools_import_hint),
     (r"NameError: name '(json_parse|shell_quote|retry)' is not defined",
      lambda m, _: f"{m.group(1)} is built into the generated sandbox module — "
                   "call it directly at module scope without importing it."),
@@ -186,9 +186,9 @@ def _sandbox_failure_hint(stderr_text: str, enabled_tools=None) -> Optional[str]
     return None
 
 
-def generate_hermes_tools_module(enabled_tools: List[str],
+def generate_lemon_tools_module(enabled_tools: List[str],
                                  transport: str = "uds") -> str:
-    """Source of the hermes_tools.py stub module for SANDBOX_ALLOWED_TOOLS ∩ *enabled_tools*.
+    """Source of the lemon_tools.py stub module for SANDBOX_ALLOWED_TOOLS ∩ *enabled_tools*.
     ``transport``: ``"uds"`` (local socket client) or ``"file"`` (file RPC, remote backends)."""
     header = _FILE_TRANSPORT_HEADER if transport == "file" else _UDS_TRANSPORT_HEADER
     return header + "\n".join(
@@ -243,7 +243,7 @@ def retry(fn, max_attempts=3, delay=2):
 # ---- UDS transport (local backend) ---------------------------------------
 
 _UDS_TRANSPORT_HEADER = '''\
-"""Auto-generated Hermes tools RPC stubs."""
+"""Auto-generated Lemon AI tools RPC stubs."""
 import json, os, socket, shlex, threading, time
 
 _sock = None
@@ -257,7 +257,7 @@ _call_lock = threading.Lock()
 def _connect():
     """Connect to the parent's RPC server via the transport it picked.
 
-    HERMES_RPC_SOCKET can be either:
+    LEMON_RPC_SOCKET can be either:
       - a filesystem path (POSIX Unix domain socket — the default on
         Linux and macOS)
       - a string of the form ``tcp://127.0.0.1:<port>`` (Windows, where
@@ -265,7 +265,7 @@ def _connect():
     """
     global _sock
     if _sock is None:
-        endpoint = os.environ["HERMES_RPC_SOCKET"]
+        endpoint = os.environ["LEMON_RPC_SOCKET"]
         if endpoint.startswith("tcp://"):
             # tcp://host:port  (host is always 127.0.0.1 in practice — we
             # only bind loopback server-side)
@@ -284,12 +284,12 @@ def _call(tool_name, args):
     request = json.dumps({
         "tool": tool_name,
         "args": args,
-        "token": os.environ.get("HERMES_RPC_TOKEN", ""),
+        "token": os.environ.get("LEMON_RPC_TOKEN", ""),
     }) + "\\n"
     # Session kernels outlive the RPC server's 300s idle window, so their
     # connection can be legitimately gone by the next cell. The server
-    # re-accepts (HERMES_RPC_PERSISTENT=1); retry once on a fresh socket.
-    _attempts = 2 if os.environ.get("HERMES_RPC_PERSISTENT") == "1" else 1
+    # re-accepts (LEMON_RPC_PERSISTENT=1); retry once on a fresh socket.
+    _attempts = 2 if os.environ.get("LEMON_RPC_PERSISTENT") == "1" else 1
     with _call_lock:
         for _attempt in range(_attempts):
             try:
@@ -328,10 +328,10 @@ def _call(tool_name, args):
 # ---- File-based transport (remote backends) -------------------------------
 
 _FILE_TRANSPORT_HEADER = '''\
-"""Auto-generated Hermes tools RPC stubs (file-based transport)."""
+"""Auto-generated Lemon AI tools RPC stubs (file-based transport)."""
 import json, os, shlex, tempfile, threading, time
 
-_RPC_DIR = os.environ.get("HERMES_RPC_DIR") or os.path.join(tempfile.gettempdir(), "hermes_rpc")
+_RPC_DIR = os.environ.get("LEMON_RPC_DIR") or os.path.join(tempfile.gettempdir(), "lemon_rpc")
 _seq = 0
 # `_seq += 1` is not atomic (read-modify-write), so concurrent _call()
 # invocations from multiple threads could allocate the same sequence number
@@ -359,7 +359,7 @@ def _call(tool_name, args):
             "tool": tool_name,
             "args": args,
             "seq": seq,
-            "token": os.environ.get("HERMES_RPC_TOKEN", ""),
+            "token": os.environ.get("LEMON_RPC_TOKEN", ""),
         }, f)
     os.rename(tmp, req_file)
 
@@ -559,17 +559,17 @@ def _sandbox_tools_for(enabled_tools: Optional[List[str]]) -> frozenset:
 def _run_remote_per_call(env, env_type: str, code: str, effective_task_id: str,
                          sandbox_tools: frozenset, *, timeout: int, max_tool_calls: int,
                          exec_start: float) -> str:
-    """Per-call script ship: stage hermes_tools.py + script.py in a fresh remote sandbox dir,
+    """Per-call script ship: stage lemon_tools.py + script.py in a fresh remote sandbox dir,
     serve file-RPC from a polling thread, run, clean up."""
-    sandbox_dir = f"{_env_temp_dir(env)}/hermes_exec_{uuid.uuid4().hex[:12]}"
+    sandbox_dir = f"{_env_temp_dir(env)}/lemon_exec_{uuid.uuid4().hex[:12]}"
     quoted_sandbox_dir = shlex.quote(sandbox_dir)
     quoted_rpc_dir = shlex.quote(f"{sandbox_dir}/rpc")
     tool_call_counter, stop_event, rpc_thread = [0], threading.Event(), None
     try:
         env.execute(f"mkdir -p {quoted_rpc_dir}", cwd="/", timeout=10)
         rpc_token = secrets.token_urlsafe(32)
-        _ship_file_to_remote(env, f"{sandbox_dir}/hermes_tools.py",
-                             generate_hermes_tools_module(list(sandbox_tools), transport="file"))
+        _ship_file_to_remote(env, f"{sandbox_dir}/lemon_tools.py",
+                             generate_lemon_tools_module(list(sandbox_tools), transport="file"))
         _ship_file_to_remote(env, f"{sandbox_dir}/script.py", code)
         # Wrapped so the thread inherits the turn's approval context + callbacks
         # (tools.thread_context) — else sandbox RPC tool calls lose approval routing.
@@ -579,9 +579,9 @@ def _run_remote_per_call(env, env_type: str, code: str, effective_task_id: str,
             args=(env, f"{sandbox_dir}/rpc", effective_task_id, [], tool_call_counter,
                   max_tool_calls, sandbox_tools, stop_event, rpc_token))
         rpc_thread.start()
-        env_prefix = (f"HERMES_RPC_DIR={quoted_rpc_dir} HERMES_RPC_TOKEN={shlex.quote(rpc_token)} "
+        env_prefix = (f"LEMON_RPC_DIR={quoted_rpc_dir} LEMON_RPC_TOKEN={shlex.quote(rpc_token)} "
                       "PYTHONDONTWRITEBYTECODE=1")
-        tz = os.getenv("HERMES_TIMEZONE", "").strip()
+        tz = os.getenv("LEMON_TIMEZONE", "").strip()
         if tz:
             env_prefix += f" TZ={shlex.quote(tz)}"
         logger.info("Executing code on %s backend (task %s)...", env_type, effective_task_id[:8])
@@ -634,7 +634,7 @@ def _execute_remote(code: str, task_id: Optional[str], enabled_tools: Optional[L
         # run-to-completion transport. Spawn failure falls OPEN to the per-call
         # path below so a degraded remote host never blocks execution.
         try:
-            # --- Session-kernel path (hermes-agent#96873) ------------------- Same always-on model as
+            # --- Session-kernel path (lemon-agent#96873) ------------------- Same always-on model as
             # local: one persistent kernel per owner, rebuilt on the run-to-completion transport (detached
             # runner + file cell protocol).
             from tools.code_kernel_remote import execute_in_remote_kernel
@@ -666,7 +666,7 @@ def execute_code(
     reset: bool = False,
 ) -> str:
     """Run Python in the session's persistent kernel (local) or on the remote terminal backend,
-    with RPC access to a subset of Hermes tools; returns the JSON result string. "Sandbox" means
+    with RPC access to a subset of Lemon AI tools; returns the JSON result string. "Sandbox" means
     the security envelope (env scrubbing, tool whitelist + call budget, output redaction), not an
     isolation jail: default `project` mode runs in the session's cwd with the project venv.
     ``enabled_tools`` ∩ SANDBOX_ALLOWED_TOOLS; ``reset`` kills the existing kernel first."""
@@ -689,7 +689,7 @@ def execute_code(
     # `os.system("launchctl bootout ...")` here bypasses it and SIGTERMs the gateway mid-task).
     # Gated on PID-file ownership, not the inherited env marker.
     # Hard-block gateway-lifecycle commands, mirroring the terminal_tool guard (#68289): without this,
-    # execute_code is a straight bypass — the terminal() path refuses `launchctl bootout ai.hermes.gateway`,
+    # execute_code is a straight bypass — the terminal() path refuses `launchctl bootout ai.lemon.gateway`,
     # but the identical command inside `os.system(...)` / `subprocess.run([...])` here sailed through and
     # SIGTERM'd the gateway mid-task.
     from tools.process_registry import _is_supervised_gateway_process
@@ -763,7 +763,7 @@ def _load_config() -> dict:
     """``code_execution`` config section via the lightweight raw reader — runs while the
     module-level schema is built at tool discovery, so it must not import ``cli``."""
     try:
-        from hermes_cli.config import read_raw_config
+        from lemon_cli.config import read_raw_config
         cfg = read_raw_config().get("code_execution", {})
         return cfg if isinstance(cfg, dict) else {}
     except Exception:
@@ -827,14 +827,14 @@ def build_execute_code_schema(enabled_sandbox_tools: set = None,
     if mode == "strict":
         cwd_note = (
             "Scripts run in their own temp dir, not the session's CWD — use absolute paths "
-            "(os.path.expanduser('~/.hermes/.env')) or terminal()/read_file() for user files."
+            "(os.path.expanduser('~/.lemon-ai/.env')) or terminal()/read_file() for user files."
         )
     else:
         cwd_note = (
             "Scripts run in the session's working directory. Interpreter: "
             "the project's activated venv/conda python when one is active "
             "(VIRTUAL_ENV/CONDA_PREFIX — matches terminal()); otherwise "
-            "Hermes's own python (the common case — stdlib plus Hermes's "
+            "Lemon AI's own python (the common case — stdlib plus Lemon AI's "
             "deps; check `import x` before relying on project packages)."
         )
     # Remote hosts that fail open to per-call are not worth schema words; the result's
@@ -842,7 +842,7 @@ def build_execute_code_schema(enabled_sandbox_tools: set = None,
     # Session kernels are always on (kernel_mode retired in #96787): persistence is part of the tool's one
     # description, not a bolt-on paragraph behind a dead conditional.
     description = (
-        "Run Python that calls Hermes tools programmatically. Use when you "
+        "Run Python that calls Lemon AI tools programmatically. Use when you "
         "need 3+ tool calls with logic between them: filtering/reducing "
         "large outputs before they enter context, branching, or loops "
         "(N pages/files, retry on failure). Use normal tool calls for "
@@ -850,7 +850,7 @@ def build_execute_code_schema(enabled_sandbox_tools: set = None,
         "Calls run in a persistent session kernel: variables, imports, and "
         "loaded data survive across execute_code calls, so build on earlier "
         "work instead of re-loading it. A timed-out or interrupted call loses that state.\n\n"
-        f"Available via `from hermes_tools import ...`:\n\n"
+        f"Available via `from lemon_tools import ...`:\n\n"
         f"{tool_lines}\n\n"
         "Limits: 5-minute timeout, max 50 tool calls per call. Stdout over "
         "50KB shows head/tail inline; the FULL text is auto-saved to a file whose path rides in the result.\n\n"
@@ -867,7 +867,7 @@ def build_execute_code_schema(enabled_sandbox_tools: set = None,
             "properties": {
                 "code": {"type": "string", "description": (
                     "Python code to execute. Import tools with "
-                    f"`from hermes_tools import {import_str}` "
+                    f"`from lemon_tools import {import_str}` "
                     "and print your final result to stdout.")},
                 "reset": {"type": "boolean", "description": (
                     "Discard the kernel's persistent state and start fresh before running this code.")},
@@ -927,7 +927,7 @@ def __getattr__(name):  # PEP 562 — lazy so no import cycles
     if target is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     import importlib
-    from hermes_cli.plugin_compat import warn_once
+    from lemon_cli.plugin_compat import warn_once
     warn_once(__name__, name, *target)
     return getattr(importlib.import_module(target[0]), target[1])
 # ---- END PLUGIN-COMPAT ----

@@ -1,9 +1,9 @@
 """Tests for git self-heal: atomic worktree-add failure cleanup + pack maintenance.
 
-Regression for the Aug 2026 `hermes -w` timeout incident: 39 accumulated packs
+Regression for the Aug 2026 `lemon -w` timeout incident: 39 accumulated packs
 slowed object lookups until `git worktree add` blew its 30s timeout, and the
 timed-out add left a partially-materialized worktree plus a LOCKED admin entry
-(lock pid = the live hermes process), poisoning every retry.
+(lock pid = the live lemon process), poisoning every retry.
 
 Two behaviors:
 1. `_cleanup_failed_worktree_add` — removes the partial dir, the admin entry
@@ -42,10 +42,10 @@ class TestCleanupFailedWorktreeAdd:
         """Reproduce git's post-timeout wreckage: partial dir + LOCKED admin
         entry + branch. Built from a real add then re-locking + damaging it,
         which yields the same on-disk shape as a killed `worktree add`."""
-        wt = repo / ".worktrees" / "hermes-dead00"
-        _git(repo, "worktree", "add", str(wt), "-b", "hermes/hermes-dead00")
-        # Live-pid lock, exactly what `hermes -w` writes before the checkout.
-        _git(repo, "worktree", "lock", str(wt), "--reason", "hermes pid=999999")
+        wt = repo / ".worktrees" / "lemon-dead00"
+        _git(repo, "worktree", "add", str(wt), "-b", "lemon/lemon-dead00")
+        # Live-pid lock, exactly what `lemon -w` writes before the checkout.
+        _git(repo, "worktree", "lock", str(wt), "--reason", "lemon pid=999999")
         # Partial materialization: gut the checkout but keep the dir + .git file.
         for child in wt.iterdir():
             if child.name != ".git":
@@ -53,37 +53,37 @@ class TestCleanupFailedWorktreeAdd:
         return wt
 
     def test_sweeps_dir_admin_entry_and_branch(self, repo):
-        from hermes_cli.worktree_ops import _cleanup_failed_worktree_add
+        from lemon_cli.worktree_ops import _cleanup_failed_worktree_add
 
         wt = self._simulate_timed_out_add(repo)
-        admin = repo / ".git" / "worktrees" / "hermes-dead00"
+        admin = repo / ".git" / "worktrees" / "lemon-dead00"
         assert admin.exists() and (admin / "locked").exists()
 
-        _cleanup_failed_worktree_add(str(repo), wt, "hermes/hermes-dead00")
+        _cleanup_failed_worktree_add(str(repo), wt, "lemon/lemon-dead00")
 
         assert not wt.exists(), "partial worktree dir must be removed"
         assert not admin.exists(), "LOCKED admin entry must be removed"
-        branches = _git(repo, "branch", "--list", "hermes/hermes-dead00").stdout
+        branches = _git(repo, "branch", "--list", "lemon/lemon-dead00").stdout
         assert branches.strip() == "", "orphaned branch must be deleted"
 
     def test_retry_succeeds_after_cleanup(self, repo):
         """The whole point: the same worktree name is creatable again."""
-        from hermes_cli.worktree_ops import _cleanup_failed_worktree_add
+        from lemon_cli.worktree_ops import _cleanup_failed_worktree_add
 
         wt = self._simulate_timed_out_add(repo)
-        _cleanup_failed_worktree_add(str(repo), wt, "hermes/hermes-dead00")
+        _cleanup_failed_worktree_add(str(repo), wt, "lemon/lemon-dead00")
 
         result = _git(
-            repo, "worktree", "add", str(wt), "-b", "hermes/hermes-dead00", check=False
+            repo, "worktree", "add", str(wt), "-b", "lemon/lemon-dead00", check=False
         )
         assert result.returncode == 0, f"retry failed: {result.stderr}"
 
     def test_noop_when_nothing_exists(self, repo):
         """Fail-soft on an error path where git never created anything."""
-        from hermes_cli.worktree_ops import _cleanup_failed_worktree_add
+        from lemon_cli.worktree_ops import _cleanup_failed_worktree_add
 
         _cleanup_failed_worktree_add(
-            str(repo), repo / ".worktrees" / "never-existed", "hermes/never-existed"
+            str(repo), repo / ".worktrees" / "never-existed", "lemon/never-existed"
         )  # must not raise
 
 
@@ -111,7 +111,7 @@ class TestMaintainPackHealth:
 
     def test_repacks_at_threshold(self, repo, monkeypatch):
         import cli
-        from hermes_cli import worktree_ops
+        from lemon_cli import worktree_ops
 
         made = self._make_packs(repo, 6)
         # Behavior contract, not a snapshot: different git builds consolidate
@@ -131,7 +131,7 @@ class TestMaintainPackHealth:
 
     def test_noop_below_threshold(self, repo, monkeypatch):
         import cli
-        from hermes_cli import worktree_ops
+        from lemon_cli import worktree_ops
 
         made = self._make_packs(repo, 2)
         monkeypatch.setattr(worktree_ops, "_PACK_SPRAWL_THRESHOLD", 50)

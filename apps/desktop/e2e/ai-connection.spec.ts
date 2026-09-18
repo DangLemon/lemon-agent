@@ -114,10 +114,10 @@ test('Vietnamese AI connection routes new chats and survives relaunch', async ()
   const sandbox = createSandbox('ai-connection')
   let app: ElectronApplication | null = null
 
-  writeInitialConfig(sandbox.hermesHome, initialMock.url)
+  writeInitialConfig(sandbox.lemonHome, initialMock.url)
   const launchValues = buildAppEnv(sandbox, {
     LEMON_AI_COMPANY_API_KEY: 'synthetic-company-key',
-    HERMES_DESKTOP_HARNESS_CONFIG: path.resolve(import.meta.dirname, '..', 'lemon-ai-desktop.config.json')
+    LEMON_DESKTOP_HARNESS_CONFIG: path.resolve(import.meta.dirname, '..', 'lemon-ai-desktop.config.json')
   })
 
   try {
@@ -153,7 +153,7 @@ test('Vietnamese AI connection routes new chats and survives relaunch', async ()
 
     await submitFromNewChat(page, RELAUNCH_PROMPT)
     await expect.poll(() => replacementMock.receivedPrompts.includes(RELAUNCH_PROMPT), { timeout: 60_000 }).toBe(true)
-    const persisted = fs.readFileSync(path.join(sandbox.hermesHome, 'config.yaml'), 'utf8')
+    const persisted = fs.readFileSync(path.join(sandbox.lemonHome, 'config.yaml'), 'utf8')
     expect(persisted).toContain(`${replacementMock.url}/v1`)
     expect(persisted).toContain('mock-model')
     expect(persisted).not.toContain('synthetic-company-key')
@@ -167,10 +167,10 @@ test('Vietnamese AI connection routes new chats and survives relaunch', async ()
 test('unresolved upgraded profile can still open AI connection settings', async () => {
   const sandbox = createSandbox('ai-connection-unresolved')
   let app: ElectronApplication | null = null
-  writeUnresolvedConfig(sandbox.hermesHome)
+  writeUnresolvedConfig(sandbox.lemonHome)
 
   const launchValues = buildAppEnv(sandbox, {
-    HERMES_DESKTOP_HARNESS_CONFIG: path.resolve(import.meta.dirname, '..', 'lemon-ai-desktop.config.json')
+    LEMON_DESKTOP_HARNESS_CONFIG: path.resolve(import.meta.dirname, '..', 'lemon-ai-desktop.config.json')
   })
 
   try {

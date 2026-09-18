@@ -21,9 +21,9 @@ const validHarnessResource = {
 }
 
 function withTempExe(fn) {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-exe-identity-'))
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-exe-identity-'))
   try {
-    const exe = path.join(tempRoot, 'Hermes.exe')
+    const exe = path.join(tempRoot, 'Lemon AI.exe')
     const config = path.join(tempRoot, 'internal.json')
     fs.writeFileSync(exe, '')
     fs.writeFileSync(config, JSON.stringify(validHarnessResource), 'utf8')
@@ -33,23 +33,23 @@ function withTempExe(fn) {
   }
 }
 
-test('resolveExeIdentity keeps Hermes resources by default', () => {
+test('resolveExeIdentity keeps Lemon AI resources by default', () => {
   assert.deepEqual(resolveExeIdentity({ desktopRoot, env: {} }), {
-    icon: path.join(desktopRoot, 'assets', 'icon.ico'),
-    productName: 'Hermes',
-    fileDescription: 'Hermes',
-    companyName: 'Nous Research',
-    legalCopyright: 'Copyright (c) 2026 Nous Research'
+    icon: path.join(desktopRoot, 'assets', 'lemon-icon.ico'),
+    productName: 'Lemon AI',
+    fileDescription: 'Lemon AI',
+    companyName: 'Lemon Digital',
+    legalCopyright: 'Copyright (c) 2026 Lemon Digital'
   })
 })
 
-test('resolveExeIdentity keeps Hermes resources for compatibility mode', () => {
+test('resolveExeIdentity keeps Lemon AI resources for compatibility mode', () => {
   assert.deepEqual(resolveExeIdentity({ desktopRoot, env: {}, harnessResource: null }), {
-    icon: path.join(desktopRoot, 'assets', 'icon.ico'),
-    productName: 'Hermes',
-    fileDescription: 'Hermes',
-    companyName: 'Nous Research',
-    legalCopyright: 'Copyright (c) 2026 Nous Research'
+    icon: path.join(desktopRoot, 'assets', 'lemon-icon.ico'),
+    productName: 'Lemon AI',
+    fileDescription: 'Lemon AI',
+    companyName: 'Lemon Digital',
+    legalCopyright: 'Copyright (c) 2026 Lemon Digital'
   })
 })
 
@@ -58,7 +58,7 @@ test('resolveExeIdentity uses Lemon resources only for a validated internal sele
     assert.deepEqual(
       resolveExeIdentity({
         desktopRoot,
-        env: { LEMON_AI_DESKTOP_HARNESS_CONFIG: config }
+        env: { LEMON_DESKTOP_HARNESS_CONFIG: config }
       }),
       {
         icon: path.join(desktopRoot, 'assets', 'lemon-icon.ico'),
@@ -71,19 +71,19 @@ test('resolveExeIdentity uses Lemon resources only for a validated internal sele
   })
 })
 
-test('resolveExeIdentity keeps Hermes resources when a Lemon selector is inherited by Hermes', () => {
+test('resolveExeIdentity keeps Lemon AI resources when a Lemon selector is inherited by Lemon AI', () => {
   withTempExe((_exe, config) => {
     assert.deepEqual(
       resolveExeIdentity({
         desktopRoot,
-        env: { HERMES_INSTALLER_BRAND: 'hermes', LEMON_AI_DESKTOP_HARNESS_CONFIG: config }
+        env: { LEMON_INSTALLER_BRAND: 'lemon', LEMON_DESKTOP_HARNESS_CONFIG: config }
       }),
       {
-        icon: path.join(desktopRoot, 'assets', 'icon.ico'),
-        productName: 'Hermes',
-        fileDescription: 'Hermes',
-        companyName: 'Nous Research',
-        legalCopyright: 'Copyright (c) 2026 Nous Research'
+        icon: path.join(desktopRoot, 'assets', 'lemon-icon.ico'),
+        productName: 'Lemon AI',
+        fileDescription: 'Lemon AI',
+        companyName: 'Lemon Digital',
+        legalCopyright: 'Copyright (c) 2026 Lemon Digital'
       }
     )
   })
@@ -95,7 +95,7 @@ test('stampExeIdentity passes the selected identity to rcedit', async () => {
 
     await stampExeIdentity(exe, {
       desktopRoot,
-      env: { LEMON_AI_DESKTOP_HARNESS_CONFIG: config },
+      env: { LEMON_DESKTOP_HARNESS_CONFIG: config },
       rcedit: async (...args) => {
         calls.push(args)
       }

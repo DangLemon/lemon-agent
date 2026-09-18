@@ -104,7 +104,7 @@ describe('completeMcpDesktopOAuth', () => {
 
     vi.stubGlobal('window', {
       setTimeout: (_callback: () => void) => 0,
-      hermesDesktop: {
+      lemonDesktop: {
         mcpOauth: { listen, wait, cancel: cancelListener }
       }
     })
@@ -162,11 +162,11 @@ describe('completeMcpDesktopOAuth', () => {
         openExternal: vi.fn(),
         sleep: async () => {}
       })
-    ).rejects.toThrow(/Hermes Desktop app/)
+    ).rejects.toThrow(/Lemon AI app/)
   })
 
   it('brands custom desktop loopback missing-bridge errors for internal builds', async () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
     vi.stubGlobal('window', { setTimeout: (_callback: () => void) => 0 })
 
     await expect(
@@ -196,7 +196,7 @@ describe('completeMcpDesktopOAuth', () => {
 
     vi.stubGlobal('window', {
       setTimeout: (_callback: () => void) => 0,
-      hermesDesktop: {
+      lemonDesktop: {
         mcpOauth: { listen, wait: vi.fn(), cancel: vi.fn() }
       }
     })
@@ -245,7 +245,7 @@ describe('completeMcpDesktopOAuth', () => {
 
     vi.stubGlobal('window', {
       setTimeout: (_callback: () => void) => 0,
-      hermesDesktop: {
+      lemonDesktop: {
         api: vi.fn(async request => {
           requests.push(request)
 
@@ -308,7 +308,7 @@ describe('completeMcpDesktopOAuth', () => {
 
     vi.stubGlobal('window', {
       setTimeout: (_callback: () => void) => 0,
-      hermesDesktop: {
+      lemonDesktop: {
         mcpOauth: { listen, wait, cancel: vi.fn().mockResolvedValue(true) },
         api: vi.fn(async request => {
           requests.push(request)
@@ -412,7 +412,7 @@ describe('completeMcpDesktopOAuth', () => {
 
     vi.stubGlobal('window', {
       setTimeout: (_callback: () => void) => 0,
-      hermesDesktop: {
+      lemonDesktop: {
         mcpOauth: {
           listen: vi
             .fn()
@@ -488,7 +488,7 @@ describe('completeMcpDesktopOAuth', () => {
 
     vi.stubGlobal('window', {
       setTimeout: (_callback: () => void) => 0,
-      hermesDesktop: {
+      lemonDesktop: {
         mcpOauth: {
           listen: vi
             .fn()

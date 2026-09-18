@@ -76,16 +76,16 @@ describe('live transcript timeline events', () => {
   })
 
   it('preserves dynamic skill names in gateway review summaries', () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
 
     event('review.summary', 402.625, {
-      text: "💾 Self-improvement review: Skill 'Hermes Research' patched."
+      text: "💾 Self-improvement review: Skill 'Lemon AI Research' patched."
     })
 
     const system = stream.state(SID).messages.find(message => message.role === 'system')
 
     expect(system?.parts[0]).toMatchObject({
-      text: "review:Self-improvement review: Skill 'Hermes Research' patched."
+      text: "review:Self-improvement review: Skill 'Lemon AI Research' patched."
     })
   })
 

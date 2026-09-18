@@ -1,12 +1,12 @@
 /**
- * @hermes/plugin-sdk — THE plugin language. The vscode-module model: plugin
+ * @lemon-ai/plugin-sdk — THE plugin language. The vscode-module model: plugin
  * authors import exactly one module and get everything — they never touch
  * `@/…` internals (lint-fenced) and never need codebase access.
  *
  * Two delivery modes, one surface:
  *  - bundled (`src/plugins/<name>/`): the import resolves here via alias;
  *  - runtime-fetched (plugin host, next phase): the loader injects this same
- *    object as `window.__HERMES_PLUGIN_SDK__` and maps the import to it, so a
+ *    object as `window.__LEMON_PLUGIN_SDK__` and maps the import to it, so a
  *    published plugin builds against the types with the SDK marked external.
  *
  * Capability tiers (WoW-style):
@@ -42,8 +42,8 @@ import {
 import { onGatewayEvent } from '@/contrib/events'
 import { registry } from '@/contrib/registry'
 import type { WorkspaceMode } from '@/contrib/types'
-import { deleteProfile, getLogs, getStatus, hermesApi, type HermesGateway } from '@/hermes'
-import { replaceHermesBrandTerms } from '@/lib/app-brand'
+import { deleteProfile, getLogs, getStatus, lemonApi, type LemonGateway } from '@/lemon'
+import { replaceLemonBrandTerms } from '@/lib/app-brand'
 import {
   $gateway,
   activeGatewayConnectionId,
@@ -98,14 +98,14 @@ import {
   sessionTileDelegate
 } from '@/store/session-states'
 import { runGatewayRestart } from '@/store/system-actions'
-import type { PaginatedSessions, UsageStats } from '@/types/hermes'
+import type { PaginatedSessions, UsageStats } from '@/types/lemon'
 
 import { planPluginOpenSession } from './plugin-open-session-plan'
 
 // -- state: readonly views over the app's live atoms -------------------------
 
 const readonlyAtom = <T>(atomLike: ReadableAtom<T>): ReadableAtom<T> => atomLike
-const brandHostText = (value: string): string => replaceHermesBrandTerms(value)
+const brandHostText = (value: string): string => replaceLemonBrandTerms(value)
 
 /**
  * Turn flag for the FOCUSED chat — same semantics as the statusbar's busy
@@ -200,7 +200,7 @@ export interface PluginProfileRoute {
   mode: 'local' | 'remote'
   /** Desktop profile used to select the connection route. */
   profile: string
-  /** Backend Hermes profile served by that route. */
+  /** Backend Lemon AI profile served by that route. */
   targetProfile: string
 }
 
@@ -248,7 +248,7 @@ async function requestPluginProfile<T>(
       : requestGatewayForAgent<T>(route.connectionId, route.profile, method, params, timeoutMs)
   }
 
-  const getAgentRoster = window.hermesDesktop?.getAgentRoster
+  const getAgentRoster = window.lemonDesktop?.getAgentRoster
 
   if (!getAgentRoster) {
     return timeoutMs === undefined
@@ -280,7 +280,7 @@ async function requestPluginProfile<T>(
  *  no longer authority to touch that backend, even when its labels still look
  *  identical. */
 async function pluginRouteStillRegistered(route: PluginProfileRoute): Promise<boolean> {
-  const getProfileRoutes = window.hermesDesktop?.getProfileRoutes
+  const getProfileRoutes = window.lemonDesktop?.getProfileRoutes
 
   if (!getProfileRoutes) {
     return false
@@ -523,7 +523,7 @@ function waitForFocusedSessionHydration({
 
 // Wait for a profile switch, but never longer than the wake budget.
 //
-// ensureGatewayProfile awaits the store's dial, and HermesGateway.connect() has
+// ensureGatewayProfile awaits the store's dial, and LemonGateway.connect() has
 // no dial timeout of its own: a backend that accepts the socket and then never
 // completes the handshake leaves this promise pending for the life of the
 // window. That is not merely a slow open. waitForFocusedSessionHydration arms
@@ -733,7 +733,7 @@ export const host = {
     )
 
     // The profile is gone. Drop its persisted tiles now — a leftover tile
-    // restores on relaunch and re-creates the deleted profile (hermes-agent#94235).
+    // restores on relaunch and re-creates the deleted profile (lemon-agent#94235).
     dropTilesForProfile(
       route ? route.profile : name,
       route
@@ -767,10 +767,10 @@ export const host = {
   /** The registered connection list (labels, kinds, primary) — token bytes
    *  never included. Rejects on Desktop builds without the registry. */
   connections: async () => {
-    const bridge = window.hermesDesktop?.connections
+    const bridge = window.lemonDesktop?.connections
 
     if (!bridge) {
-      throw new Error(brandHostText('This Desktop build has no connection registry. Update Hermes Desktop.'))
+      throw new Error(brandHostText('This Desktop build has no connection registry. Update Lemon AI.'))
     }
 
     const registryPayload = await bridge.list()
@@ -784,10 +784,10 @@ export const host = {
    *  duplicates. Sources that are unreachable (or ssh connect-on-demand)
    *  appear in `sources` with an error instead of failing the call. */
   agents: async () => {
-    const roster = window.hermesDesktop?.getAgentRoster
+    const roster = window.lemonDesktop?.getAgentRoster
 
     if (!roster) {
-      throw new Error(brandHostText('This Desktop build cannot enumerate multi-source agents. Update Hermes Desktop.'))
+      throw new Error(brandHostText('This Desktop build cannot enumerate multi-source agents. Update Lemon AI.'))
     }
 
     return roster()
@@ -1191,7 +1191,7 @@ export const host = {
       const openTab = $newSessionTabAction.get()
 
       if (!openTab) {
-        notify({ kind: 'error', message: brandHostText('Update Hermes Desktop to open another Bot chat.') })
+        notify({ kind: 'error', message: brandHostText('Update Lemon AI to open another Bot chat.') })
 
         return
       }
@@ -1217,7 +1217,7 @@ export const host = {
    *  they closed) are respected. Presentation only: no gateway activation,
    *  no session create. Feature-detect on older desktops.
    *
-   *  `isStaleTile` (hermes-agent#90102): the caller's reconciliation probe
+   *  `isStaleTile` (lemon-agent#90102): the caller's reconciliation probe
    *  against backend truth. The tile bucket is a Local Storage cache — a
    *  persisted bot tile can name a session the backend has since superseded,
    *  and fronting it pinned the roster click to a stale finished session
@@ -1251,11 +1251,11 @@ export const host = {
   /** Credential-free routes across every current registry source. Identity is
    *  the (connectionId, profile) pair; endpoint/auth details stay in Electron. */
   profileRoutes: async () => {
-    const desktop = window.hermesDesktop
+    const desktop = window.lemonDesktop
     const getProfileRoutes = desktop?.getProfileRoutes
 
     if (!getProfileRoutes) {
-      throw new Error(brandHostText('Hermes Desktop connection routing unavailable'))
+      throw new Error(brandHostText('Lemon AI connection routing unavailable'))
     }
 
     let profiles = $profiles.get()
@@ -1346,7 +1346,7 @@ export const host = {
       profile
     })
 
-    return hermesApi<PaginatedSessions>({
+    return lemonApi<PaginatedSessions>({
       ...(route ? { connectionId: route.connectionId } : {}),
       path: `/api/profiles/sessions?${query.toString()}`,
       timeoutMs: 60_000
@@ -1370,7 +1370,7 @@ export const host = {
       throw new Error('Persisted session updates require a profile and session id')
     }
 
-    return hermesApi<{ ok: boolean; hidden: boolean }>({
+    return lemonApi<{ ok: boolean; hidden: boolean }>({
       ...(route ? { connectionId: route.connectionId } : {}),
       path: `/api/sessions/${encodeURIComponent(options.sessionId)}`,
       method: 'PATCH',
@@ -1384,7 +1384,7 @@ export const host = {
     const gateway = $gateway.get()
 
     if (!gateway) {
-      throw new Error('Hermes gateway unavailable')
+      throw new Error('Lemon AI gateway unavailable')
     }
 
     return gateway.request<T>(method, params)
@@ -1392,10 +1392,10 @@ export const host = {
 
   /** The LIVE gateway instance for the active profile (null before the first
    *  socket opens). Most plugins want `host.request`; this exists for SDK
-   *  components that take a `HermesGateway` prop directly (e.g. `McpTab`),
+   *  components that take a `LemonGateway` prop directly (e.g. `McpTab`),
    *  which need the instance, not just a JSON-RPC door. Re-read per use — the
    *  active instance changes on a profile swap. */
-  getGateway: (): HermesGateway | null => $gateway.get()
+  getGateway: (): LemonGateway | null => $gateway.get()
 }
 
 // -- react bridge -------------------------------------------------------------
@@ -1495,7 +1495,7 @@ export { SkillsView } from '@/app/skills'
  *  `host.getGateway()`) and an optional `profile` to scope it to one bot. */
 export { McpTab } from '@/app/skills/mcp-tab'
 /** The oversized Collapse lettering an empty chat is titled with — core writes
- *  "HERMES AGENT" with it, a `chat.empty` contribution writes its own name. */
+ *  "LEMON AGENT" with it, a `chat.empty` contribution writes its own name. */
 export { Wordmark } from '@/components/chat/wordmark'
 /** Pane placement roles. `'floating'` is the one NON-tiling value: the pane is
  *  excluded from the layout tree and rendered as a fixed, draggable card above
@@ -1575,7 +1575,7 @@ export { Textarea } from '@/components/ui/textarea'
 export { Tip, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 export type { GatewayEventListener } from '@/contrib/events'
 export type {
-  HermesPlugin,
+  LemonPlugin,
   PluginContext,
   PluginContribution,
   PluginNativeNotificationInput,
@@ -1594,9 +1594,6 @@ export { Contribute, type ContributeProps } from '@/contrib/react/contribute'
 // -- contracts ----------------------------------------------------------------
 
 export type { Contribution } from '@/contrib/types'
-/** The live gateway instance type — for typing the `gateway` prop `McpTab`
- *  takes; obtain the instance from `host.getGateway()`. */
-export type { HermesGateway } from '@/hermes'
 /** Grab-to-pan for overflow containers (boards, timelines, wide tables) —
  *  the shared scrub primitive; don't hand-roll drag-to-scroll. */
 export { type GrabScroll, useGrabScroll } from '@/hooks/use-grab-scroll'
@@ -1618,6 +1615,9 @@ export {
   useI18n,
   usePluginI18n
 } from '@/i18n'
+/** The live gateway instance type — for typing the `gateway` prop `McpTab`
+ *  takes; obtain the instance from `host.getGateway()`. */
+export type { LemonGateway } from '@/lemon'
 /** THE way to run a decorative rAF animation (avatars, shimmer, sprites):
  *  fps budget + hidden/minimized/unfocused pause + idle dormancy + teardown.
  *  Plugins must route animation clocks through this instead of raw rAF loops
@@ -1640,11 +1640,11 @@ export {
   type SurfaceModelSwitchConfirmOptions
 } from '@/lib/guarded-model-switch'
 export { triggerHaptic as haptic } from '@/lib/haptics'
-export type { HermesOpenTarget } from '@/lib/hermes-open-target'
 /** The app's lucide icon set (RefreshCw, LayoutDashboard, Activity, …). */
 export * as icons from '@/lib/icons'
 export { type KeybindContribution, KEYBINDS_AREA } from '@/lib/keybinds/actions'
 export { formatModifierToken } from '@/lib/keybinds/combo'
+export type { LemonOpenTarget } from '@/lib/lemon-open-target'
 /** A `Map` with a ceiling, for the module-level caches a plugin keeps across
  *  a renderer that stays open for days. Only for values that can be
  *  regenerated — eviction costs a recompute or a refetch, never correctness. */
@@ -1662,7 +1662,7 @@ export { PROFILE_SWATCHES, profileColor, profileColorSoft } from '@/lib/profile-
 export { queryClient } from '@/lib/query-client'
 
 export const PANES_AREA = 'panes'
-/** Hermes' reasoning levels + their compact labels, so a plugin surfacing a
+/** Lemon AI' reasoning levels + their compact labels, so a plugin surfacing a
  *  thinking depth uses the same scale and spelling as the rest of the app. */
 export {
   DEFAULT_REASONING_EFFORT,
@@ -1737,7 +1737,7 @@ export { requestTheme } from '@/themes/request'
 export { retintTheme, themeHue } from '@/themes/retint'
 export type { DesktopTheme, DesktopThemeColors } from '@/themes/types'
 export { THEMES_AREA } from '@/themes/user-themes'
-export type { RpcEvent, StatusResponse } from '@/types/hermes'
+export type { RpcEvent, StatusResponse } from '@/types/lemon'
 /** Subscribe a component to a `host.state` atom. */
 export { useStore as useValue } from '@nanostores/react'
 /** The app's data-fetching layer. Plugins share the ONE QueryClient mounted at

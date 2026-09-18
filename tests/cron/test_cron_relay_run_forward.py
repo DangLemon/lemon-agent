@@ -1,4 +1,4 @@
-"""Manual `hermes cron run` forwarding for relay-fronted delivery targets.
+"""Manual `lemon cron run` forwarding for relay-fronted delivery targets.
 
 A standalone CLI process has no live relay adapter and no standalone sender,
 so a manual run that targets a relay-fronted platform must forward to the
@@ -213,7 +213,7 @@ class TestManualRunPromptConsumption:
 
 class TestTriggerJobPromptStamp:
     def test_trigger_stamps_and_mark_run_clears(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("LEMON_HOME", str(tmp_path))
         import cron.jobs as jobs_mod
         import importlib
 
@@ -231,7 +231,7 @@ class TestTriggerJobPromptStamp:
         assert "manual_run_at" not in after
 
     def test_retrigger_without_prompt_clears_stale_stamp(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("LEMON_HOME", str(tmp_path))
         import cron.jobs as jobs_mod
         import importlib
 
@@ -246,7 +246,7 @@ class TestTriggerJobPromptStamp:
 
 def test_manual_run_completion_preserves_newer_run_now_occurrence(tmp_path, monkeypatch):
     """A stale completion must only consume the manual occurrence it dispatched."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("LEMON_HOME", str(tmp_path))
     import importlib
     from datetime import datetime, timedelta
     import cron.jobs as jobs_mod
@@ -261,7 +261,7 @@ def test_manual_run_completion_preserves_newer_run_now_occurrence(tmp_path, monk
     # The first fire has been dispatched and is still running. A newer Run now
     # is accepted while that older run is in flight.
     later_now = datetime.fromisoformat(first_manual_at) + timedelta(seconds=10)
-    monkeypatch.setattr(jobs_mod, "_hermes_now", lambda: later_now)
+    monkeypatch.setattr(jobs_mod, "_lemon_now", lambda: later_now)
     second = jobs_mod.trigger_job(job["id"], extra_prompt="new manual")
     second_manual_at = second["manual_run_at"]
     assert second_manual_at != first_manual_at
@@ -286,7 +286,7 @@ def test_manual_run_completion_preserves_newer_run_now_occurrence(tmp_path, monk
 
 def test_scheduler_scheduled_completion_preserves_newer_run_now_occurrence(tmp_path, monkeypatch):
     """A normal scheduled snapshot has explicit no-manual identity; it must not consume a newer manual run."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("LEMON_HOME", str(tmp_path))
     import importlib
     from datetime import datetime, timedelta
     import cron.jobs as jobs_mod
@@ -302,7 +302,7 @@ def test_scheduler_scheduled_completion_preserves_newer_run_now_occurrence(tmp_p
     assert "manual_run_at" not in scheduled_snapshot
 
     next_manual_time = datetime.fromisoformat(scheduled_snapshot["next_run_at"]) + timedelta(seconds=10)
-    monkeypatch.setattr(jobs_mod, "_hermes_now", lambda: next_manual_time)
+    monkeypatch.setattr(jobs_mod, "_lemon_now", lambda: next_manual_time)
     triggered = jobs_mod.trigger_job(job["id"], extra_prompt="new manual")
     manual_run_at = triggered["manual_run_at"]
     assert triggered["fire_claim"] == scheduled_snapshot["fire_claim"]
@@ -323,7 +323,7 @@ def test_scheduler_scheduled_completion_preserves_newer_run_now_occurrence(tmp_p
 
 def test_preserved_newer_manual_run_does_not_override_terminal_repeat_limit(tmp_path, monkeypatch):
     """Existing finite repeat semantics still win if the completed run exhausts the job."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("LEMON_HOME", str(tmp_path))
     import importlib
     from datetime import datetime, timedelta
     import cron.jobs as jobs_mod
@@ -336,7 +336,7 @@ def test_preserved_newer_manual_run_does_not_override_terminal_repeat_limit(tmp_
     first_manual_at = first["manual_run_at"]
 
     later_now = datetime.fromisoformat(first_manual_at) + timedelta(seconds=10)
-    monkeypatch.setattr(jobs_mod, "_hermes_now", lambda: later_now)
+    monkeypatch.setattr(jobs_mod, "_lemon_now", lambda: later_now)
     second = jobs_mod.trigger_job(job["id"], extra_prompt="new manual")
     assert second["manual_run_at"] != first_manual_at
 

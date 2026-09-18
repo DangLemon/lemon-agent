@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from contextvars import ContextVar
 from typing import Iterable
-from hermes_cli.config import cfg_get, read_raw_config
+from lemon_cli.config import cfg_get, read_raw_config
 
 logger = logging.getLogger(__name__)
 
@@ -32,33 +32,33 @@ def _get_allowed() -> set[str]:
 _config_passthrough: frozenset[str] | None = None
 
 
-def _is_hermes_provider_credential(name: str) -> bool:
-    """True if ``name`` is a Hermes-managed provider credential per
-    ``_HERMES_PROVIDER_ENV_BLOCKLIST`` or a dynamic Hermes-internal secret
+def _is_lemon_provider_credential(name: str) -> bool:
+    """True if ``name`` is a Lemon AI-managed provider credential per
+    ``_LEMON_PROVIDER_ENV_BLOCKLIST`` or a dynamic Lemon AI-internal secret
     (AUXILIARY_*_API_KEY / _BASE_URL, GATEWAY_RELAY_*). Skill-declared
     ``required_environment_variables`` must not override this — that was the
     GHSA-rhgp-j443-p4rf bypass (a skill registered ``OPENAI_API_KEY`` and received it
-    in the ``execute_code`` child); non-Hermes keys (TENOR_API_KEY, …) stay
+    in the ``execute_code`` child); non-Lemon AI keys (TENOR_API_KEY, …) stay
     registerable. Fails closed when the blocklist cannot be imported."""
     try:
         from tools.environments.local_env_policy import (
-            _HERMES_PROVIDER_ENV_BLOCKLIST, _is_hermes_internal_secret)
+            _LEMON_PROVIDER_ENV_BLOCKLIST, _is_lemon_internal_secret)
     except Exception as e:
         logger.warning(
             "env passthrough: provider credential blocklist import failed; "
             "failing closed and refusing passthrough registration for %r: %s", name, e)
         return True
-    return _is_hermes_internal_secret(name) or name in _HERMES_PROVIDER_ENV_BLOCKLIST
+    return _is_lemon_internal_secret(name) or name in _LEMON_PROVIDER_ENV_BLOCKLIST
 
 
 def register_env_passthrough(var_names: Iterable[str]) -> None:
     """Register env var names as allowed in sandboxed environments (typically a
-    skill's ``required_environment_variables``). Hermes-managed provider credentials
+    skill's ``required_environment_variables``). Lemon AI-managed provider credentials
     are rejected (GHSA-rhgp-j443-p4rf) — such skills should use the main-process tools
     (web_search, web_extract, …); third-party keys pass normally."""
     for name in _accepted((n.strip() for n in var_names), (
-        "env passthrough: refusing to register Hermes provider "
-        "credential %r (blocked by _HERMES_PROVIDER_ENV_BLOCKLIST). "
+        "env passthrough: refusing to register Lemon AI provider "
+        "credential %r (blocked by _LEMON_PROVIDER_ENV_BLOCKLIST). "
         "Skills must not override the execute_code sandbox's "
         "credential scrubbing; see GHSA-rhgp-j443-p4rf."
     )):
@@ -67,12 +67,12 @@ def register_env_passthrough(var_names: Iterable[str]) -> None:
 
 
 def _accepted(names, refusal_msg: str):
-    """Yield non-empty *names* that are not Hermes provider credentials; refused
+    """Yield non-empty *names* that are not Lemon AI provider credentials; refused
     names are logged with *refusal_msg* (``%r`` = name)."""
     for name in names:
         if not name:
             continue
-        if _is_hermes_provider_credential(name):
+        if _is_lemon_provider_credential(name):
             logger.warning(refusal_msg, name)
             continue
         yield name
@@ -90,9 +90,9 @@ def _load_config_passthrough() -> frozenset[str]:
         passthrough = cfg_get(read_raw_config(), "terminal", "env_passthrough")
         items = passthrough if isinstance(passthrough, list) else ()
         result.update(_accepted((i.strip() for i in items if isinstance(i, str)), (
-            "env passthrough: refusing to register Hermes "
+            "env passthrough: refusing to register Lemon AI "
             "provider credential %r from config.yaml (blocked "
-            "by _HERMES_PROVIDER_ENV_BLOCKLIST). Operator "
+            "by _LEMON_PROVIDER_ENV_BLOCKLIST). Operator "
             "configuration must not override the execute_code "
             "sandbox's credential scrubbing; see "
             "GHSA-rhgp-j443-p4rf."

@@ -82,7 +82,7 @@ export const vi = defineLocale({
       loadingSessions: 'Đang tải cuộc trò chuyện gần đây',
       retryingRemoteBackend: 'Đang kết nối lại backend từ xa...',
       startingDesktopConnection: 'Đang mở kết nối desktop',
-      startingHermesDesktop: 'Đang khởi động Lemon AI...'
+      startingLemonDesktop: 'Đang khởi động Lemon AI...'
     },
     errors: {
       backgroundExited: 'Tiến trình nền Lemon AI đã thoát.',
@@ -132,7 +132,7 @@ export const vi = defineLocale({
     backendOutOfDateTitle: 'Backend đã cũ',
     backendOutOfDateMessage: 'Backend Lemon AI cũ hơn app desktop này và có thể hoạt động không ổn định.',
     installMethodUnsupportedTitle: 'Cách cài đặt chưa hỗ trợ',
-    updateHermes: 'Cập nhật Lemon AI',
+    updateLemon: 'Cập nhật Lemon AI',
     updateReadyTitle: 'Có bản cập nhật',
     updateReadyMessage: count => `Có ${count} thay đổi mới.`,
     updateReadyMessageUnknown: 'Có bản cập nhật mới.',
@@ -254,7 +254,7 @@ export const vi = defineLocale({
     remoteSetupDesc: 'Nhập gateway URL. Lemon AI sẽ kiểm tra cần token hay đăng nhập trình duyệt.',
     remoteUrlTitle: 'Gateway URL',
     remoteUrlDesc: 'Dùng base URL của gateway, gồm https:// nếu là remote.',
-    remoteUrlPlaceholder: 'https://gateway.example.com/hermes',
+    remoteUrlPlaceholder: 'https://gateway.example.com/lemon',
     probing: 'Đang kiểm tra xác thực gateway...',
     probeError: 'Không kết nối được tới gateway Lemon AI.',
     identityProvider: 'nhà cung cấp đăng nhập',
@@ -493,11 +493,11 @@ export const vi = defineLocale({
     sortMostUsed: 'Dùng nhiều',
     sortMostUsedDesc: '↓ Dùng nhiều',
     archive: 'Lưu trữ',
-    archiveSkillConfirmDescription: 'Kỹ năng sẽ được lưu trữ và có thể khôi phục bằng `hermes curator restore`.',
+    archiveSkillConfirmDescription: 'Kỹ năng sẽ được lưu trữ và có thể khôi phục bằng `lemon curator restore`.',
     archiveSkillConfirmTitle: name => `Lưu trữ ${name}?`,
     archiveSkillFailed: 'Không thể lưu trữ',
     skillArchivedTitle: 'Đã lưu trữ kỹ năng',
-    skillArchivedMessage: 'Có thể khôi phục bằng hermes curator restore.'
+    skillArchivedMessage: 'Có thể khôi phục bằng lemon curator restore.'
   },
 
   composer: {

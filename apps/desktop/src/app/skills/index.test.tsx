@@ -10,7 +10,7 @@ import {
   resetInternalCompanyCapabilitiesForTest,
   setInternalCompanyCapabilitiesForTest
 } from '@/app/internal-company/store'
-import type * as HermesApi from '@/hermes'
+import type * as LemonApi from '@/lemon'
 import { queryClient } from '@/lib/query-client'
 import type * as SlashCompletionCache from '@/lib/slash-completion-cache'
 import type * as HubActions from '@/store/hub-actions'
@@ -41,8 +41,8 @@ const notificationMocks = vi.hoisted(() => ({
 // whose import-time subscription calls setApiRequestProfile) and stub only the
 // calls we assert on. Args are forwarded so the per-profile scope arg is
 // observable.
-vi.mock('@/hermes', async importOriginal => ({
-  ...(await importOriginal<typeof HermesApi>()),
+vi.mock('@/lemon', async importOriginal => ({
+  ...(await importOriginal<typeof LemonApi>()),
   getSkills: (profile?: null | string) => getSkills(profile),
   getToolsets: (profile?: null | string) => getToolsets(profile),
   setSkillEnabled: (name: string, enabled: boolean, profile?: null | string) => setSkillEnabled(name, enabled, profile),
@@ -54,7 +54,7 @@ vi.mock('@/hermes', async importOriginal => ({
   getProfiles: () => getProfiles(),
   getSkillContent: (name: string, profile?: null | string) => getSkillContent(name, profile),
   getOfficialSkills: (profile?: null | string) => getOfficialSkills(profile),
-  createSkill: (name: string, content: string, category?: null | string, profile?: HermesApi.ProfileScope) =>
+  createSkill: (name: string, content: string, category?: null | string, profile?: LemonApi.ProfileScope) =>
     createSkill(name, content, category, profile)
 }))
 
@@ -326,7 +326,7 @@ describe('SkillsView toolset management', { timeout: 60_000 }, () => {
     await waitFor(() => expect(setSkillEnabled).toHaveBeenCalledWith('web-research', false, 'researcher'))
   })
 
-  it('keeps ordinary Hermes Skills presentation technical and ungated by Lemon copy', async () => {
+  it('keeps ordinary Lemon AI Skills presentation technical and ungated by Lemon copy', async () => {
     getSkills.mockResolvedValue([
       {
         name: 'web-research',
@@ -411,8 +411,8 @@ describe('SkillsView toolset management', { timeout: 60_000 }, () => {
     await act(async () => {
       window.dispatchEvent(
         new MessageEvent('message', {
-          data: { type: 'hermes-skill-pick', name: 'web-research', identifier: 'web-research' },
-          origin: 'https://hermes-agent.nousresearch.com'
+          data: { type: 'lemon-skill-pick', name: 'web-research', identifier: 'web-research' },
+          origin: 'https://github.com/DangLemon/lemon-agent'
         })
       )
     })
@@ -549,7 +549,7 @@ describe('SkillsView toolset management', { timeout: 60_000 }, () => {
       sources: []
     })
 
-    ;(window as { hermesDesktop?: unknown }).hermesDesktop = { connections, getAgentRoster }
+    ;(window as { lemonDesktop?: unknown }).lemonDesktop = { connections, getAgentRoster }
 
     try {
       await renderSkills()
@@ -558,7 +558,7 @@ describe('SkillsView toolset management', { timeout: 60_000 }, () => {
       // The selector paints roster rows labeled profile — device.
       expect(await screen.findByText('default — This device (current)')).toBeTruthy()
     } finally {
-      delete (window as { hermesDesktop?: unknown }).hermesDesktop
+      delete (window as { lemonDesktop?: unknown }).lemonDesktop
     }
   })
 
@@ -1039,7 +1039,7 @@ describe('SkillsView toolset management', { timeout: 60_000 }, () => {
       fireEvent.click(triggerAgain)
     })
     await act(async () => {
-      fireEvent.click(await screen.findByRole('option', { name: 'Hermes (default)' }))
+      fireEvent.click(await screen.findByRole('option', { name: 'Lemon AI (default)' }))
     })
 
     await act(async () => {

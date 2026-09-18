@@ -1,14 +1,16 @@
 'use client'
 
-import { type FC, useEffect, useState } from 'react'
+import { type FC, useEffect, useRef, useState } from 'react'
 
 import { DiffusionCanvas } from '@/components/chat/image-generation-placeholder'
 import { ImageActionButton, ImageLightbox } from '@/components/chat/zoomable-image'
 import { useImageDownload } from '@/hooks/use-image-download'
 import { useI18n } from '@/i18n'
 import { generatedImageFromResult } from '@/lib/generated-images'
-import { filePathFromMediaPath, gatewayMediaDataUrl, isRemoteGateway, mediaExternalUrl, mediaName } from '@/lib/media'
+import { normalizeOrLocalPreviewTarget } from '@/lib/local-preview'
+import { isFileMediaPath, isInlineMediaSrc, mediaExternalUrl, mediaName, resolveMediaDisplaySrc } from '@/lib/media'
 import { cn } from '@/lib/utils'
+import { openPreview } from '@/store/preview'
 
 // Aspect hint from the tool args sizes the frame *before* the image loads, so
 // the placeholder and the resolved image occupy the same box — no layout shift.
@@ -28,24 +30,16 @@ function hintedRatio(aspectRatio?: string): number {
   )
 }
 
-function isInlineSrc(path: string): boolean {
-  return /^(?:https?|data):/i.test(path)
-}
+async function openGeneratedImagePreview(path: string) {
+  const target = await normalizeOrLocalPreviewTarget(path)
 
-async function resolveImageSrc(path: string): Promise<string> {
-  if (isInlineSrc(path)) {
-    return path
+  if (target) {
+    openPreview(target, 'tool-result')
+
+    return
   }
 
-  if (window.hermesDesktop && isRemoteGateway()) {
-    return gatewayMediaDataUrl(path)
-  }
-
-  if (!window.hermesDesktop?.readFileDataUrl) {
-    return mediaExternalUrl(path)
-  }
-
-  return window.hermesDesktop.readFileDataUrl(filePathFromMediaPath(path))
+  void window.lemonDesktop?.openExternal(mediaExternalUrl(path))
 }
 
 export const GeneratedImage: FC<{ aspectRatio?: string; result?: unknown }> = ({ aspectRatio, result }) => {
@@ -53,9 +47,18 @@ export const GeneratedImage: FC<{ aspectRatio?: string; result?: unknown }> = ({
   const copy = t.desktop
   const image = result === undefined ? null : generatedImageFromResult(result)
   const pending = result === undefined
+  const liveGeneration = useRef(pending)
+  let shouldOpenLivePreview = false
+
+  if (pending) {
+    liveGeneration.current = true
+  } else if (liveGeneration.current) {
+    liveGeneration.current = false
+    shouldOpenLivePreview = true
+  }
 
   const [ratio, setRatio] = useState(() => hintedRatio(aspectRatio))
-  const [src, setSrc] = useState(() => (image && isInlineSrc(image) ? image : ''))
+  const [src, setSrc] = useState(() => (image && isInlineMediaSrc(image) ? image : ''))
   const [loaded, setLoaded] = useState(false)
   const [canvasGone, setCanvasGone] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -64,7 +67,23 @@ export const GeneratedImage: FC<{ aspectRatio?: string; result?: unknown }> = ({
 
   useEffect(() => setRatio(hintedRatio(aspectRatio)), [aspectRatio])
 
-  // Resolve the deliverable path (local read / gateway proxy / remote URL). The
+  // Open the right-rail preview only when a live pending generation settles
+  // onto a local file. History hydrate must not steal the rail.
+  useEffect(() => {
+    if (!shouldOpenLivePreview) {
+      return
+    }
+
+    const srcPath = generatedImageFromResult(result)
+
+    if (!srcPath || !isFileMediaPath(srcPath)) {
+      return
+    }
+
+    void openGeneratedImagePreview(srcPath)
+  }, [result, shouldOpenLivePreview])
+
+  // Resolve the deliverable path (local/gateway stream / remote URL). The
   // <img> stays mounted under the placeholder and only fades in once it decodes,
   // so the frame keeps its hinted size and never jumps.
   useEffect(() => {
@@ -72,13 +91,13 @@ export const GeneratedImage: FC<{ aspectRatio?: string; result?: unknown }> = ({
     setFailed(false)
     setLoaded(false)
     setCanvasGone(false)
-    setSrc(image && isInlineSrc(image) ? image : '')
+    setSrc(image && isInlineMediaSrc(image) ? image : '')
 
-    if (!image || isInlineSrc(image)) {
+    if (!image || isInlineMediaSrc(image)) {
       return
     }
 
-    void resolveImageSrc(image)
+    void resolveMediaDisplaySrc(image)
       .then(resolved => !cancelled && setSrc(resolved))
       .catch(() => !cancelled && setFailed(true))
 
@@ -100,7 +119,7 @@ export const GeneratedImage: FC<{ aspectRatio?: string; result?: unknown }> = ({
         href="#"
         onClick={event => {
           event.preventDefault()
-          void window.hermesDesktop?.openExternal(mediaExternalUrl(image))
+          void openGeneratedImagePreview(image)
         }}
       >
         {copy.openImage}: {mediaName(image)}

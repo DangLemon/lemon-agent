@@ -1,1 +1,1 @@
-# Hermes plugins package
+# Lemon AI plugins package

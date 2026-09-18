@@ -1,15 +1,15 @@
 # Lemon AI Desktop ☤
 
 <p align="center">
-  <a href="https://github.com/DangLemon/hermes-agent/actions/workflows/lemon-desktop-installers.yml"><img src="https://img.shields.io/badge/Lemon%20Installers-macOS%20%C2%B7%20Windows-FFD700?style=for-the-badge" alt="Lemon AI installers"></a>
-  <a href="https://github.com/DangLemon/hermes-agent/releases"><img src="https://img.shields.io/badge/Internal%20Releases-Lemon%20AI-FFD700?style=for-the-badge" alt="Internal Lemon AI releases"></a>
-  <a href="https://github.com/NousResearch/hermes-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
+  <a href="https://github.com/DangLemon/lemon-agent/actions/workflows/lemon-desktop-installers.yml"><img src="https://img.shields.io/badge/Lemon%20Installers-macOS%20%C2%B7%20Windows-FFD700?style=for-the-badge" alt="Lemon AI installers"></a>
+  <a href="https://github.com/DangLemon/lemon-agent/releases"><img src="https://img.shields.io/badge/Internal%20Releases-Lemon%20AI-FFD700?style=for-the-badge" alt="Internal Lemon AI releases"></a>
+  <a href="https://github.com/DangLemon/lemon-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
 </p>
 
-**The native desktop app for Lemon AI**, the company build of [Hermes Agent](../../README.md). It keeps the same agent core, skills, memory, and gateway compatibility in a native window — with streaming tool output, previews, a file browser, voice, and settings, no terminal required. Available for **macOS, Windows, and Linux**.
+**The native desktop app for Lemon AI**, the company build of [Lemon AI](../../README.md). It keeps the same agent core, skills, memory, and gateway compatibility in a native window — with streaming tool output, previews, a file browser, voice, and settings, no terminal required. Available for **macOS, Windows, and Linux**.
 
 <table>
-<tr><td><b>Chat with the full agent</b></td><td>Streaming responses, live tool activity, structured tool summaries, and the same conversation history as compatible Hermes surfaces.</td></tr>
+<tr><td><b>Chat with the full agent</b></td><td>Streaming responses, live tool activity, structured tool summaries, and the same conversation history as compatible Lemon AI surfaces.</td></tr>
 <tr><td><b>Side-by-side previews</b></td><td>Render web pages, files, and tool outputs in a right-hand pane while you keep chatting.</td></tr>
 <tr><td><b>File browser</b></td><td>Explore and preview the working directory without leaving the app.</td></tr>
 <tr><td><b>Voice</b></td><td>Talk to Lemon AI and hear it back.</td></tr>
@@ -26,7 +26,7 @@
 Already have the compatible CLI installed? Run:
 
 ```bash
-hermes desktop
+lemon desktop
 ```
 
 It builds and launches the GUI against your existing install — same config, keys, sessions, and skills. If Lemon AI cannot find a usable runtime or saved remote connection, first launch lets you connect to an existing gateway or install the local runtime. Local onboarding then walks you through choosing a provider and model.
@@ -42,7 +42,7 @@ The Lemon AI installer workflow is [`.github/workflows/lemon-desktop-installers.
 The app checks for updates in the background and offers a one-click update when one is ready. You can also update any time from the CLI:
 
 ```bash
-hermes update
+lemon update
 ```
 
 ---
@@ -68,8 +68,8 @@ Point the app at a specific source checkout, or sandbox it away from your real c
 ```bash
 # throwaway Lemon runtime home, separate Electron userData, distinct app name to avoid the single-instance lock
 ../scripts/dev-sandbox.sh npm run dev
-HERMES_DESKTOP_HERMES_ROOT=/path/to/clone npm run dev
-HERMES_HOME=/tmp/throwaway npm run dev
+LEMON_DESKTOP_LEMON_ROOT=/path/to/clone npm run dev
+LEMON_HOME=/tmp/throwaway npm run dev
 npm run dev:fake-boot   # exercise the startup overlay with deterministic delays
 ```
 
@@ -86,20 +86,20 @@ Local installer builds write artifacts under `apps/desktop/release/`. GitHub bui
 
 ### Internal Desktop Harness
 
-Internal builds use [`lemon-ai-desktop.config.json`](./lemon-ai-desktop.config.json) by default for every desktop `dev`, `pack`, `dist`, and packaged smoke-test command. The validated resource is bundled as `lemon-ai-harness.json`; `LEMON_AI_DESKTOP_HARNESS_CONFIG` can still point to another approved resource for CI or a controlled build.
+Internal builds use [`lemon-ai-desktop.config.json`](./lemon-ai-desktop.config.json) by default for every desktop `dev`, `pack`, `dist`, and packaged smoke-test command. The validated resource is bundled as `lemon-ai-harness.json`; `LEMON_DESKTOP_HARNESS_CONFIG` can still point to another approved resource for CI or a controlled build.
 
-That manifest pins the first-launch source repository to `DangLemon/hermes-agent`. The Desktop bootstrap runner downloads `scripts/install.sh` or `scripts/install.ps1` from that repository at the build stamp ref, then passes the same repository identity to every installer stage. Ordinary builds and direct installer runs still default to `NousResearch/hermes-agent`.
+That manifest pins the first-launch source repository to `DangLemon/lemon-agent`. The Desktop bootstrap runner downloads `scripts/install.sh` or `scripts/install.ps1` from that repository at the build stamp ref, then passes the same repository identity to every installer stage. Ordinary builds and direct installer runs still default to `DangLemon/lemon-agent`.
 
 Keep secrets outside the manifest. The provider key is represented only as `model.api_key: ${LEMON_AI_COMPANY_API_KEY}`, and Amazon Ads OAuth client credentials are represented only as `${AMAZON_ADS_CLIENT_ID}` and `${AMAZON_ADS_CLIENT_SECRET}`. The MCP OAuth runtime uses `oauth.redirect_port`, so the Amazon callback port is stored as `oauth.redirect_port: 8000` with `oauth.redirect_uri: http://localhost:8000/auth/callback`.
 
-Internal package identity is applied at build and early Electron startup. The packaged app is named `Lemon AI`, uses app id `com.lemondigital.lemonai`, writes Electron `userData` under the Lemon AI app name, and produces installer files named `Lemon-AI-${version}-${os}-${arch}.${ext}`. The upstream `Hermes` product name in `package.json` remains the ordinary build default and is rewritten only when the internal harness is active.
+Internal package identity is applied at build and early Electron startup. The packaged app is named `Lemon AI`, uses app id `com.lemondigital.lemonai`, writes Electron `userData` under the Lemon AI app name, and produces installer files named `Lemon-AI-${version}-${os}-${arch}.${ext}`. The upstream `Lemon AI` product name in `package.json` remains the ordinary build default and is rewritten only when the internal harness is active.
 
 ### How it works
 
 The packaged app ships the Electron shell and a native React chat surface. On
 first launch it installs the Lemon AI runtime into the Lemon home
 (`~/.lemon-ai`, or `%LOCALAPPDATA%\Lemon AI` on Windows). The backend still
-receives the compatibility variable `HERMES_HOME`, whose value is this Lemon
+receives the compatibility variable `LEMON_HOME`, whose value is this Lemon
 path, so existing CLI modules and commands continue to work.
 
 The app has three boundaries:
@@ -108,17 +108,17 @@ The app has three boundaries:
   filesystem/git/window capabilities, and exposes a narrow preload bridge.
 - **React** owns the Desktop routes, panes, interaction state, and
   `@assistant-ui/react` transcript.
-- **Hermes Agent** runs as a headless `hermes serve` process and exposes the
+- **Lemon AI** runs as a headless `lemon serve` process and exposes the
   `tui_gateway` JSON-RPC/WebSocket API. The renderer connects through
   [`apps/shared`](../shared/), which is also used by the browser dashboard.
 
 Backend resolution is an ordered ladder:
 
-1. `HERMES_DESKTOP_HERMES_ROOT`
+1. `LEMON_DESKTOP_LEMON_ROOT`
 2. the current source checkout during development
 3. a completed managed install
-4. `HERMES_DESKTOP_HERMES`, or the compatible CLI on `PATH`
-5. a system Python that can import the Hermes runtime
+4. `LEMON_DESKTOP_LEMON`, or the compatible CLI on `PATH`
+5. a system Python that can import the Lemon AI runtime
 6. the first-launch bootstrap installer
 
 Candidates are probed before use; an existing shim or interpreter is not enough.
@@ -140,7 +140,7 @@ Before changing the app, read:
 
 ### Connections, projects, and switching
 
-Desktop supports a managed local backend, explicit remote gateways, and Hermes
+Desktop supports a managed local backend, explicit remote gateways, and Lemon AI
 Cloud connections. Remote and cloud modes use the same remote-capability path;
 authentication and discovery differ, not the renderer feature model.
 
@@ -154,7 +154,7 @@ still includes the local-install option; this is a remote operating mode, not a
 separate client-only application.
 
 In remote mode the gateway host is the execution boundary: agent tools,
-terminal commands, and file operations run against the remote Hermes host, not
+terminal commands, and file operations run against the remote Lemon AI host, not
 the computer displaying the Desktop UI.
 
 Remote gateways that sit behind an access proxy may require extra headers on
@@ -166,7 +166,7 @@ Electron `userData/connection.json` remote block:
 {
   "mode": "remote",
   "remote": {
-    "url": "https://hermes.example.com",
+    "url": "https://lemon.example.com",
     "authMode": "token",
     "token": { "encoding": "safeStorage", "value": "..." },
     "headers": {
@@ -180,8 +180,8 @@ Electron `userData/connection.json` remote block:
 Per-profile remote entries under `profiles[name].headers` use the same shape.
 Desktop applies these headers only to matching remote gateway requests, treats
 `https` and `wss` as the same gateway origin for WebSocket upgrades, and drops
-transport- or Hermes-managed header names such as `Authorization`, `Cookie`,
-`Host`, `Origin`, `Referer`, and `X-Hermes-Session-Token`.
+transport- or Lemon AI-managed header names such as `Authorization`, `Cookie`,
+`Host`, `Origin`, `Referer`, and `X-Lemon-Session-Token`.
 
 Projects are the workspace abstraction. A project may own multiple folders,
 repositories, worktrees, and sessions; a bare new chat remains detached unless
@@ -213,7 +213,7 @@ release-path changes.
 
 ### Troubleshooting
 
-Boot logs land in `HERMES_HOME/logs/lemon-ai-desktop.log` for the internal build (includes backend output and recent Python tracebacks) — check it first if the app reports a boot failure.
+Boot logs land in `LEMON_HOME/logs/lemon-ai-desktop.log` for the internal build (includes backend output and recent Python tracebacks) — check it first if the app reports a boot failure.
 
 **macOS / Linux:**
 
@@ -235,14 +235,14 @@ Remove-Item "$env:LOCALAPPDATA\Lemon AI\lemon-agent\.lemon-ai-bootstrap-complete
 Remove-Item -Recurse -Force "$env:LOCALAPPDATA\Lemon AI\lemon-agent\venv"
 ```
 
-> The Lemon AI home on Windows is `%LOCALAPPDATA%\Lemon AI`. The backend compatibility variable is still named `HERMES_HOME`; set it only when you intentionally relocate the runtime.
+> The Lemon AI home on Windows is `%LOCALAPPDATA%\Lemon AI`. The backend compatibility variable is still named `LEMON_HOME`; set it only when you intentionally relocate the runtime.
 
 ---
 
 ## Upstream
 
-- [Hermes Agent documentation](https://hermes-agent.nousresearch.com/docs/)
-- [Hermes Agent upstream repository](https://github.com/NousResearch/hermes-agent)
+- [Lemon AI documentation](https://danglemon.github.io/lemon-agent/docs/)
+- [Lemon AI upstream repository](https://github.com/DangLemon/lemon-agent)
 
 ---
 
@@ -250,4 +250,4 @@ Remove-Item -Recurse -Force "$env:LOCALAPPDATA\Lemon AI\lemon-agent\venv"
 
 MIT — see [LICENSE](../../LICENSE).
 
-Built for Lemon Digital on top of [Hermes Agent](https://github.com/NousResearch/hermes-agent).
+Built for Lemon Digital on top of [Lemon AI](https://github.com/DangLemon/lemon-agent).

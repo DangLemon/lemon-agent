@@ -29,7 +29,7 @@ import {
 } from './update-marker'
 
 function tmpHome(tag) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `hermes-marker-${tag}-`))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `lemon-marker-${tag}-`))
 
   return dir
 }
@@ -119,13 +119,13 @@ test('writeUpdateMarker writes a marker that readLiveUpdateMarker accepts', () =
   assert.ok(fs.existsSync(markerPath(home)), 'marker file should exist after write')
 })
 
-test('Lemon AI marker names are primary while Hermes markers remain readable fallback', () => {
+test('Lemon AI marker names are primary while Lemon AI markers remain readable fallback', () => {
   const home = tmpHome('lemon')
   const now = 1_000_000_000_000
   const markerName = '.lemon-ai-update-in-progress'
-  const legacyMarkerNames = ['.hermes-update-in-progress']
+  const legacyMarkerNames = ['.lemon-ai-update-in-progress']
 
-  writeNamedMarker(home, '.hermes-update-in-progress', 3030, Math.floor(now / 1000) - 7)
+  writeNamedMarker(home, '.lemon-ai-update-in-progress', 3030, Math.floor(now / 1000) - 7)
 
   const legacy = readLiveUpdateMarker(home, { kill: ALIVE, now: () => now, markerName, legacyMarkerNames })
   assert.ok(legacy)
@@ -166,7 +166,7 @@ test('writeUpdateMarker uses the acquisition time passed to a detached script', 
 
 test('writeUpdateMarker is best-effort (no throw on bad path)', () => {
   // A non-existent directory should not throw.
-  const badHome = path.join(os.tmpdir(), 'hermes-marker-nonexistent-' + Date.now())
+  const badHome = path.join(os.tmpdir(), 'lemon-marker-nonexistent-' + Date.now())
   assert.doesNotThrow(() => writeUpdateMarker(badHome, 4242))
 })
 

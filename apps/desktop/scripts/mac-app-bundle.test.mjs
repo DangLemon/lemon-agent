@@ -8,7 +8,7 @@ import { test } from 'vitest'
 import { newestValidMacAppPath } from './mac-app-bundle.mjs'
 
 function withTempDir(fn) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-mac-app-bundle-'))
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-mac-app-bundle-'))
   try {
     return fn(root)
   } finally {
@@ -16,9 +16,9 @@ function withTempDir(fn) {
   }
 }
 
-function makeBundle(root, name, { appMtime, executableMtime = 50, executable = true } = {}) {
-  const appPath = path.join(root, name)
-  const requiredFile = path.join(appPath, 'Contents', 'MacOS', 'Hermes')
+function makeBundle(root, directory, { appMtime, executableMtime = 50, executable = true } = {}) {
+  const appPath = path.join(root, directory, 'Lemon AI.app')
+  const requiredFile = path.join(appPath, 'Contents', 'MacOS', 'Lemon AI')
   fs.mkdirSync(path.dirname(requiredFile), { recursive: true })
   fs.writeFileSync(requiredFile, '')
   fs.chmodSync(requiredFile, executable ? 0o755 : 0o644)
@@ -27,34 +27,20 @@ function makeBundle(root, name, { appMtime, executableMtime = 50, executable = t
   return { appPath, requiredFile }
 }
 
-test('selects the bundle with the newest outer app when inner executable mtimes are equal', () => {
+test('selects the Lemon AI bundle with the newest outer app', () => {
   withTempDir(root => {
-    const lemon = makeBundle(root, 'Lemon AI.app', { appMtime: 100 })
-    const hermes = makeBundle(root, 'Hermes.app', { appMtime: 200 })
-
-    assert.equal(newestValidMacAppPath([lemon, hermes], lemon.appPath), hermes.appPath)
-
-    fs.utimesSync(lemon.appPath, 300, 300)
-    assert.equal(newestValidMacAppPath([lemon, hermes], lemon.appPath), lemon.appPath)
-  })
-})
-
-test('prefers Lemon AI deterministically when outer bundle mtimes tie', () => {
-  withTempDir(root => {
-    const lemon = makeBundle(root, 'Lemon AI.app', { appMtime: 200 })
-    const hermes = makeBundle(root, 'Hermes.app', { appMtime: 200 })
-
-    assert.equal(newestValidMacAppPath([hermes, lemon], lemon.appPath), lemon.appPath)
+    const older = makeBundle(root, 'mac', { appMtime: 100 })
+    const newer = makeBundle(root, 'mac-arm64', { appMtime: 200 })
+    assert.equal(newestValidMacAppPath([older, newer], newer.appPath), newer.appPath)
   })
 })
 
 const posixTest = process.platform === 'win32' ? test.skip : test
 
-posixTest('requires the inner Hermes binary to be executable', () => {
+posixTest('requires the inner Lemon AI binary to be executable', () => {
   withTempDir(root => {
-    const lemon = makeBundle(root, 'Lemon AI.app', { appMtime: 300, executable: false })
-    const hermes = makeBundle(root, 'Hermes.app', { appMtime: 200 })
-
-    assert.equal(newestValidMacAppPath([lemon, hermes], lemon.appPath), hermes.appPath)
+    const invalid = makeBundle(root, 'mac', { appMtime: 300, executable: false })
+    const valid = makeBundle(root, 'mac-arm64', { appMtime: 200 })
+    assert.equal(newestValidMacAppPath([invalid, valid], valid.appPath), valid.appPath)
   })
 })

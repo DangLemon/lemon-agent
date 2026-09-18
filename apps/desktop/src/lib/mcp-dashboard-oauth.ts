@@ -1,4 +1,4 @@
-import { replaceHermesBrandTerms } from '@/lib/app-brand'
+import { replaceLemonBrandTerms } from '@/lib/app-brand'
 
 export interface McpOAuthFlow {
   flow_id: string
@@ -54,12 +54,12 @@ async function waitForDesktopCallback(
   cancelled: (() => boolean) | undefined,
   sleep: (milliseconds: number) => Promise<void>
 ): Promise<DesktopLoopbackCallback> {
-  const bridge = window.hermesDesktop?.mcpOauth
+  const bridge = window.lemonDesktop?.mcpOauth
 
   if (!bridge) {
     throw new Error(
-      replaceHermesBrandTerms(
-        'Desktop loopback OAuth requires the Hermes Desktop app. Open this flow in Desktop and retry.'
+      replaceLemonBrandTerms(
+        'Desktop loopback OAuth requires the Lemon AI app. Open this flow in Desktop and retry.'
       )
     )
   }
@@ -119,12 +119,12 @@ export async function completeMcpDesktopOAuth({
         throw new Error('OAuth server requested Desktop loopback but no callback relay is available')
       }
 
-      const bridge = window.hermesDesktop?.mcpOauth
+      const bridge = window.lemonDesktop?.mcpOauth
 
       if (!bridge) {
         throw new Error(
-          replaceHermesBrandTerms(
-            'Desktop loopback OAuth requires the Hermes Desktop app. Open this flow in Desktop and retry.'
+          replaceLemonBrandTerms(
+            'Desktop loopback OAuth requires the Lemon AI app. Open this flow in Desktop and retry.'
           )
         )
       }
@@ -197,7 +197,7 @@ export async function completeMcpDesktopOAuth({
     throw error
   } finally {
     if (listenerId) {
-      await window.hermesDesktop?.mcpOauth?.cancel(listenerId).catch(() => {})
+      await window.lemonDesktop?.mcpOauth?.cancel(listenerId).catch(() => {})
     }
   }
 }

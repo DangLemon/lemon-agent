@@ -16,7 +16,7 @@ import {
 const validHarnessResource = {
   schemaVersion: 1,
   profile: 'internal',
-  sourceRepository: 'DangLemon/hermes-agent',
+  sourceRepository: 'DangLemon/lemon-agent',
   ui: {
     agents: false,
     cron: true,
@@ -27,7 +27,7 @@ const validHarnessResource = {
 }
 
 function withTempHarness(resource, fn) {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-builder-identity-'))
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-builder-identity-'))
   try {
     const configPath = path.join(tempRoot, 'internal.json')
     fs.writeFileSync(configPath, JSON.stringify(resource), 'utf8')
@@ -52,7 +52,7 @@ function assertPhysicalIdentity(
   assert.deepEqual(config.protocols, [
     {
       name: expectedProtocolName,
-      schemes: ['hermes']
+      schemes: ['lemon']
     }
   ])
 }
@@ -102,7 +102,7 @@ test('package build script generates harness resource before Vite reads harness 
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
   assert.match(
     pkg.scripts.build,
-    /write-build-stamp\.mjs && cross-env LEMON_AI_DESKTOP_HARNESS_CONFIG=\.\/lemon-ai-desktop\.config\.json node scripts\/internal-desktop-harness\.mjs && cross-env LEMON_AI_DESKTOP_HARNESS_CONFIG=\.\/lemon-ai-desktop\.config\.json vite build/
+    /write-build-stamp\.mjs && cross-env LEMON_DESKTOP_HARNESS_CONFIG=\.\/lemon-ai-desktop\.config\.json node scripts\/internal-desktop-harness\.mjs && cross-env LEMON_DESKTOP_HARNESS_CONFIG=\.\/lemon-ai-desktop\.config\.json vite build/
   )
 })
 
@@ -145,30 +145,30 @@ test('ordinary package config uses Lemon installer metadata and assets in this f
   await validateConfiguration(structuredClone(config))
 })
 
-test('Hermes installer brand keeps the package config on the Hermes identity', async () => {
+test('Lemon AI installer brand keeps the package config on the Lemon Digital identity', async () => {
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
   const config = createElectronBuilderConfig(pkg.build, {
     env: {
-      HERMES_INSTALLER_BRAND: 'hermes',
-      LEMON_AI_DESKTOP_HARNESS_CONFIG: path.resolve('lemon-ai-desktop.config.json'),
+      LEMON_INSTALLER_BRAND: 'lemon',
+      LEMON_DESKTOP_HARNESS_CONFIG: path.resolve('lemon-ai-desktop.config.json'),
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     }
   })
 
   assertPhysicalIdentity(config, {
-    expectedProductName: 'Hermes',
-    expectedAppId: 'com.nousresearch.hermes',
-    expectedExecutableName: 'Hermes',
-    expectedProtocolName: 'Hermes Protocol'
+    expectedProductName: 'Lemon AI',
+    expectedAppId: 'com.lemondigital.lemonai',
+    expectedExecutableName: 'Lemon AI',
+    expectedProtocolName: 'Lemon AI Protocol'
   })
-  assert.equal(config.artifactName, 'Hermes-${version}-${os}-${arch}.${ext}')
-  assert.equal(config.dmg.title, 'Install Hermes')
+  assert.equal(config.artifactName, 'Lemon-AI-${version}-${os}-${arch}.${ext}')
+  assert.equal(config.dmg.title, 'Install Lemon AI')
   assert.deepEqual(config.extraResources[1], {
-    from: 'assets/icon.ico',
+    from: 'assets/lemon-icon.ico',
     to: 'icon.ico'
   })
-  assert.equal(config.copyright, 'Copyright © 2026 Nous Research')
-  assert.equal(config.mac.extendInfo.NSHumanReadableCopyright, 'Copyright © 2026 Nous Research')
+  assert.equal(config.copyright, 'Copyright © 2026 Lemon Digital')
+  assert.equal(config.mac.extendInfo.NSHumanReadableCopyright, 'Copyright © 2026 Lemon Digital')
   await validateConfiguration(structuredClone(config))
 })
 
@@ -177,7 +177,7 @@ test('validated internal package config applies Lemon physical identity while pr
     const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
     const config = createElectronBuilderConfig(pkg.build, {
       env: {
-        HERMES_DESKTOP_HARNESS_CONFIG: configPath,
+        LEMON_DESKTOP_HARNESS_CONFIG: configPath,
         CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       }
     })
@@ -223,13 +223,13 @@ test('validated internal package config applies Lemon physical identity while pr
         name: 'Lemon Digital'
       },
       description: 'Native desktop shell for Lemon AI.',
-      homepage: 'https://github.com/DangLemon/hermes-agent',
+      homepage: 'https://github.com/DangLemon/lemon-agent',
       bugs: {
-        url: 'https://github.com/DangLemon/hermes-agent/issues'
+        url: 'https://github.com/DangLemon/lemon-agent/issues'
       },
       repository: {
         type: 'git',
-        url: 'git+https://github.com/DangLemon/hermes-agent.git'
+        url: 'git+https://github.com/DangLemon/lemon-agent.git'
       }
     })
     assert.deepEqual(config.extraResources[1], {
@@ -242,8 +242,7 @@ test('validated internal package config applies Lemon physical identity while pr
       filter: ['lemon-ai-harness.json', 'lemon-ai-harness-seed.py']
     })
     const serializedConfig = JSON.stringify(config)
-    assert.equal(serializedConfig.includes('NousResearch/hermes-agent'), false)
-    assert.equal(serializedConfig.includes('hermes-updater'), false)
+    assert.equal(serializedConfig.includes('lemon-updater'), false)
     assert.equal(serializedConfig.includes('"publish"'), false)
     await validateConfiguration(structuredClone(config))
   })
@@ -254,7 +253,7 @@ test('internal package config preserves explicit macOS signing identity', async 
     const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
     const config = createElectronBuilderConfig(pkg.build, {
       env: {
-        HERMES_DESKTOP_HARNESS_CONFIG: configPath,
+        LEMON_DESKTOP_HARNESS_CONFIG: configPath,
         CSC_IDENTITY_AUTO_DISCOVERY: 'false',
         CSC_NAME: 'Developer ID Application: Lemon Digital'
       }
@@ -272,7 +271,7 @@ test('internal package config preserves explicit macOS signing identity', async 
       },
       {
         env: {
-          HERMES_DESKTOP_HARNESS_CONFIG: configPath,
+          LEMON_DESKTOP_HARNESS_CONFIG: configPath,
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         }
       }
@@ -289,7 +288,7 @@ test('internal package config preserves explicit macOS signing identity', async 
       },
       {
         env: {
-          HERMES_DESKTOP_HARNESS_CONFIG: configPath,
+          LEMON_DESKTOP_HARNESS_CONFIG: configPath,
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         }
       }
@@ -304,7 +303,7 @@ test('internal package config maps Apple signing env without overriding CSC_NAME
     const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
     const config = createElectronBuilderConfig(pkg.build, {
       env: {
-        HERMES_DESKTOP_HARNESS_CONFIG: configPath,
+        LEMON_DESKTOP_HARNESS_CONFIG: configPath,
         CSC_IDENTITY_AUTO_DISCOVERY: 'false',
         APPLE_SIGNING_IDENTITY: ' Developer ID Application: Lemon Digital '
       }
@@ -313,7 +312,7 @@ test('internal package config maps Apple signing env without overriding CSC_NAME
 
     const cscNameConfig = createElectronBuilderConfig(pkg.build, {
       env: {
-        HERMES_DESKTOP_HARNESS_CONFIG: configPath,
+        LEMON_DESKTOP_HARNESS_CONFIG: configPath,
         CSC_IDENTITY_AUTO_DISCOVERY: 'false',
         APPLE_SIGNING_IDENTITY: 'Developer ID Application: Lemon Digital',
         CSC_NAME: 'Developer ID Application: Certificate From Electron Builder'
@@ -329,7 +328,7 @@ test('invalid internal selector fails before package config can partially brand'
     assert.throws(
       () =>
         createElectronBuilderConfig(pkg.build, {
-          env: { HERMES_DESKTOP_HARNESS_CONFIG: configPath }
+          env: { LEMON_DESKTOP_HARNESS_CONFIG: configPath }
         }),
       /schemaVersion/
     )
@@ -340,7 +339,7 @@ test('builder writes a fresh ordinary config after an internal config', () => {
   withTempHarness(validHarnessResource, configPath => {
     const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
     const internalPath = writeElectronBuilderConfig(pkg.build, {
-      env: { HERMES_DESKTOP_HARNESS_CONFIG: configPath },
+      env: { LEMON_DESKTOP_HARNESS_CONFIG: configPath },
       configPath: path.join(path.dirname(configPath), 'electron-builder.json')
     })
     assert.equal(

@@ -68,15 +68,15 @@ export type Route = 'welcome' | 'progress' | 'success' | 'failure'
 
 /// How the installer was launched, mirrored from src-tauri AppMode.
 /// 'install' = first-run onboarding (bare launch). 'update' = driven by the
-/// desktop app handing off via `Hermes-Setup.exe --update`.
+/// desktop app handing off via `Lemon AI-Setup.exe --update`.
 export type AppMode = 'install' | 'update'
 
 export const $route = atom<Route>('welcome')
 export const $mode = atom<AppMode>('install')
 export const $bootstrap = atom<BootstrapStateModel>(INITIAL)
 export const $logPath = atom<string | null>(null)
-export const $hermesHome = atom<string | null>(null)
-export const $productName = atom<string>('Hermes')
+export const $lemonHome = atom<string | null>(null)
+export const $productName = atom<string>('Lemon AI')
 
 export const $progress = computed($bootstrap, b => {
   const total = b.stageOrder.length
@@ -172,22 +172,22 @@ type BootstrapEvent =
 
 let unlisten: UnlistenFn | null = null
 
-function fakePreviewIdentity(): { hermesHome: string; logPath: string; productName: string } {
+function fakePreviewIdentity(): { lemonHome: string; logPath: string; productName: string } {
   const params = typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(window.location.search)
   const lemon = params.get('brand') === 'lemon' || params.get('internal') === '1'
 
   if (lemon) {
     return {
-      hermesHome: '~/.lemon-ai',
+      lemonHome: '~/.lemon-ai',
       logPath: '~/.lemon-ai/logs/bootstrap-installer.log',
       productName: 'Lemon AI'
     }
   }
 
   return {
-    hermesHome: '~/.hermes',
-    logPath: '~/.hermes/logs/bootstrap-installer.log',
-    productName: 'Hermes'
+    lemonHome: '~/.lemon-ai',
+    logPath: '~/.lemon-ai/logs/bootstrap-installer.log',
+    productName: 'Lemon AI'
   }
 }
 
@@ -205,7 +205,7 @@ export async function initialize(): Promise<void> {
 
     unlisten = () => {}
     $logPath.set(identity.logPath)
-    $hermesHome.set(identity.hermesHome)
+    $lemonHome.set(identity.lemonHome)
     $productName.set(identity.productName)
     $mode.set(fake === 'update' ? 'update' : 'install')
 
@@ -219,16 +219,16 @@ export async function initialize(): Promise<void> {
 
   // Pull static info on mount for the diagnostics footer.
   try {
-    const [logPath, hermesHome, productName, mode] = await Promise.all([
+    const [logPath, lemonHome, productName, mode] = await Promise.all([
       invoke<string>('get_log_path'),
-      invoke<string>('get_hermes_home'),
+      invoke<string>('get_lemon_home'),
       invoke<string>('get_product_name'),
       invoke<AppMode>('get_mode')
     ])
 
     $logPath.set(logPath)
-    $hermesHome.set(hermesHome)
-    $productName.set(productName || 'Hermes')
+    $lemonHome.set(lemonHome)
+    $productName.set(productName || 'Lemon AI')
     $mode.set(mode)
   } catch (err) {
     console.warn('failed to fetch installer paths', err)
@@ -294,7 +294,7 @@ export async function initialize(): Promise<void> {
           currentStage: null
         })
 
-        // Install: show the "launch Hermes" success screen. Update: this is a
+        // Install: show the "launch Lemon AI" success screen. Update: this is a
         // hand-off — the installer relaunches the desktop and exits within a
         // few hundred ms, so routing to success just flashes that screen
         // before the window closes. Stay on progress until we exit.
@@ -347,7 +347,7 @@ export async function startInstall(opts?: { branch?: string }): Promise<void> {
       commit: null,
       branch: opts?.branch ?? null,
       include_desktop: true,
-      hermes_home: null
+      lemon_home: null
     }
   })
 }
@@ -359,7 +359,7 @@ export async function startUpdate(): Promise<void> {
     return
   }
 
-  // Update is driven by the desktop handing off (Hermes-Setup.exe --update);
+  // Update is driven by the desktop handing off (Lemon AI-Setup.exe --update);
   // there's no welcome click. Reset + jump straight to progress, then let the
   // Rust side stream the synthetic update manifest.
   $bootstrap.set(INITIAL)
@@ -377,7 +377,7 @@ export async function cancelInstall(): Promise<void> {
   await invoke('cancel_bootstrap')
 }
 
-export async function launchHermesDesktop(): Promise<void> {
+export async function launchLemonDesktop(): Promise<void> {
   if (fakeMode()) {
     throw new Error('Preview mode — launching is disabled.')
   }
@@ -388,7 +388,7 @@ export async function launchHermesDesktop(): Promise<void> {
     throw new Error('no install root')
   }
 
-  await invoke('launch_hermes_desktop', { installRoot })
+  await invoke('launch_lemon_desktop', { installRoot })
 }
 
 export async function openLogDir(): Promise<void> {

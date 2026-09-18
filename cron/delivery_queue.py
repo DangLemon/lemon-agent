@@ -22,9 +22,9 @@ from typing import Any, Callable, Iterator, Optional
 
 from agent.redact import redact_sensitive_text
 from cron.executions import _owner_is_live, _process_start_time
-from hermes_cli.sqlite_util import add_column_if_missing
-from hermes_constants import get_hermes_home
-from hermes_time import now as _hermes_now
+from lemon_cli.sqlite_util import add_column_if_missing
+from lemon_constants import get_lemon_home
+from lemon_time import now as _lemon_now
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ def _prune_terminal_unlocked(conn: sqlite3.Connection) -> None:
 
 
 def _path() -> Path:
-    return DELIVERY_DB or (get_hermes_home().resolve() / "cron" / "deliveries.db")
+    return DELIVERY_DB or (get_lemon_home().resolve() / "cron" / "deliveries.db")
 
 
 @contextmanager
@@ -89,7 +89,7 @@ def _transaction() -> Iterator[sqlite3.Connection]:
             pass
         conn.row_factory = sqlite3.Row
         try:
-            from hermes_state_wal import apply_wal_with_fallback
+            from lemon_state_wal import apply_wal_with_fallback
 
             conn.execute("PRAGMA busy_timeout=5000")
             apply_wal_with_fallback(conn, db_label="cron/deliveries.db")
@@ -160,7 +160,7 @@ def enqueue(
                 json.dumps(job, ensure_ascii=False, sort_keys=True),
                 str(content),
                 int(bool(for_failure)),
-                _hermes_now().isoformat(),
+                _lemon_now().isoformat(),
             ),
         )
         row = conn.execute(
@@ -233,7 +233,7 @@ def _finish(execution_id: str, *, error: Optional[str]) -> bool:
                  AND owner_process_id=? AND owner_pid=?""",
             (
                 status,
-                _hermes_now().isoformat(),
+                _lemon_now().isoformat(),
                 safe_error,
                 execution_id,
                 _PROCESS_ID,
@@ -270,7 +270,7 @@ def recover_abandoned() -> int:
                 """UPDATE deliveries SET status='unknown', finished_at=?, error=?
                    WHERE execution_id=? AND status='delivering'""",
                 (
-                    _hermes_now().isoformat(),
+                    _lemon_now().isoformat(),
                     error,
                     row["execution_id"],
                 ),
@@ -317,7 +317,7 @@ def _terminalize_wait_timeout(execution_id: str) -> str:
     a message the drain will still send.  Only a row caught mid-send is
     uncertain and gets fenced ``unknown``.
     """
-    now = _hermes_now().isoformat()
+    now = _lemon_now().isoformat()
     uncertain_error = (
         "timed out while gateway delivery was in progress; outcome is unknown and "
         "was not retried"

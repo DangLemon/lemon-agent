@@ -216,7 +216,7 @@ _REQUEST_VALIDATION_PATTERNS = (
     "invalid_request_error", "unknown_parameter", "unsupported_parameter",
 )
 
-# Parameters Hermes sends on SOME routes only → hosts where that is deliberate.
+# Parameters Lemon AI sends on SOME routes only → hosts where that is deliberate.
 # A rejection from any other host means the provider's gateway injected the
 # field itself: a server-side flake, not our request shape. prompt_cache_retention
 # is only sent for api.meta.ai / bedrock-mantle (agent/transports/codex.py).
@@ -464,7 +464,7 @@ def _plugin_verdict(c: _Ctx) -> Optional[Verdict]:
     provider plugin can add or correct verdicts). invoke_hook isolates callback
     failures; this guard only covers import/dispatch failure."""
     try:
-        from hermes_cli.plugins import get_plugin_error_classification
+        from lemon_cli.plugins import get_plugin_error_classification
         verdict = get_plugin_error_classification(
             provider=c.provider, model=c.model, status_code=c.status_code, error_type=c.error_type,
             error_code=c.error_code, error_message=c.msg, error_body=c.body, error=c.error,
@@ -758,7 +758,7 @@ def _model_id_missing_known_prefix(model: str, provider: str) -> bool:
     if not name or "/" in name:
         return False
     try:
-        from hermes_cli.model_normalize import suggest_prefixed_model_id
+        from lemon_cli.model_normalize import suggest_prefixed_model_id
         return bool(suggest_prefixed_model_id((provider or "").strip(), name))
     except Exception:
         return False

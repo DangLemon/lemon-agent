@@ -1,7 +1,7 @@
 import { atom } from 'nanostores'
 
 import { translateNow } from '@/i18n'
-import { appBrand, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { appBrand, replaceLemonBrandTerms } from '@/lib/app-brand'
 
 export type NotificationKind = 'error' | 'warning' | 'info' | 'success'
 
@@ -78,7 +78,7 @@ function cleanErrorText(value: string) {
 }
 
 function brandCopy(value: string): string {
-  return replaceHermesBrandTerms(value, appBrand())
+  return replaceLemonBrandTerms(value, appBrand())
 }
 
 function brandAction(action?: NotificationAction): NotificationAction | undefined {

@@ -14,7 +14,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 INSTALL_SH = REPO_ROOT / "scripts" / "install.sh"
-SETUP_HERMES_SH = REPO_ROOT / "setup-hermes.sh"
+SETUP_LEMON_SH = REPO_ROOT / "setup-lemon.sh"
 
 
 def _write_executable(path: Path, content: str) -> Path:
@@ -85,8 +85,8 @@ def _termux_env(tmp_path: Path, bin_dir: Path, *, brand: str) -> dict[str, str]:
     env.update({
         "ANDROID_API_LEVEL": "35",
         "HOME": str(tmp_path / "home"),
-        "HERMES_HOME": str(tmp_path / "home" / ".hermes"),
-        "HERMES_INSTALLER_BRAND": brand,
+        "LEMON_HOME": str(tmp_path / "home" / ".lemon-ai"),
+        "LEMON_INSTALLER_BRAND": brand,
         "PATH": f"{bin_dir}{os.pathsep}{env.get('PATH', os.defpath)}",
         "PREFIX": str(prefix),
         "TERMUX_VERSION": "0.118.0",
@@ -115,7 +115,7 @@ def _run_install_prerequisites(
 def _copy_setup_checkout(tmp_path: Path) -> Path:
     checkout = tmp_path / "checkout"
     checkout.mkdir()
-    shutil.copy2(SETUP_HERMES_SH, checkout / "setup-hermes.sh")
+    shutil.copy2(SETUP_LEMON_SH, checkout / "setup-lemon.sh")
     return checkout
 
 
@@ -123,11 +123,11 @@ def _run_setup(tmp_path: Path) -> subprocess.CompletedProcess[str]:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir(exist_ok=True)
     _write_termux_command_stubs(bin_dir)
-    env = _termux_env(tmp_path, bin_dir, brand="hermes")
+    env = _termux_env(tmp_path, bin_dir, brand="lemon")
     checkout = _copy_setup_checkout(tmp_path)
     bash = shutil.which("bash") or "/bin/bash"
     return subprocess.run(
-        [bash, str(checkout / "setup-hermes.sh")],
+        [bash, str(checkout / "setup-lemon.sh")],
         env=env,
         input="n\n",
         text=True,
@@ -145,29 +145,23 @@ def test_install_stage_prefers_compatible_minor_over_unsupported_default(
     _write_fake_python(bin_dir, "python3.11", "3.11.15")
     _write_fake_python(bin_dir, "python", "3.14.6")
 
-    result = _run_install_prerequisites(tmp_path, brand="hermes")
+    result = _run_install_prerequisites(tmp_path, brand="lemon")
 
     assert result.returncode == 0, result.stdout
     assert "Python found: Python 3.11.15" in result.stdout
 
 
-@pytest.mark.parametrize(
-    ("brand", "product"),
-    [("lemon", "Lemon AI"), ("hermes", "Hermes")],
-)
-def test_install_stage_rejects_post_install_unsupported_default(
-    tmp_path: Path, brand: str, product: str
-) -> None:
+def test_install_stage_rejects_post_install_unsupported_default(tmp_path: Path) -> None:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     _write_fake_python(bin_dir, "python", "3.14.6")
     _write_unsupported_explicit_pythons(bin_dir)
 
-    result = _run_install_prerequisites(tmp_path, brand=brand)
+    result = _run_install_prerequisites(tmp_path, brand="lemon")
 
     assert result.returncode == 1
     assert "Termux Python Python 3.14.6 is not supported" in result.stdout
-    assert f"{product} requires Python >=3.11,<3.14" in result.stdout
+    assert "Lemon AI requires Python >=3.11,<3.14" in result.stdout
     assert "pkg install tur-repo && pkg install python3.13" in result.stdout
 
 
@@ -196,7 +190,7 @@ def test_install_stage_provisions_supported_python_from_tur(tmp_path: Path) -> N
         "exit 0\n",
     )
 
-    result = _run_install_prerequisites(tmp_path, brand="hermes")
+    result = _run_install_prerequisites(tmp_path, brand="lemon")
 
     assert result.returncode == 0, result.stdout
     assert "Python installed from TUR: Python 3.13.7" in result.stdout
@@ -228,4 +222,4 @@ def test_setup_script_rejects_unsupported_default(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "Termux Python Python 3.14.6 is not supported" in result.stdout
-    assert "Hermes requires Python >=3.11,<3.14" in result.stdout
+    assert "Lemon AI requires Python >=3.11,<3.14" in result.stdout

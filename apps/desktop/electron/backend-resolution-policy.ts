@@ -3,9 +3,9 @@
  * its managed install.
  *
  * The internal Lemon AI harness owns its runtime and configuration. Allowing
- * an unrelated `hermes` command from PATH to win during first launch sends
+ * an unrelated `lemon` command from PATH to win during first launch sends
  * the harness seed helper through a shell shim that has no discoverable Python
- * interpreter, and can also reopen the legacy ~/.hermes installation. An
+ * interpreter, and can also reopen the legacy ~/.lemon-ai installation. An
  * explicitly supplied command remains an intentional escape hatch for
  * development and deployment environments.
  */

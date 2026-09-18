@@ -4,7 +4,7 @@ import { type CSSProperties } from 'react'
 
 import { Button } from '../components/button'
 import {
-  $hermesHome,
+  $lemonHome,
   $logPath,
   $mode,
   $productName,
@@ -27,13 +27,13 @@ interface FailureProps {
  */
 export default function Failure({ bootstrap }: FailureProps) {
   const logPath = useStore($logPath)
-  const hermesHome = useStore($hermesHome)
+  const lemonHome = useStore($lemonHome)
   const mode = useStore($mode)
   const productName = useStore($productName)
   const isUpdate = mode === 'update'
 
   return (
-    <div className="hermes-fade-in flex h-full flex-col items-center justify-center gap-6 px-12 py-10">
+    <div className="lemon-fade-in flex h-full flex-col items-center justify-center gap-6 px-12 py-10">
       <div className="w-full max-w-2xl min-w-0 text-center">
         <p
           className="fit-text mx-auto mb-4 w-full font-['Collapse'] font-bold uppercase leading-[0.9] tracking-[0.08em] text-destructive mix-blend-plus-lighter dark:text-destructive/90"
@@ -70,11 +70,11 @@ export default function Failure({ bootstrap }: FailureProps) {
         </Button>
       </div>
 
-      {(logPath || hermesHome) && (
+      {(logPath || lemonHome) && (
         <div className="space-y-1 text-center text-xs text-muted-foreground/70">
-          {hermesHome && (
+          {lemonHome && (
             <p>
-              Thư mục {productName}: <code className="font-mono">{hermesHome}</code>
+              Thư mục {productName}: <code className="font-mono">{lemonHome}</code>
             </p>
           )}
           {logPath && (

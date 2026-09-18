@@ -1,6 +1,6 @@
 """Canonical reasoning-effort vocabulary and wire clamping.
 
-Hermes' internal effort ladder (``VALID_REASONING_EFFORTS`` plus ``none``) is wider than any
+Lemon AI' internal effort ladder (``VALID_REASONING_EFFORTS`` plus ``none``) is wider than any
 single provider wire accepts; hand-rolled per-transport maps leaked new levels (``ultra``) to
 wires that 400 and inverted the ladder (unknown → weak default). Single source of truth:
 :data:`EFFORT_LADDER` (low→high), :func:`clamp_effort` (verbatim if supported, else the
@@ -20,7 +20,7 @@ from typing import Optional, Sequence
 _KIMI_K3_SLUG_RE = re.compile(r"(?:^|[^a-z0-9])k3(?:[^a-z0-9]|$)")
 
 # Canonical low→high ordering for nearest-level clamping. Includes "none" so an explicit
-# disable can be clamped when a provider publishes it as a level. ``ultra`` is Hermes-internal
+# disable can be clamped when a provider publishes it as a level. ``ultra`` is Lemon AI-internal
 # (the Codex product tier): no wire accepts it, every declared set stops at ``max``.
 EFFORT_LADDER: tuple[str, ...] = ("none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra")
 

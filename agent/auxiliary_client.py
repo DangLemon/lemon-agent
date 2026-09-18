@@ -110,8 +110,8 @@ from agent.model_metadata import (
     MINIMUM_CONTEXT_LENGTH, get_model_context_length,
     strip_codex_context_variant_suffix as _strip_codex_ctx_variant,
 )
-from hermes_cli.config import get_hermes_home
-from hermes_constants import OPENROUTER_BASE_URL
+from lemon_cli.config import get_lemon_home
+from lemon_constants import OPENROUTER_BASE_URL
 from utils import base_url_host_matches, base_url_hostname, env_float, is_truthy_value, model_forces_max_completion_tokens, normalize_proxy_env_vars
 
 logger = logging.getLogger(__name__)
@@ -127,10 +127,10 @@ _LOGGED_UNSUPPORTED_OAUTH_KEYS: set = set()
 
 def _resolve_aux_verify(base_url: Optional[str]) -> Any:
     """httpx ``verify`` for an aux base_url, mirroring the main client (per-provider ``ssl_ca_cert`` /
-    ``ssl_verify``, ``HERMES_CA_BUNDLE`` / ``SSL_CERT_FILE``); any failure → httpx default (``True``)."""
+    ``ssl_verify``, ``LEMON_CA_BUNDLE`` / ``SSL_CERT_FILE``); any failure → httpx default (``True``)."""
     try:
         from agent.ssl_verify import resolve_httpx_verify
-        from hermes_cli.config import get_custom_provider_tls_settings, load_config_readonly
+        from lemon_cli.config import get_custom_provider_tls_settings, load_config_readonly
         tls = get_custom_provider_tls_settings(str(base_url or ""), config=load_config_readonly())
         return resolve_httpx_verify(
             ca_bundle=tls.get("ssl_ca_cert"), ssl_verify=tls.get("ssl_verify"), base_url=str(base_url or ""))
@@ -156,7 +156,7 @@ def _openai_http_client_kwargs(base_url: Optional[str], *, async_mode: bool = Fa
             logger.warning(
                 "agent.process_bootstrap.build_keepalive_http_client is "
                 "unavailable — mixed/stale install detected (#64333). Falling "
-                "back to the SDK default HTTP client. Run `hermes update` (or "
+                "back to the SDK default HTTP client. Run `lemon update` (or "
                 "reinstall the Desktop app) to resync the runtime.")
         client = None
     return {"http_client": client} if client is not None else {}
@@ -170,17 +170,17 @@ def _create_openai_client(*, api_key: str, base_url: str, **kwargs: Any) -> Any:
     # OpenCode Zen free tier: the keyless placeholder must never hit the wire (relay 401s any
     # unrecognized bearer) — blank the Authorization header.
     with contextlib.suppress(Exception):
-        from hermes_cli.models import OPENCODE_ZEN_FREE_KEYLESS_PLACEHOLDER, opencode_zen_free_headers
+        from lemon_cli.models import OPENCODE_ZEN_FREE_KEYLESS_PLACEHOLDER, opencode_zen_free_headers
         if api_key == OPENCODE_ZEN_FREE_KEYLESS_PLACEHOLDER:
             kwargs["default_headers"] = {**(kwargs.get("default_headers") or {}), **opencode_zen_free_headers()}
     _apply_required_codex_headers(kwargs, access_token=api_key, base_url=base_url)
-    # Hermes owns aux retry/fallback policy; the SDK default (max_retries=2) would triple
-    # wall time on a hung endpoint before Hermes sees one failure.
-    # Hermes owns auxiliary retry + provider/model fallback policy (the same-provider transient retry in
+    # Lemon AI owns aux retry/fallback policy; the SDK default (max_retries=2) would triple
+    # wall time on a hung endpoint before Lemon AI sees one failure.
+    # Lemon AI owns auxiliary retry + provider/model fallback policy (the same-provider transient retry in
     # call_llm plus the except-chain fallback). The OpenAI SDK's own default (max_retries=2 → up to 3
     # attempts) silently multiplies the effective wall time of every aux call by 3× on a slow/hung endpoint,
-    # so a 120s timeout can stall ~360s before Hermes sees a single failure (issue #54465). Disable
-    # SDK-internal retries by default and let Hermes control the budget; explicit callers can still override
+    # so a 120s timeout can stall ~360s before Lemon AI sees a single failure (issue #54465). Disable
+    # SDK-internal retries by default and let Lemon AI control the budget; explicit callers can still override
     # via kwargs.
     kwargs.setdefault("max_retries", 0)
     return OpenAI(api_key=api_key, base_url=base_url, **kwargs)
@@ -489,7 +489,7 @@ def _run_protected_sync_provider_call(callback: Callable[[dict[str, Any]], Any],
             done.set()
 
     threading.Thread(
-        target=provider_context.run, args=(_provider_worker,), name="hermes-protected-aux-provider",
+        target=provider_context.run, args=(_provider_worker,), name="lemon-protected-aux-provider",
         daemon=True).start()
     while True:
         # Check cancel before AND after each wait so it wins when result publication and the
@@ -508,7 +508,7 @@ def _run_protected_sync_provider_call(callback: Callable[[dict[str, Any]], Any],
 
 def _client_declares(client_obj: Any, flag: str) -> bool:
     """Whether ``client_obj`` (or its class) sets ``flag`` truthy; absent → False. Capability declaration,
-    not isinstance, so out-of-tree clients can opt out of wrappers unimported (cf. SUPPORTS_HERMES_TOOL_CALLS)."""
+    not isinstance, so out-of-tree clients can opt out of wrappers unimported (cf. SUPPORTS_LEMON_TOOL_CALLS)."""
     try:
         return bool(getattr(client_obj, flag, False))
     except Exception:
@@ -688,8 +688,8 @@ def _fast_model_from_catalog(provider_id: str) -> str:
     """
     is_nous = provider_id.strip().lower() == "nous"
     try:
-        from hermes_cli.auth import resolve_api_key_provider_credentials
-        from hermes_cli.models_pricing import fetch_models_with_pricing
+        from lemon_cli.auth import resolve_api_key_provider_credentials
+        from lemon_cli.models_pricing import fetch_models_with_pricing
         from providers import get_provider_profile
         # Most /v1/models endpoints are authenticated; an anonymous 401 would read as "no small
         # model" and pin the curated default forever.
@@ -704,7 +704,7 @@ def _fast_model_from_catalog(provider_id: str) -> str:
         if not api_key and is_nous:
             # Nous is OAuth (resolver raises); anonymous reads return the full catalog.
             try:
-                from hermes_cli.models_pricing import _resolve_nous_pricing_credentials
+                from lemon_cli.models_pricing import _resolve_nous_pricing_credentials
                 api_key, base_url = _resolve_nous_pricing_credentials()
             except Exception:
                 logger.debug("No Nous credentials for catalog", exc_info=True)
@@ -719,7 +719,7 @@ def _fast_model_from_catalog(provider_id: str) -> str:
         # policy-catalog expiry.
         _nous_kwargs = {}
         if is_nous:
-            from hermes_cli.models_pricing import _NOUS_CATALOG_TTL_SECONDS
+            from lemon_cli.models_pricing import _NOUS_CATALOG_TTL_SECONDS
             _nous_kwargs = {"include_sale_original": True, "cache_ttl_seconds": _NOUS_CATALOG_TTL_SECONDS}
         catalog = fetch_models_with_pricing(
             api_key=api_key or None, base_url=base_url, timeout=3.0, **_nous_kwargs) or {}
@@ -730,7 +730,7 @@ def _fast_model_from_catalog(provider_id: str) -> str:
     if is_nous:
         # Narrow catalog ids by org policy, as the pickers do.
         try:
-            from hermes_cli.models_pricing import nous_policy_allowed_ids, restrict_to_nous_policy
+            from lemon_cli.models_pricing import nous_policy_allowed_ids, restrict_to_nous_policy
             ids = restrict_to_nous_policy(ids, nous_policy_allowed_ids())
         except Exception:
             logger.debug("Nous policy filter unavailable", exc_info=True)
@@ -770,7 +770,7 @@ def _get_aux_model_for_provider(provider_id: str, *, prefer_fast: bool = False) 
     # let the caller keep the main model.
     if picked and provider_id.strip().lower() == "nous":
         try:
-            from hermes_cli.models_pricing import nous_policy_allowed_ids, restrict_to_nous_policy
+            from lemon_cli.models_pricing import nous_policy_allowed_ids, restrict_to_nous_policy
             allowed = nous_policy_allowed_ids()
             if allowed and not restrict_to_nous_policy([picked], allowed):
                 return ""
@@ -828,8 +828,8 @@ _PROVIDERS_WITHOUT_VISION: frozenset = frozenset({"kimi-coding", "kimi-coding-cn
 
 # OpenRouter app attribution (always sent). `X-Title` is what the dashboard reads.
 _OR_HEADERS_BASE = {
-    "HTTP-Referer": "https://hermes-agent.nousresearch.com",
-    "X-Title": "Hermes Agent",
+    "HTTP-Referer": "https://github.com/DangLemon/lemon-agent",
+    "X-Title": "Lemon AI",
     "X-OpenRouter-Categories": "productivity,cli-agent",
 }
 
@@ -839,7 +839,7 @@ def _apply_user_default_headers(headers: dict | None) -> dict | None:
     alias wins over both). Mirrors ``AIAgent._apply_user_default_headers`` so a custom endpoint behind a
     WAF rejecting ``User-Agent`` / ``X-Stainless-*`` works for aux calls. SECURITY: never log values."""
     try:
-        from hermes_cli.config import cfg_get, load_config
+        from lemon_cli.config import cfg_get, load_config
         _cfg = load_config()
         user_headers = cfg_get(_cfg, "model", "default_headers")
         alias_headers = cfg_get(_cfg, "model", "extra_headers")
@@ -857,22 +857,22 @@ def _apply_user_default_headers(headers: dict | None) -> dict | None:
 def build_or_headers(or_config: dict | None = None) -> dict:
     """OpenRouter headers, plus response-cache headers when enabled.
 
-    Precedence env > config > default: ``HERMES_OPENROUTER_CACHE`` overrides
-    ``openrouter.response_cache``; ``HERMES_OPENROUTER_CACHE_TTL`` (1-86400 s) overrides
+    Precedence env > config > default: ``LEMON_OPENROUTER_CACHE`` overrides
+    ``openrouter.response_cache``; ``LEMON_OPENROUTER_CACHE_TTL`` (1-86400 s) overrides
     ``openrouter.response_cache_ttl``. ``or_config=None`` reads from disk.
     """
     headers = dict(_OR_HEADERS_BASE)
     if or_config is None:
         try:
-            from hermes_cli.config import load_config_readonly
+            from lemon_cli.config import load_config_readonly
             or_config = load_config_readonly().get("openrouter", {})
         except Exception:
             or_config = {}
-    env_cache = os.environ.get("HERMES_OPENROUTER_CACHE", "").strip().lower()
+    env_cache = os.environ.get("LEMON_OPENROUTER_CACHE", "").strip().lower()
     if not (env_cache in {"1", "true", "yes", "on"} if env_cache else or_config.get("response_cache", False)):
         return headers
     headers["X-OpenRouter-Cache"] = "true"
-    env_ttl = os.environ.get("HERMES_OPENROUTER_CACHE_TTL", "").strip()
+    env_ttl = os.environ.get("LEMON_OPENROUTER_CACHE_TTL", "").strip()
     if env_ttl:
         if env_ttl.isdigit() and 1 <= int(env_ttl) <= 86400:
             headers["X-OpenRouter-Cache-TTL"] = str(int(env_ttl))
@@ -884,7 +884,7 @@ def build_or_headers(or_config: dict | None = None) -> dict:
 
 
 # NVIDIA NIM cloud billing attribution; host-gated because NVIDIA_BASE_URL may be a local NIM.
-_NVIDIA_NIM_CLOUD_HEADERS = {"X-BILLING-INVOKE-ORIGIN": "HermesAgent"}
+_NVIDIA_NIM_CLOUD_HEADERS = {"X-BILLING-INVOKE-ORIGIN": "LemonAgent"}
 
 
 def build_nvidia_nim_headers(base_url: str | None) -> dict:
@@ -893,16 +893,16 @@ def build_nvidia_nim_headers(base_url: str | None) -> dict:
 
 
 # Vercel AI Gateway attribution (HTTP-Referer → referrerUrl, X-Title → appName).
-from hermes_cli import __version__ as _HERMES_VERSION
+from lemon_cli import __version__ as _LEMON_VERSION
 
 _AI_GATEWAY_HEADERS = {
-    "HTTP-Referer": "https://hermes-agent.nousresearch.com",
-    "X-Title": "Hermes Agent",
-    "User-Agent": f"HermesAgent/{_HERMES_VERSION}",
+    "HTTP-Referer": "https://github.com/DangLemon/lemon-agent",
+    "X-Title": "Lemon AI",
+    "User-Agent": f"LemonAgent/{_LEMON_VERSION}",
 }
 
 # Nous Portal attribution extra_body. Tags come from agent.portal_tags so the client= marker
-# tracks hermes_cli.__version__ — never inline a literal here.
+# tracks lemon_cli.__version__ — never inline a literal here.
 from agent.portal_tags import nous_portal_tags as _nous_portal_tags
 
 
@@ -921,7 +921,7 @@ _OPENROUTER_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
 _NOUS_MODEL = "google/gemini-3.6-flash"
 _NOUS_DEFAULT_BASE_URL = "https://inference-api.nousresearch.com/v1"
 _ANTHROPIC_DEFAULT_BASE_URL = "https://api.anthropic.com"
-_AUTH_JSON_PATH = get_hermes_home() / "auth.json"
+_AUTH_JSON_PATH = get_lemon_home() / "auth.json"
 
 # Hosts exposing BOTH ``…/anthropic`` and a sibling OpenAI ``…/v1``. Matched on the URL *host*
 # only: unconditional rewrites break Anthropic-only gateways.
@@ -1018,7 +1018,7 @@ def _pool_runtime_base_url(entry: Any, fallback: str = "") -> str:
         return str(fallback or "").strip().rstrip("/")
     if getattr(entry, "provider", None) == "nous":
         # Canonical auth-layer reader so the env override shares one normalization path.
-        from hermes_cli.auth import _nous_inference_env_override
+        from lemon_cli.auth import _nous_inference_env_override
         env_url = _nous_inference_env_override()
         if env_url:
             return env_url
@@ -1051,7 +1051,7 @@ def _is_anthropic_compatible_host(url: str) -> bool:
 
 def _nous_min_key_ttl_seconds() -> int:
     try:
-        return max(60, int(os.getenv("HERMES_NOUS_MIN_KEY_TTL_SECONDS", "1800")))
+        return max(60, int(os.getenv("LEMON_NOUS_MIN_KEY_TTL_SECONDS", "1800")))
     except (TypeError, ValueError):
         return 1800
 
@@ -1367,7 +1367,7 @@ class _CodexCompletionsAdapter:
             replay_messages, is_github_responses=is_copilot, native_compaction_eligible=False
         )
         resp_kwargs: Dict[str, Any] = {
-            # Codex only knows the base slug; strip the Hermes ``-900k`` picker suffix.
+            # Codex only knows the base slug; strip the Lemon AI ``-900k`` picker suffix.
             "model": _strip_codex_ctx_variant(model), "instructions": instructions,
             "input": input_items or [{"role": "user", "content": ""}], "store": False,
         }
@@ -1648,7 +1648,7 @@ class _AnthropicCompletionsAdapter:
             }
         # response_format: top-level gets the same translation as the extra_body form; when both
         # are present the extra_body form wins. Passthrough excludes ``reasoning``/``response_format``
-        # (already TRANSLATED to native fields — raw would 400 on strict gateways) and ``_`` Hermes plumbing.
+        # (already TRANSLATED to native fields — raw would 400 on strict gateways) and ``_`` Lemon AI plumbing.
         # The adapter builds the Messages body from a fixed allow-list of kwargs, so before this an
         # unrecognized top-level kwarg was dropped on the floor: the request succeeded but the schema
         # contract silently became prompt compliance (#85626 review, point 2).
@@ -1774,7 +1774,7 @@ class AsyncBedrockAuxiliaryClient(_AsyncAuxiliaryClientBase):
 def _endpoint_speaks_anthropic_messages(base_url: str) -> bool:
     """True if ``base_url`` speaks Anthropic Messages, not OpenAI chat.completions.
 
-    Mirrors ``hermes_cli.runtime_provider._detect_api_mode_for_url`` so aux and main agree: any
+    Mirrors ``lemon_cli.runtime_provider._detect_api_mode_for_url`` so aux and main agree: any
     ``/anthropic`` URL (MiniMax, Zhipu, LiteLLM), ``api.kimi.com/coding`` (chat 404s), ``api.anthropic.com``.
     """
     normalized = (base_url or "").strip().lower().rstrip("/")
@@ -1795,13 +1795,13 @@ def _maybe_wrap_anthropic(
     ``client_obj`` unchanged for probe stubs/specialized adapters, OpenAI-wire, explicit non-Anthropic
     ``api_mode``, or missing ``anthropic`` SDK.
     """
-    # Anthropic/Bedrock/Codex wrappers, plus any client declaring HERMES_SKIP_TRANSPORT_WRAP
+    # Anthropic/Bedrock/Codex wrappers, plus any client declaring LEMON_SKIP_TRANSPORT_WRAP
     # (native/ACP shims, in-tree or plugin), must never be re-dispatched through a wire adapter —
     # a class-attribute declaration rather than isinstance so this hot path never imports them.
     if (
         isinstance(client_obj, _AuxProbeClientStub)
         or _safe_isinstance(client_obj, (AnthropicAuxiliaryClient, BedrockAuxiliaryClient, CodexAuxiliaryClient))
-        or _client_declares(client_obj, "HERMES_SKIP_TRANSPORT_WRAP")
+        or _client_declares(client_obj, "LEMON_SKIP_TRANSPORT_WRAP")
     ):
         return client_obj
     # Explicit non-anthropic api_mode wins over URL heuristics.
@@ -1833,7 +1833,7 @@ def _maybe_wrap_anthropic(
 
 
 def _read_nous_auth() -> Optional[dict]:
-    """Nous provider state dict from the credential pool or ~/.hermes/auth.json; None when not active with tokens."""
+    """Nous provider state dict from the credential pool or ~/.lemon-ai/auth.json; None when not active with tokens."""
     pool_present, entry = _select_pool_entry("nous")
     if pool_present:
         if entry is None:
@@ -1867,7 +1867,7 @@ def _read_nous_auth() -> Optional[dict]:
 
 def _nous_api_key(provider: dict) -> str:
     """Extract a usable Nous inference JWT from stored auth state."""
-    from hermes_cli.auth import _nous_invoke_jwt_is_usable
+    from lemon_cli.auth import _nous_invoke_jwt_is_usable
     for token_key, expiry_key in (("agent_key", "agent_key_expires_at"), ("access_token", "expires_at")):
         token = provider.get(token_key)
         if not isinstance(token, str) or not token.strip():
@@ -1880,7 +1880,7 @@ def _nous_api_key(provider: dict) -> str:
 def _resolve_nous_pool_runtime_api(*, force_refresh: bool = False) -> Optional[tuple[str, str]]:
     """Resolve Nous auxiliary credentials from the selected pool entry."""
     try:
-        from hermes_cli.auth import _agent_key_is_usable
+        from lemon_cli.auth import _agent_key_is_usable
         pool = load_pool("nous")
     except Exception as exc:
         logger.debug("Auxiliary Nous pool credential resolution failed: %s", exc)
@@ -1925,9 +1925,9 @@ def _resolve_nous_runtime_api(
     if pooled is not None:
         return pooled
     try:
-        from hermes_cli.auth import resolve_nous_runtime_credentials
+        from lemon_cli.auth import resolve_nous_runtime_credentials
         creds = resolve_nous_runtime_credentials(
-            timeout_seconds=env_float("HERMES_NOUS_TIMEOUT_SECONDS", 15),
+            timeout_seconds=env_float("LEMON_NOUS_TIMEOUT_SECONDS", 15),
             force_refresh=force_refresh,
             stale_access_token=stale_access_token or None,
         )
@@ -1952,7 +1952,7 @@ def _resolve_xai_oauth_for_aux() -> Optional[Tuple[str, str]]:
     Pool first (some xAI OAuth logins exist only as pool entries), then the singleton auth-store resolver.
     """
     try:
-        from hermes_cli.auth import DEFAULT_XAI_OAUTH_BASE_URL, _xai_validate_inference_base_url
+        from lemon_cli.auth import DEFAULT_XAI_OAUTH_BASE_URL, _xai_validate_inference_base_url
         pool = load_pool("xai-oauth")
         if pool and pool.has_credentials():
             entry = pool.select()
@@ -1962,7 +1962,7 @@ def _resolve_xai_oauth_for_aux() -> Optional[Tuple[str, str]]:
                 ).strip()
                 _url = lambda v: str(v or "").strip().rstrip("/")  # noqa: E731
                 base_url = _xai_validate_inference_base_url(
-                    _url(os.getenv("HERMES_XAI_BASE_URL", ""))
+                    _url(os.getenv("LEMON_XAI_BASE_URL", ""))
                     or _url(os.getenv("XAI_BASE_URL", ""))
                     or _url(getattr(entry, "runtime_base_url", None))
                     or _url(getattr(entry, "base_url", None)),
@@ -1973,7 +1973,7 @@ def _resolve_xai_oauth_for_aux() -> Optional[Tuple[str, str]]:
     except Exception as exc:
         logger.debug("Auxiliary xAI OAuth pool credential resolution failed: %s", exc)
     try:
-        from hermes_cli.auth import resolve_xai_oauth_runtime_credentials
+        from lemon_cli.auth import resolve_xai_oauth_runtime_credentials
         creds = resolve_xai_oauth_runtime_credentials()
     except Exception as exc:
         logger.debug("Auxiliary xAI OAuth runtime credential resolution failed: %s", exc)
@@ -1989,7 +1989,7 @@ def _read_codex_access_token() -> Optional[str]:
         if token:
             return token
     try:
-        from hermes_cli.auth import _read_codex_tokens
+        from lemon_cli.auth import _read_codex_tokens
         access_token = _read_codex_tokens().get("tokens", {}).get("access_token")
         if not isinstance(access_token, str) or not access_token.strip():
             return None
@@ -2013,7 +2013,7 @@ def _read_codex_access_token() -> Optional[str]:
 def _resolve_api_key_provider() -> Tuple[Optional[OpenAI], Optional[str]]:
     """Try each API-key provider in PROVIDER_REGISTRY order; (client, model) or (None, None)."""
     try:
-        from hermes_cli.auth import PROVIDER_REGISTRY, resolve_api_key_provider_credentials
+        from lemon_cli.auth import PROVIDER_REGISTRY, resolve_api_key_provider_credentials
     except ImportError:
         logger.debug("Could not import PROVIDER_REGISTRY for API-key fallback")
         return None, None
@@ -2026,7 +2026,7 @@ def _resolve_api_key_provider() -> Tuple[Optional[OpenAI], Optional[str]]:
         if provider_id == "anthropic":
             # Explicit-config gate: Claude Code credentials must not silently become aux fallback.
             with contextlib.suppress(ImportError):
-                from hermes_cli.auth import is_provider_explicitly_configured
+                from lemon_cli.auth import is_provider_explicitly_configured
                 if not is_provider_explicitly_configured("anthropic"):
                     continue
             return _try_anthropic()
@@ -2057,7 +2057,7 @@ def _resolve_api_key_provider() -> Tuple[Optional[OpenAI], Optional[str]]:
         if base_url_host_matches(base_url, "api.kimi.com"):
             headers = {"User-Agent": "claude-code/0.1.0"}
         elif base_url_host_matches(base_url, "githubcopilot.com"):
-            from hermes_cli.models import copilot_default_headers
+            from lemon_cli.models import copilot_default_headers
             headers = copilot_default_headers()
         elif base_url_host_matches(base_url, "integrate.api.nvidia.com"):
             headers = build_nvidia_nim_headers(base_url)
@@ -2084,13 +2084,13 @@ def _endpoint_default_headers(
     if base_url_host_matches(base_url, "api.kimi.com"):
         headers: dict = {"User-Agent": "claude-code/0.1.0"}
     elif base_url_host_matches(base_url, "githubcopilot.com"):
-        from hermes_cli.copilot_auth import copilot_request_headers
+        from lemon_cli.copilot_auth import copilot_request_headers
         headers = dict(copilot_request_headers(is_agent_turn=True, is_vision=is_vision))
     elif base_url_host_matches(base_url, "integrate.api.nvidia.com"):
         headers = dict(build_nvidia_nim_headers(base_url))
     elif xai and base_url_host_matches(base_url, "x.ai"):
-        from tools.xai_http import hermes_xai_default_headers
-        headers = dict(hermes_xai_default_headers())
+        from tools.xai_http import lemon_xai_default_headers
+        headers = dict(lemon_xai_default_headers())
     else:
         headers = _profile_default_headers(provider) or {}
     return _apply_user_default_headers(headers or None) or None
@@ -2124,7 +2124,7 @@ def _is_free_model(model: Optional[str]) -> bool:
 def _aux_openrouter_settings() -> Tuple[bool, str]:
     """Read (free_only, openrouter_model) from config; (False, _OPENROUTER_MODEL) on failure."""
     try:
-        from hermes_cli.config import cfg_get, load_config_readonly
+        from lemon_cli.config import cfg_get, load_config_readonly
         cfg = load_config_readonly()
         free_only = bool(cfg_get(cfg, "auxiliary", "free_only", default=False))
         val = cfg_get(cfg, "auxiliary", "openrouter_model")
@@ -2212,7 +2212,7 @@ def _try_nous(vision: bool = False) -> Tuple[Optional[OpenAI], Optional[str]]:
     nous = _read_nous_auth()
     runtime = _resolve_nous_runtime_api(force_refresh=False)
     if runtime is None and not nous:
-        logger.warning("Auxiliary Nous client unavailable: no Nous authentication found (run: hermes auth).")
+        logger.warning("Auxiliary Nous client unavailable: no Nous authentication found (run: lemon auth).")
         _mark_provider_unhealthy("nous", ttl=60)
         return None, None
     if runtime is None and nous:
@@ -2226,7 +2226,7 @@ def _try_nous(vision: bool = False) -> Tuple[Optional[OpenAI], Optional[str]]:
     lane = "vision" if vision else "text"
     if not _aux_probe_active():
         try:
-            from hermes_cli.models import get_nous_recommended_aux_model
+            from lemon_cli.models import get_nous_recommended_aux_model
             recommended = get_nous_recommended_aux_model(vision=vision)
             if recommended:
                 model = recommended
@@ -2246,7 +2246,7 @@ def _try_nous(vision: bool = False) -> Tuple[Optional[OpenAI], Optional[str]]:
         if not api_key:
             logger.warning(
                 "Auxiliary Nous client unavailable: no usable inference JWT found "
-                "(run: hermes auth add nous)."
+                "(run: lemon auth add nous)."
             )
             _mark_provider_unhealthy("nous", ttl=60)
             return None, None
@@ -2264,7 +2264,7 @@ def _refresh_nous_recommended_model(*, vision: bool, stale_model: Optional[str])
     stale = (stale_model or "").strip().lower()
     fresh: Optional[str] = None
     try:
-        from hermes_cli.models import get_nous_recommended_aux_model
+        from lemon_cli.models import get_nous_recommended_aux_model
         fresh = get_nous_recommended_aux_model(vision=vision, force_refresh=True)
     except Exception as exc:
         logger.debug("Nous recommended-model refresh failed (%s); using default %s", exc, _NOUS_MODEL)
@@ -2284,7 +2284,7 @@ def _read_main_field(field: str, *, readonly: bool, lower: bool = False) -> str:
         value = override.strip()
         return value.lower() if lower else value
     with contextlib.suppress(Exception):
-        from hermes_cli import config as _cfg_mod
+        from lemon_cli import config as _cfg_mod
         cfg = (_cfg_mod.load_config_readonly if readonly else _cfg_mod.load_config)()
         model_cfg = cfg.get("model", {})
         if field == "model" and isinstance(model_cfg, str) and model_cfg.strip():
@@ -2311,8 +2311,8 @@ def _resolve_moa_aggregator(preset_name: Optional[str]) -> Tuple[Optional[str], 
     "moa" is virtual — aux tasks skip the fan-out and use the aggregator slot; shared so lookup can't drift.
     """
     try:
-        from hermes_cli.config import load_config
-        from hermes_cli.moa_config import resolve_moa_preset
+        from lemon_cli.config import load_config
+        from lemon_cli.moa_config import resolve_moa_preset
         preset = resolve_moa_preset(load_config().get("moa") or {}, preset_name or None)
         agg = preset.get("aggregator") or {}
         agg_provider = str(agg.get("provider") or "").strip()
@@ -2588,7 +2588,7 @@ def clear_runtime_main() -> None:
 def _resolve_custom_runtime() -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """Resolve the active custom/main endpoint like the main CLI (env OPENAI_BASE_URL or config-saved)."""
     try:
-        from hermes_cli.runtime_provider import resolve_runtime_provider
+        from lemon_cli.runtime_provider import resolve_runtime_provider
         runtime = resolve_runtime_provider(requested="custom")
     except Exception as exc:
         logger.debug("Auxiliary client: custom runtime resolution failed: %s", exc)
@@ -2653,7 +2653,7 @@ def _validate_base_url(base_url: str) -> None:
     except ValueError as exc:
         raise RuntimeError(
             f"Malformed custom endpoint URL: {candidate!r}. "
-            "Run `hermes setup` or `hermes model` and enter a valid http(s) base URL."
+            "Run `lemon setup` or `lemon model` and enter a valid http(s) base URL."
         ) from exc
 
 
@@ -2708,9 +2708,9 @@ def _build_xai_oauth_aux_client(model: str) -> Tuple[Optional[Any], Optional[str
         return None, None
     api_key, base_url = resolved
     logger.debug("Auxiliary client: xAI OAuth (%s via Responses API)", model)
-    from tools.xai_http import hermes_xai_default_headers
+    from tools.xai_http import lemon_xai_default_headers
     real_client = _create_openai_client(
-        api_key=api_key, base_url=base_url, default_headers=hermes_xai_default_headers()
+        api_key=api_key, base_url=base_url, default_headers=lemon_xai_default_headers()
     )
     return CodexAuxiliaryClient(real_client, model), model
 
@@ -2750,9 +2750,9 @@ def _try_azure_foundry(
     """Azure Foundry aux client via the main agent's ``_resolve_azure_foundry_runtime`` (api_key vs Entra
     callable bearer, per-model api_mode, base_url overrides). Returns ``(client, model)`` or ``(None, None)``."""
     try:
-        from hermes_cli.runtime_provider import _resolve_azure_foundry_runtime
-        from hermes_cli.auth import AuthError
-        from hermes_cli.config import load_config_readonly
+        from lemon_cli.runtime_provider import _resolve_azure_foundry_runtime
+        from lemon_cli.auth import AuthError
+        from lemon_cli.config import load_config_readonly
     except ImportError:
         return None, None
     try:
@@ -2819,7 +2819,7 @@ def _try_anthropic(explicit_api_key: str = None) -> Tuple[Optional[Any], Optiona
     # Anthropic-compatible; a foreign host (Codex, OpenRouter) would 401 every aux call.
     base_url = _pool_runtime_base_url(entry, _ANTHROPIC_DEFAULT_BASE_URL) if pool_present else _ANTHROPIC_DEFAULT_BASE_URL
     with contextlib.suppress(Exception):
-        from hermes_cli.config import load_config_readonly
+        from lemon_cli.config import load_config_readonly
         cfg = load_config_readonly()
         model_cfg = cfg.get("model")
         if isinstance(model_cfg, dict):
@@ -2980,7 +2980,7 @@ def _is_payment_error(exc: Exception) -> bool:
 def _nous_portal_account_has_fresh_paid_access() -> bool:
     """Return True only when the fresh Nous account API says paid access is allowed."""
     try:
-        from hermes_cli.nous_account import get_nous_portal_account_info
+        from lemon_cli.nous_account import get_nous_portal_account_info
         return get_nous_portal_account_info(force_fresh=True).paid_service_access is True
     except Exception as exc:
         logger.debug("Auxiliary Nous paid-entitlement refresh check failed: %s", exc)
@@ -3061,7 +3061,7 @@ def _transient_retry_count() -> int:
     """Same-provider retries for a transient blip: ``auxiliary.transient_retries``
     (default 2), clamped to [0, 6]; config-read failures fall back to default."""
     try:
-        from hermes_cli.config import cfg_get, load_config
+        from lemon_cli.config import cfg_get, load_config
         val = cfg_get(load_config(), "auxiliary", "transient_retries")
         return _DEFAULT_TRANSIENT_RETRIES if val is None else max(0, min(int(val), 6))
     except Exception:
@@ -3080,6 +3080,23 @@ def _is_auth_error(exc: Exception) -> bool:
     return "bad-credentials" in err_lower and (status == 403 or "unauthenticated" in err_lower)
 
 
+_UNNAMED_UNSUPPORTED_FIELD_HINTS = (
+    "invalid request body or unsupported field",
+)
+
+
+def _is_unnamed_unsupported_field_error(exc: Exception) -> bool:
+    """Copilot/Azure chat-completions 400 that names no parameter.
+
+    Verbatim: ``invalid request body or unsupported field``. GPT-5 / Copilot
+    emit this for ``temperature`` (and sometimes ``extra_body``) instead of
+    ``Unsupported parameter: temperature``, so the named-parameter detector
+    would miss it and vision_analyze would surface a bogus "image too large"
+    fallback.
+    """
+    return _contains_any(str(exc).lower(), _UNNAMED_UNSUPPORTED_FIELD_HINTS)
+
+
 def _is_unsupported_parameter_error(exc: Exception, param: str) -> bool:
     """Provider 400 for an unsupported request parameter: the parameter name plus a generic
     unsupported/unknown/unrecognized marker, so call sites can retry without the key."""
@@ -3087,10 +3104,15 @@ def _is_unsupported_parameter_error(exc: Exception, param: str) -> bool:
     if not param_lower:
         return False
     err_lower = str(exc).lower()
-    return param_lower in err_lower and _contains_any(err_lower, (
+    if param_lower in err_lower and _contains_any(err_lower, (
         "unsupported parameter", "unsupported_parameter", "not supported", "does not support",
         "unknown parameter", "unrecognized request argument", "unrecognized parameter", "invalid parameter",
-    ))
+    )):
+        return True
+    # Copilot/Azure omit the parameter name. Temperature is the field Lemon
+    # always sends on aux vision/search calls, so treat the unnamed 400 as a
+    # temperature rejection when that is the param we are probing.
+    return param_lower == "temperature" and _is_unnamed_unsupported_field_error(exc)
 
 
 def _is_structured_output_rejection(exc: Exception) -> bool:
@@ -3280,7 +3302,7 @@ def _recoverable_pool_provider(
         rt_provider = _normalize_main_runtime(main_runtime).get("provider", "")
         if rt_provider and rt_provider not in {"", "auto", "custom"}:
             with contextlib.suppress(Exception):
-                from hermes_cli.auth import PROVIDER_REGISTRY
+                from lemon_cli.auth import PROVIDER_REGISTRY
                 pconfig = PROVIDER_REGISTRY.get(rt_provider)
                 if pconfig and getattr(pconfig, "auth_type", None) == "api_key":
                     rt_base = str(getattr(pconfig, "inference_base_url", "") or "").rstrip("/")
@@ -3369,8 +3391,15 @@ def _prepare_same_provider_retry(
         # Preserve per-request attribution headers across the rebuilt-client retry — see the sync variant
         # above (#60293).
         retry_kwargs["extra_headers"] = dict(extra_headers)
-    if _is_anthropic_compat_endpoint(resolved_provider, retry_base):
+    if _needs_anthropic_image_blocks(effective_provider or resolved_provider, retry_model or final_model, retry_client, retry_base):
         retry_kwargs["messages"] = _convert_openai_images_to_anthropic(retry_kwargs["messages"])
+    if str(task or "") == "vision":
+        vision_headers = _vision_request_headers(effective_provider or resolved_provider, retry_base)
+        if vision_headers:
+            merged = dict(retry_kwargs.get("extra_headers") or {})
+            for key, value in vision_headers.items():
+                merged.setdefault(key, value)
+            retry_kwargs["extra_headers"] = merged
     return retry_client, retry_kwargs
 
 
@@ -3398,7 +3427,7 @@ def _creds_have_api_key(creds: Dict[str, Any]) -> bool:
 
 
 def _refresh_copilot_credentials() -> bool:
-    from hermes_cli.copilot_auth import _jwt_cache, _token_fingerprint, exchange_copilot_token, resolve_copilot_token
+    from lemon_cli.copilot_auth import _jwt_cache, _token_fingerprint, exchange_copilot_token, resolve_copilot_token
     raw_token, _source = resolve_copilot_token()
     if not str(raw_token or "").strip():
         return False
@@ -3408,14 +3437,14 @@ def _refresh_copilot_credentials() -> bool:
 
 
 def _refresh_codex_credentials() -> bool:
-    from hermes_cli.auth import resolve_codex_runtime_credentials
+    from lemon_cli.auth import resolve_codex_runtime_credentials
     return _creds_have_api_key(resolve_codex_runtime_credentials(force_refresh=True))
 
 
 def _refresh_nous_credentials() -> bool:
-    from hermes_cli.auth import resolve_nous_runtime_credentials
+    from lemon_cli.auth import resolve_nous_runtime_credentials
     return _creds_have_api_key(resolve_nous_runtime_credentials(
-        timeout_seconds=env_float("HERMES_NOUS_TIMEOUT_SECONDS", 15), force_refresh=True
+        timeout_seconds=env_float("LEMON_NOUS_TIMEOUT_SECONDS", 15), force_refresh=True
     ))
 
 
@@ -3436,7 +3465,7 @@ def _refresh_xai_oauth_credentials() -> bool:
         refreshed = pool.try_refresh_current()
         if refreshed is not None and str(getattr(refreshed, "runtime_api_key", "") or "").strip():
             return True
-    from hermes_cli.auth import resolve_xai_oauth_runtime_credentials
+    from lemon_cli.auth import resolve_xai_oauth_runtime_credentials
     return _creds_have_api_key(resolve_xai_oauth_runtime_credentials(force_refresh=True))
 
 
@@ -3538,7 +3567,7 @@ def _complete_fallback_destination(
             api_mode = "anthropic_messages"
         else:
             with contextlib.suppress(Exception):
-                from hermes_cli.runtime_provider import resolve_runtime_provider
+                from lemon_cli.runtime_provider import resolve_runtime_provider
                 runtime = resolve_runtime_provider(
                     requested=provider, explicit_base_url=base_url or None, target_model=model or ""
                 )
@@ -3560,7 +3589,7 @@ def _fallback_destination(
     task: Optional[str], fb_client: Any, fb_model: Optional[str], fb_label: str
 ) -> _FallbackDestination:
     """Route identity of a fallback request: attached destination, else configured entry, else label."""
-    attached = getattr(fb_client, "_hermes_fallback_destination", None)
+    attached = getattr(fb_client, "_lemon_fallback_destination", None)
     if isinstance(attached, _FallbackDestination):
         return attached
     entry = _fallback_chain_entry(task, fb_label)
@@ -3942,7 +3971,7 @@ def _try_configured_fallback_for_unavailable_client(
 
 def _fallback_entry_api_key(entry: Dict[str, Any]) -> Optional[str]:
     """Resolve inline or env-backed API key via the secret-scope-aware resolver (no raw os.getenv under multiplexing)."""
-    from hermes_cli.fallback_config import resolve_entry_api_key
+    from lemon_cli.fallback_config import resolve_entry_api_key
     return resolve_entry_api_key(entry)
 
 
@@ -3959,7 +3988,7 @@ def _resolve_fallback_entry(entry: Dict[str, Any]) -> Tuple[Optional[Any], Optio
     )
     if client is not None:
         with contextlib.suppress(Exception):
-            client._hermes_fallback_destination = _fallback_destination_from_entry(entry, client, resolved_model)
+            client._lemon_fallback_destination = _fallback_destination_from_entry(entry, client, resolved_model)
     return client, resolved_model
 
 
@@ -3970,8 +3999,8 @@ def _try_main_fallback_chain(
     user's main fallback policy before the built-in discovery chain; read via ``get_fallback_chain`` so
     ``fallback_providers`` and legacy ``fallback_model`` keep the main agent's order."""
     try:
-        from hermes_cli.config import load_config_readonly
-        from hermes_cli.fallback_config import get_fallback_chain
+        from lemon_cli.config import load_config_readonly
+        from lemon_cli.fallback_config import get_fallback_chain
         chain = get_fallback_chain(load_config_readonly())
     except Exception as exc:
         logger.debug("Auxiliary %s: could not load main fallback chain: %s", task or "call", exc)
@@ -4020,7 +4049,7 @@ def _try_main_fallback_chain(
 
 def _warn_stale_openai_base_url(runtime_provider: str) -> None:
     """Warn once when OPENAI_BASE_URL is set but config.yaml names a non-custom provider (a stale
-    ~/.hermes/.env value after `hermes model` poisons routing)."""
+    ~/.lemon-ai/.env value after `lemon model` poisons routing)."""
     global _stale_base_url_warned
     if _stale_base_url_warned:
         return
@@ -4030,8 +4059,8 @@ def _warn_stale_openai_base_url(runtime_provider: str) -> None:
         logger.warning(
             "OPENAI_BASE_URL is set (%s) but model.provider is '%s'. "
             "Auxiliary clients may route to the wrong endpoint. "
-            "Run: hermes model to reconfigure, or remove "
-            "OPENAI_BASE_URL from ~/.hermes/.env",
+            "Run: lemon model to reconfigure, or remove "
+            "OPENAI_BASE_URL from ~/.lemon-ai/.env",
             _env_base, _cfg_provider,
         )
         _stale_base_url_warned = True
@@ -4079,7 +4108,7 @@ def _try_main_provider_route(
         # Named custom provider (custom_providers / providers dict entry).
         _has_named_entry = False
         with contextlib.suppress(ImportError):
-            from hermes_cli.runtime_provider import _get_named_custom_provider
+            from lemon_cli.runtime_provider import _get_named_custom_provider
             _has_named_entry = _get_named_custom_provider(main_provider) is not None
         if _has_named_entry:
             # KEEP the full ``custom:<name>`` so the named arm honours the entry's api_mode
@@ -4163,7 +4192,7 @@ def _resolve_auto_route(
 
 def _effective_provider_for_client(client: Any, fallback: str) -> str:
     """Return the concrete provider selected for an auto-routed client."""
-    effective_provider = getattr(client, "_hermes_aux_effective_provider", "")
+    effective_provider = getattr(client, "_lemon_aux_effective_provider", "")
     if isinstance(effective_provider, str) and effective_provider:
         return effective_provider
     return str(fallback or "")
@@ -4189,7 +4218,7 @@ def _to_async_client(sync_client, model: str, is_vision: bool = False):
         if isinstance(sync_client, GeminiNativeClient):
             return AsyncGeminiNativeClient(sync_client), model
     # ACP shims (subprocess, not an HTTP pool) are already async-safe and opt out of the wrapper.
-    if _client_declares(sync_client, "HERMES_SKIP_ASYNC_WRAP"):
+    if _client_declares(sync_client, "LEMON_SKIP_ASYNC_WRAP"):
         return sync_client, model
     sync_base_url = str(sync_client.base_url)
     async_kwargs = {"api_key": sync_client.api_key, "base_url": sync_base_url}
@@ -4209,7 +4238,7 @@ def _to_async_client(sync_client, model: str, is_vision: bool = False):
         async_kwargs["default_headers"] = headers
     _apply_required_codex_headers(async_kwargs, access_token=sync_client.api_key, base_url=sync_base_url)
     async_kwargs = {**_openai_http_client_kwargs(sync_base_url, async_mode=True), **async_kwargs}
-    # Hermes owns the auxiliary retry/timeout budget; disable SDK-internal retries.
+    # Lemon AI owns the auxiliary retry/timeout budget; disable SDK-internal retries.
     # See #54465.
     async_kwargs.setdefault("max_retries", 0)
     return AsyncOpenAI(**async_kwargs), model
@@ -4220,7 +4249,7 @@ def _normalize_resolved_model(model_name: Optional[str], provider: str) -> Optio
     if not model_name:
         return model_name
     try:
-        from hermes_cli.model_normalize import normalize_model_for_provider
+        from lemon_cli.model_normalize import normalize_model_for_provider
         return normalize_model_for_provider(model_name, provider)
     except Exception:
         return model_name
@@ -4406,7 +4435,7 @@ def _resolve_auto_branch(req: _ResolveRequest) -> _ResolveResult:
     routed_client, routed_model = _route_client(req, client, model or resolved)
     if routed_client is not None and effective_provider:
         try:
-            setattr(routed_client, "_hermes_aux_effective_provider", effective_provider)
+            setattr(routed_client, "_lemon_aux_effective_provider", effective_provider)
         except (AttributeError, TypeError):
             logger.debug("Auxiliary client %s cannot retain effective provider %s",
                          type(routed_client).__name__, effective_provider)
@@ -4430,12 +4459,12 @@ def _resolve_nous_branch(req: _ResolveRequest) -> _ResolveResult:
     client, default = _try_nous(vision=(req.is_vision or model in _PROVIDER_VISION_MODELS.values()
                                         or (model or "").strip().lower() == "mimo-v2-omni"))
     if client is None:
-        logger.warning("resolve_provider_client: nous requested but Nous Portal not configured (run: hermes auth)")
+        logger.warning("resolve_provider_client: nous requested but Nous Portal not configured (run: lemon auth)")
         return None, None
     final_model = _normalize_resolved_model(model or default, req.provider)
     # Dual-wire: anthropic/* → /v1/messages, else /chat/completions. Derive from the catalog id
     # (not a stale api_mode) so aux matches the main agent.
-    from hermes_cli.providers import nous_api_mode
+    from lemon_cli.providers import nous_api_mode
     client = _maybe_wrap_anthropic(
         client, final_model, str(getattr(client, "api_key", "") or ""),
         str(getattr(client, "base_url", "") or ""), nous_api_mode(final_model),
@@ -4451,7 +4480,7 @@ def _resolve_openai_codex_branch(req: _ResolveRequest) -> _ResolveResult:
                        "model; pass model explicitly (e.g. model.model in config.yaml "
                        "or auxiliary.<task>.model for per-task aux routing).")
         return None, None
-    no_token_msg = "resolve_provider_client: openai-codex requested but no Codex OAuth token found (run: hermes model)"
+    no_token_msg = "resolve_provider_client: openai-codex requested but no Codex OAuth token found (run: lemon model)"
     if req.raw_codex:
         # Raw OpenAI client for callers needing responses.stream() (main agent loop).
         codex_token = _read_codex_access_token()
@@ -4471,7 +4500,7 @@ def _resolve_xai_oauth_branch(req: _ResolveRequest) -> _ResolveResult:
     client, default = _build_xai_oauth_aux_client(req.model)
     return _route_or_warn(req, client, default,
                           "resolve_provider_client: xai-oauth requested but no xAI "
-                          "OAuth token found (run: hermes model -> xAI Grok OAuth — SuperGrok / Premium+)")
+                          "OAuth token found (run: lemon model -> xAI Grok OAuth — SuperGrok / Premium+)")
 
 
 def _resolve_custom_branch(req: _ResolveRequest) -> _ResolveResult:
@@ -4545,7 +4574,7 @@ def _named_custom_openai_wire_client(custom_base: str, custom_key: Any):
 
 def _resolve_named_custom_branch(req: _ResolveRequest) -> Optional[_ResolveResult]:
     """Named custom provider (config.yaml providers dict / custom_providers list); None if no entry matches."""
-    from hermes_cli.runtime_provider import _get_named_custom_provider
+    from lemon_cli.runtime_provider import _get_named_custom_provider
     provider = req.provider
     # If the raw name is an alias (``kimi`` → ``kimi-coding``) and a custom_providers entry exists
     # under it, the custom entry wins over alias rewriting. Only for aliases, so entries matching a
@@ -4607,7 +4636,7 @@ def _resolve_azure_foundry_branch(req: _ResolveRequest) -> _ResolveResult:
                                                explicit_base_url=req.explicit_base_url, api_mode=req.api_mode)
     return _route_or_warn(req, client, default_model,
                           "resolve_provider_client: azure-foundry requested but "
-                          "runtime resolution failed (run: hermes doctor for diagnostics)")
+                          "runtime resolution failed (run: lemon doctor for diagnostics)")
 
 
 def _resolve_api_key_branch(req: _ResolveRequest, pconfig: Any, resolve_creds: Callable) -> _ResolveResult:
@@ -4629,7 +4658,7 @@ def _resolve_api_key_branch(req: _ResolveRequest, pconfig: Any, resolve_creds: C
     # OpenCode Zen free tier (*-free slugs) is served anonymously on the Zen relay only;
     # any bearer (even a Go subscription key) is rejected, so route keyless regardless of creds.
     try:
-        from hermes_cli.models import opencode_zen_free_runtime as _oc_free_rt
+        from lemon_cli.models import opencode_zen_free_runtime as _oc_free_rt
         _free_rt = _oc_free_rt(provider, req.model)
     except Exception:
         _free_rt = None
@@ -4638,7 +4667,7 @@ def _resolve_api_key_branch(req: _ResolveRequest, pconfig: Any, resolve_creds: C
         raw_base_url = str(_free_rt["base_url"]).rstrip("/")
     if provider == "actual":
         with contextlib.suppress(Exception):
-            from hermes_cli.auth import (
+            from lemon_cli.auth import (
                 ACTUAL_LOCAL_NOAUTH_PLACEHOLDER, is_actual_local_base_url, normalize_actual_base_url
             )
             raw_base_url = normalize_actual_base_url(raw_base_url)
@@ -4666,7 +4695,7 @@ def _resolve_api_key_branch(req: _ResolveRequest, pconfig: Any, resolve_creds: C
     # wrap so call_llm() transparently routes through responses.stream().
     if provider == "copilot" and final_model and not req.raw_codex:
         with contextlib.suppress(ImportError):
-            from hermes_cli.models import _should_use_copilot_responses_api
+            from lemon_cli.models import _should_use_copilot_responses_api
             if _should_use_copilot_responses_api(final_model):
                 logger.debug("resolve_provider_client: copilot model %s needs "
                              "Responses API — wrapping with CodexAuxiliaryClient", final_model)
@@ -4722,12 +4751,12 @@ def _resolve_registry_branch(req: _ResolveRequest) -> _ResolveResult:
     """PROVIDER_REGISTRY providers, dispatched on ``auth_type``; unknown providers log once."""
     provider = req.provider
     try:
-        from hermes_cli.auth import (
+        from lemon_cli.auth import (
             PROVIDER_REGISTRY, resolve_api_key_provider_credentials,
             resolve_external_process_provider_credentials,
         )
     except ImportError:
-        logger.debug("hermes_cli.auth not available for provider %s", provider)
+        logger.debug("lemon_cli.auth not available for provider %s", provider)
         return None, None
     pconfig = PROVIDER_REGISTRY.get(provider)
     if pconfig is None:
@@ -4865,7 +4894,7 @@ def _main_model_supports_vision(provider: str, model: Optional[str]) -> bool:
     """True when ``provider``/``model`` is known to accept image input; unknown capability → True (attempt the call)."""
     try:
         from agent.image_routing import _lookup_supports_vision
-        from hermes_cli.config import load_config_readonly
+        from lemon_cli.config import load_config_readonly
     except ImportError:
         return True
     try:
@@ -5429,7 +5458,7 @@ def _preserve_provider_with_base_url(prov: Optional[str]) -> bool:
     if normalized in {"", "auto", "custom"} or normalized.startswith("custom:"):
         return False
     try:
-        from hermes_cli.providers import get_provider
+        from lemon_cli.providers import get_provider
         return get_provider(normalized) is not None
     except Exception:  # keep provider-backed routes safe when the catalog can't load
         return normalized in {
@@ -5527,7 +5556,7 @@ def _get_auxiliary_task_config(task: str) -> Dict[str, Any]:
     if not task:
         return {}
     try:
-        from hermes_cli.config import load_config_readonly
+        from lemon_cli.config import load_config_readonly
         config = load_config_readonly()
     except ImportError:
         return {}
@@ -5536,7 +5565,7 @@ def _get_auxiliary_task_config(task: str) -> Dict[str, Any]:
     if not isinstance(task_config, dict):
         task_config = {}
     try:
-        from hermes_cli.plugins import get_plugin_auxiliary_tasks
+        from lemon_cli.plugins import get_plugin_auxiliary_tasks
         for _entry in get_plugin_auxiliary_tasks():
             if _entry.get("key") == task:
                 _defaults = _entry.get("defaults") or {}
@@ -5563,7 +5592,7 @@ def _fast_lane_config_fields(config: Dict[str, Any]) -> tuple[str, str, bool, Op
     non-reasoning); ``cap`` is a positive int ``max_output_tokens`` or None — booleans are config
     drift, never a cap (``int(True) == 1``).
     """
-    from hermes_constants import parse_reasoning_effort
+    from lemon_constants import parse_reasoning_effort
     provider = str(config.get("provider") or "").strip().lower()
     model = str(config.get("model") or "").strip()
     parsed_effort = parse_reasoning_effort(config.get("reasoning_effort"))
@@ -5660,7 +5689,7 @@ def _get_task_extra_body(task: str) -> Dict[str, Any]:
             task,
         )
         return result
-    from hermes_constants import parse_reasoning_effort
+    from lemon_constants import parse_reasoning_effort
     parsed = parse_reasoning_effort(effort)
     if parsed is not None:
         result["reasoning"] = parsed
@@ -5739,6 +5768,29 @@ def _is_anthropic_compat_endpoint(provider: str, base_url: str) -> bool:
     return provider in _ANTHROPIC_COMPAT_PROVIDERS or "/anthropic" in (base_url or "").lower()
 
 
+def _needs_anthropic_image_blocks(provider: str, model: Optional[str], client: Any, base_url: str) -> bool:
+    """True when OpenAI ``image_url`` parts must be rewritten to Anthropic ``image`` blocks."""
+    provider_norm = str(provider or "").strip().lower()
+    if _is_anthropic_compat_endpoint(provider_norm, base_url):
+        return True
+    if _nous_on_messages_wire(provider_norm, str(model or "")):
+        return True
+    if _endpoint_speaks_anthropic_messages(base_url):
+        return True
+    return isinstance(client, (AnthropicAuxiliaryClient, AsyncAnthropicAuxiliaryClient))
+
+
+def _vision_request_headers(provider: str, base_url: str) -> Dict[str, str]:
+    """Per-request headers required to send images on this vision route."""
+    provider_norm = str(provider or "").strip().lower()
+    if (
+        provider_norm in {"copilot", "github-copilot", "github-models", "github", "github-model"}
+        or base_url_host_matches(base_url, "githubcopilot.com")
+    ):
+        return {"Copilot-Vision-Request": "true"}
+    return {}
+
+
 # OpenAI block type → (Anthropic block type, default media type for data: URLs). MiniMax's
 # Anthropic-compatible endpoint wants type="video" (not "video_url"/"input_video") with the same
 # ``source`` shape as "image".
@@ -5799,7 +5851,7 @@ def _nous_on_messages_wire(provider_norm: str, model: str) -> bool:
     """True when a Nous Portal route serves ``model`` over /v1/messages (dual-wire catalog)."""
     if provider_norm not in _NOUS_PROVIDER_NAMES:
         return False
-    from hermes_cli.providers import nous_api_mode
+    from lemon_cli.providers import nous_api_mode
     return nous_api_mode(model) == "anthropic_messages"
 
 
@@ -6110,7 +6162,7 @@ def _managed_local_netloc() -> str:
     if now - ts < _MANAGED_LOCAL_STATE_TTL_S:
         return cached
     try:
-        from hermes_cli.local_runtime.supervisor import state_path
+        from lemon_cli.local_runtime.supervisor import state_path
         raw = state_path().read_text(encoding="utf-8")
         base = str((json.loads(raw) or {}).get("base_url", ""))
         netloc = urlparse(base).netloc.lower()
@@ -6121,7 +6173,7 @@ def _managed_local_netloc() -> str:
 
 
 def _is_managed_local_endpoint(base_url: Optional[str]) -> bool:
-    """True when *base_url* targets the llama-server this Hermes manages."""
+    """True when *base_url* targets the llama-server this Lemon AI manages."""
     if not base_url:
         return False
     managed = _managed_local_netloc()
@@ -6143,7 +6195,7 @@ def _provider_requires_stream(provider: str, base_url: Optional[str]) -> bool:
     if base_url_host_matches(_url, "copilot.tencent.com") or _is_managed_local_endpoint(_url):
         return True
     try:
-        from hermes_cli.config import load_config
+        from lemon_cli.config import load_config
         markers = (load_config() or {}).get("auxiliary", {}).get("stream_only_base_urls") or []
         if isinstance(markers, (list, tuple)):
             return any(
@@ -6490,7 +6542,7 @@ def _resolve_call_client(
                     raise RuntimeError(
                         f"Provider '{_explicit}' is set in config.yaml but no API key was found. "
                         f"Set the {_explicit.upper()}_API_KEY environment variable, or switch to "
-                        f"a different provider with `hermes model`.")
+                        f"a different provider with `lemon model`.")
                 client, final_model = fb_client, fb_model
                 if async_mode:
                     client, final_model = _to_async_client(
@@ -6507,7 +6559,7 @@ def _resolve_call_client(
                 effective_provider = _effective_provider_for_client(client, "auto")
     if client is None:
         raise RuntimeError(f"No LLM provider configured for task={task} "
-                           f"provider={resolved_provider}. Run: hermes setup")
+                           f"provider={resolved_provider}. Run: lemon setup")
     return _ResolvedAuxRoute(client, final_model, resolved_provider, effective_provider)
 
 
@@ -6577,8 +6629,15 @@ def _prepare_aux_request(
         kwargs["extra_headers"] = dict(extra_headers)
     # Convert image blocks for Anthropic-compatible endpoints (e.g. MiniMax)
     client_base = str(getattr(client, "base_url", "") or "")
-    if _is_anthropic_compat_endpoint(request_provider, client_base):
+    if _needs_anthropic_image_blocks(request_provider, final_model, client, client_base):
         kwargs["messages"] = _convert_openai_images_to_anthropic(kwargs["messages"])
+    if str(task or "") == "vision":
+        vision_headers = _vision_request_headers(request_provider, client_base)
+        if vision_headers:
+            merged = dict(kwargs.get("extra_headers") or {})
+            for key, value in vision_headers.items():
+                merged.setdefault(key, value)
+            kwargs["extra_headers"] = merged
     return _PreparedAuxRequest(
         client, final_model, kwargs, resolved_provider, request_provider, resolved_model,
         resolved_base_url, resolved_api_key, resolved_api_mode, effective_timeout,
@@ -6619,7 +6678,8 @@ def _param_rung_accepts(exc: Exception) -> bool:
     """After a parameter-strip retry: fall through to the max_tokens/payment/auth
     chains with the stripped kwargs; re-raise anything those chains won't handle."""
     return (_is_payment_error(exc) or _is_connection_error(exc) or _is_auth_error(exc)
-            or "max_tokens" in str(exc) or "unsupported_parameter" in str(exc))
+            or "max_tokens" in str(exc) or "unsupported_parameter" in str(exc)
+            or _is_unnamed_unsupported_field_error(exc))
 
 
 def _credential_rung_accepts(exc: Exception) -> bool:
@@ -6645,6 +6705,15 @@ def _ladder_parameter_rungs(
     if "temperature" in kwargs and _is_unsupported_parameter_error(first_err, "temperature"):
         retry_kwargs = {k: v for k, v in kwargs.items() if k != "temperature"}
         logger.info("Auxiliary %s%s: provider rejected temperature; retrying once without it",
+                    task or "call", tag)
+        resp, first_err = yield from _rung(
+            _LadderStep("call", (client, retry_kwargs)), _param_rung_accepts)
+        if first_err is None:
+            return resp, None, retry_kwargs
+        kwargs = retry_kwargs
+    if kwargs.get("extra_body") and _is_unnamed_unsupported_field_error(first_err):
+        retry_kwargs = {k: v for k, v in kwargs.items() if k != "extra_body"}
+        logger.info("Auxiliary %s%s: provider rejected extra_body; retrying once without it",
                     task or "call", tag)
         resp, first_err = yield from _rung(
             _LadderStep("call", (client, retry_kwargs)), _param_rung_accepts)

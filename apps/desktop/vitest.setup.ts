@@ -40,7 +40,7 @@ if (typeof (globalThis as any).localStorage === 'undefined') {
 // 5s proved insufficient on saturated runners (2026-08-31: gateway-settings,
 // messaging, session-unread-tile, toolset-config-panel each tripped a
 // waitFor(mock-called) deadline on runs whose only common factor was load —
-// including a plugins-only commit on main). 12s mirrors the same reasoning
-// as the 15s testTimeout above it while still finishing below it, so a
-// genuinely hung await still surfaces as this assertion, not a test timeout.
+// including a plugins-only commit on main). 12s stays below the 20s
+// testTimeout so a follow-up waitFor/debounce still fits, and a genuinely
+// hung await still surfaces as this assertion rather than a test timeout.
 configure({ asyncUtilTimeout: 12_000 })

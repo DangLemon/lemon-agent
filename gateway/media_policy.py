@@ -1,9 +1,9 @@
 """Shared config→env bridge for media-delivery policy.
 
-``validate_media_delivery_path`` reads ``HERMES_MEDIA_DELIVERY_STRICT`` (gateway.strict),
-``HERMES_MEDIA_ALLOW_DIRS`` (gateway.media_delivery_allow_dirs) and
-``HERMES_MEDIA_TRUST_RECENT_FILES`` (gateway.trust_recent_files).  Every delivery
-entrypoint (gateway startup, ``hermes cron run``, ``hermes send``) calls
+``validate_media_delivery_path`` reads ``LEMON_MEDIA_DELIVERY_STRICT`` (gateway.strict),
+``LEMON_MEDIA_ALLOW_DIRS`` (gateway.media_delivery_allow_dirs) and
+``LEMON_MEDIA_TRUST_RECENT_FILES`` (gateway.trust_recent_files).  Every delivery
+entrypoint (gateway startup, ``lemon cron run``, ``lemon send``) calls
 :func:`apply_media_policy_env` first so standalone paths filter under the gateway's
 policy instead of silently dropping attachments in strict/allowlisted deployments.
 An explicitly-set env var WINS over config.yaml, so shell overrides survive.
@@ -17,14 +17,14 @@ from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-_FLAG_ENVS = (("strict", "HERMES_MEDIA_DELIVERY_STRICT"), ("trust_recent_files", "HERMES_MEDIA_TRUST_RECENT_FILES"))
-_ALLOW_DIRS_ENV = "HERMES_MEDIA_ALLOW_DIRS"
+_FLAG_ENVS = (("strict", "LEMON_MEDIA_DELIVERY_STRICT"), ("trust_recent_files", "LEMON_MEDIA_TRUST_RECENT_FILES"))
+_ALLOW_DIRS_ENV = "LEMON_MEDIA_ALLOW_DIRS"
 
 
 def _load_gateway_cfg(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     if config is None:
         try:
-            from hermes_cli.config import load_config
+            from lemon_cli.config import load_config
 
             config = load_config() or {}
         except Exception:

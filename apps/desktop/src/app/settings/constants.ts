@@ -1,4 +1,4 @@
-import { appBrand, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { appBrand, replaceLemonBrandTerms } from '@/lib/app-brand'
 import {
   Box,
   Brain,
@@ -17,13 +17,13 @@ import { REASONING_EFFORTS } from '@/lib/reasoning-effort'
 import type { ThemeMode } from '@/themes/context'
 
 // Single source of truth for built-in personality names lives in
-// lib/personalities (mirrors hermes_cli/personality.py BUILTIN_PERSONALITIES).
+// lib/personalities (mirrors lemon_cli/personality.py BUILTIN_PERSONALITIES).
 export { BUILTIN_PERSONALITIES } from '@/lib/personalities'
 
 import { defineFieldCopy } from './field-copy'
 import type { DesktopConfigSection } from './types'
 
-const brandCopy = (value: string) => replaceHermesBrandTerms(value, appBrand())
+const brandCopy = (value: string) => replaceLemonBrandTerms(value, appBrand())
 
 // Provider group definitions used to fold raw env-var names like
 // ``XAI_API_KEY`` into a single "xAI" card with a friendly label, short
@@ -43,14 +43,14 @@ interface ProviderPrefix {
   priority: number
 }
 
-export const EMPTY_SELECT_VALUE = '__hermes_empty__'
+export const EMPTY_SELECT_VALUE = '__lemon_empty__'
 export const CONTROL_TEXT = 'text-xs'
 
 export const PROVIDER_GROUPS: ProviderPrefix[] = [
   {
     prefix: 'NOUS_',
     name: 'Nous Portal',
-    description: brandCopy('Hosted Hermes & Nous-trained models'),
+    description: brandCopy('Hosted Lemon AI & Nous-trained models'),
     docsUrl: 'https://portal.nousresearch.com',
     priority: 0
   },
@@ -106,7 +106,7 @@ export const PROVIDER_GROUPS: ProviderPrefix[] = [
     docsUrl: 'https://modelstudio.console.alibabacloud.com/',
     priority: 6
   },
-  { prefix: 'HERMES_QWEN_', name: 'DashScope (Qwen)', priority: 6 },
+  { prefix: 'LEMON_QWEN_', name: 'DashScope (Qwen)', priority: 6 },
   {
     prefix: 'GLM_',
     name: 'GLM / Z.AI',
@@ -252,7 +252,7 @@ export const ENUM_OPTIONS: Record<string, string[]> = {
   'stt.elevenlabs.model_id': ['scribe_v2', 'scribe_v1'],
   'stt.local.model': ['tiny', 'base', 'small', 'medium', 'large-v3'],
   // Speech-to-text backends — kept in sync with the stt block in
-  // hermes_cli/config.py (local/groq/openai/mistral/elevenlabs).
+  // lemon_cli/config.py (local/groq/openai/mistral/elevenlabs).
   'stt.provider': ['local', 'groq', 'openai', 'mistral', 'xai', 'elevenlabs'],
   // OpenAI TTS voices — the union across models (per the OpenAI TTS API
   // docs). Model-specific narrowing happens in enumOptionsFor():
@@ -561,12 +561,12 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = defineFieldCopy({
   timezone: 'IANA timezone identifier. Blank uses the system timezone.',
   browser: {
     useRealProfile: brandCopy(
-      "Local browsing uses your real logins. Hermes copies your default browser's profile (cookies, logins, preferences) into a managed snapshot and drives it with its packaged Chromium — your live profile is never opened directly, and the copy is refreshed from it on each run. Also lets the agent open a local real-profile session on request even when a cloud browser backend is configured. Only Chromium browsers (Chrome, Edge, Brave, Brave Origin, Chromium) are supported; a non-Chromium default fails with a clear message. Off by default."
+      "Local browsing uses your real logins. Lemon AI copies your default browser's profile (cookies, logins, preferences) into a managed snapshot and drives it with its packaged Chromium — your live profile is never opened directly, and the copy is refreshed from it on each run. Also lets the agent open a local real-profile session on request even when a cloud browser backend is configured. Only Chromium browsers (Chrome, Edge, Brave, Brave Origin, Chromium) are supported; a non-Chromium default fails with a clear message. Off by default."
     )
   },
   agent: {
     imageInputMode: 'Controls how image attachments are sent to the model.',
-    maxTurns: brandCopy('Upper bound for tool-calling turns before Hermes stops a run.')
+    maxTurns: brandCopy('Upper bound for tool-calling turns before Lemon AI stops a run.')
   },
   terminal: {
     cwd: 'Default project folder for tool and terminal work.',
@@ -580,9 +580,9 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = defineFieldCopy({
   codeExecution: {
     mode: 'How strictly code execution is scoped to the current project.'
   },
-  fileReadMaxChars: brandCopy('Maximum characters Hermes can read from one file request.'),
+  fileReadMaxChars: brandCopy('Maximum characters Lemon AI can read from one file request.'),
   approvals: {
-    mode: brandCopy('How Hermes handles commands that need explicit approval.'),
+    mode: brandCopy('How Lemon AI handles commands that need explicit approval.'),
     timeout: 'How long approval prompts wait before timing out.'
   },
   security: {
@@ -627,7 +627,7 @@ export const FIELD_DESCRIPTIONS: Record<string, string> = defineFieldCopy({
   },
   updates: {
     nonInteractiveLocalChanges: brandCopy(
-      'When Hermes updates itself from the app (no terminal prompt), keep local source edits (stash) or throw them away (discard). Terminal updates always ask.'
+      'When Lemon AI updates itself from the app (no terminal prompt), keep local source edits (stash) or throw them away (discard). Terminal updates always ask.'
     )
   }
 })

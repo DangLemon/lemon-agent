@@ -2,14 +2,14 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useM
 
 import {
   captureCapabilityScope,
-  getHermesConfigRecord,
-  getHermesRawConfig,
-  type HermesConfigRecord,
+  getLemonConfigRecord,
+  getLemonRawConfig,
+  type LemonConfigRecord,
   type ProfileScope,
-  saveHermesConfig
-} from '@/hermes'
+  saveLemonConfig
+} from '@/lemon'
 import { type AppBrand, appBrandForEnv, brandTranslationTree } from '@/lib/app-brand'
-import type { HermesRawConfigResponse } from '@/types/hermes'
+import type { LemonRawConfigResponse } from '@/types/lemon'
 
 import { TRANSLATIONS } from './catalog'
 import {
@@ -26,32 +26,32 @@ import type { Locale, Translations } from './types'
 export { LOCALE_META } from './languages'
 
 export interface I18nConfigClient {
-  getConfig: (scope?: ProfileScope) => Promise<HermesConfigRecord>
-  getRawConfig?: (scope?: ProfileScope) => Promise<HermesRawConfigResponse>
-  saveConfig: (config: HermesConfigRecord) => Promise<{ ok: boolean }>
+  getConfig: (scope?: ProfileScope) => Promise<LemonConfigRecord>
+  getRawConfig?: (scope?: ProfileScope) => Promise<LemonRawConfigResponse>
+  saveConfig: (config: LemonConfigRecord) => Promise<{ ok: boolean }>
 }
 
 const defaultConfigClient: I18nConfigClient = {
   getConfig: scope => {
-    if (typeof window === 'undefined' || !window.hermesDesktop?.api) {
+    if (typeof window === 'undefined' || !window.lemonDesktop?.api) {
       return Promise.resolve({})
     }
 
-    return getHermesConfigRecord(scope)
+    return getLemonConfigRecord(scope)
   },
   getRawConfig: scope => {
-    if (typeof window === 'undefined' || !window.hermesDesktop?.api) {
+    if (typeof window === 'undefined' || !window.lemonDesktop?.api) {
       return Promise.resolve({ explicit_display_language: false, path: '', yaml: '' })
     }
 
-    return getHermesRawConfig(scope)
+    return getLemonRawConfig(scope)
   },
   saveConfig: config => {
-    if (typeof window === 'undefined' || !window.hermesDesktop?.api) {
+    if (typeof window === 'undefined' || !window.lemonDesktop?.api) {
       return Promise.resolve({ ok: true })
     }
 
-    return saveHermesConfig(config)
+    return saveLemonConfig(config)
   }
 }
 
@@ -63,11 +63,11 @@ export function translationsForBrand(translations: Translations, brand: AppBrand
   return brandTranslationTree(translations, brand)
 }
 
-export function getConfigDisplayLanguage(config: HermesConfigRecord): unknown {
+export function getConfigDisplayLanguage(config: LemonConfigRecord): unknown {
   return isRecord(config.display) ? config.display.language : undefined
 }
 
-export function withConfigDisplayLanguage(config: HermesConfigRecord, locale: Locale): HermesConfigRecord {
+export function withConfigDisplayLanguage(config: LemonConfigRecord, locale: Locale): LemonConfigRecord {
   const display = isRecord(config.display) ? config.display : {}
 
   return {
@@ -110,7 +110,7 @@ function resolveConfiguredLocale(value: unknown): Locale {
   return defaultLocaleForWorkspace()
 }
 
-function resolveLoadedLocale(config: HermesConfigRecord, rawConfig?: HermesRawConfigResponse): Locale {
+function resolveLoadedLocale(config: LemonConfigRecord, rawConfig?: LemonRawConfigResponse): Locale {
   const configuredLanguage = getConfigDisplayLanguage(config)
 
   if (isInternalWorkspace() && rawConfig?.explicit_display_language === false) {

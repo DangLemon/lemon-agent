@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url'
 
 import PACKAGE_JSON from '../package.json' with { type: 'json' }
 
-const EXPECTED_REPOSITORY = 'DangLemon/hermes-agent'
+const EXPECTED_REPOSITORY = 'DangLemon/lemon-agent'
 const RECEIPT_SCHEMA_VERSION = 1
 const CHECK_KEYS = [
   'gitHead',
@@ -266,7 +266,7 @@ function usage() {
     --version <package-version> \\
     --sha <40-char release sha> \\
     --ref <release-tag> \\
-    --repository DangLemon/hermes-agent
+    --repository DangLemon/lemon-agent
 `
 }
 

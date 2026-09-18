@@ -1,7 +1,7 @@
 /**
  * Pure helpers for choosing a remote URL during passive update checks.
  *
- * A public install can end up with `origin=git@github.com:NousResearch/hermes-agent.git`.
+ * A public install can end up with `origin=git@github.com:DangLemon/lemon-agent.git`.
  * If the user's GitHub SSH key is FIDO2/passkey-backed, a background `git fetch
  * origin` triggers an unexplained hardware-touch prompt. For passive checks
  * against the official repo we substitute the public HTTPS `ls-remote` path,
@@ -12,7 +12,7 @@
  * testable without booting Electron (main.ts requires('electron') at load).
  */
 
-const OFFICIAL_REPO_IDENTITY = 'NousResearch/hermes-agent'
+const OFFICIAL_REPO_IDENTITY = 'DangLemon/lemon-agent'
 
 const GITHUB_REPOSITORY_RE =
   /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?\/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?$/
@@ -108,10 +108,19 @@ function isNonDefaultRepository(sourceRepository) {
   return githubRepositoryCanonical(sourceRepository) !== OFFICIAL_REPO_CANONICAL
 }
 
-function planUpdateOriginRepository({ originUrl = '', sourceRepository, updateRootHasGit = true }) {
+function planUpdateOriginRepository({
+  originUrl = '',
+  sourceRepository,
+  updateRootHasGit = true,
+  forceRemap = false
+}) {
   const repository = validateGitHubRepositoryIdentity(sourceRepository)
 
-  if (!isNonDefaultRepository(repository) || !updateRootHasGit) {
+  // Public default-repo installs leave origin alone (developer forks, leftover
+  // Hermes remotes still fetch via fetchConfiguredRepository). Internal
+  // Desktop matches `lemon update`: pin origin to the configured repo even
+  // when that repo is DangLemon/lemon-agent.
+  if ((!isNonDefaultRepository(repository) && !forceRemap) || !updateRootHasGit) {
     return { action: 'none', originUrl, repository }
   }
 

@@ -1,8 +1,8 @@
-import type { BillingBlock } from '@hermes/shared'
+import type { BillingBlock } from '@lemon-ai/shared'
 
 import { burstVibeHearts } from '@/components/chat/vibe-hearts'
 import { translateNow } from '@/i18n'
-import { appBrand, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { appBrand, replaceLemonBrandTerms } from '@/lib/app-brand'
 import { coerceGatewayText, coerceThinkingText } from '@/lib/chat-runtime'
 import { playCompletionSound } from '@/lib/completion-sound'
 import { parseErrorSurface } from '@/lib/error-surface'
@@ -21,7 +21,7 @@ import { clearActiveSessionTodos } from '@/store/todos'
 import type { GatewayEventContext } from './types'
 
 function brandCopy(value: string): string {
-  return replaceHermesBrandTerms(value, appBrand())
+  return replaceLemonBrandTerms(value, appBrand())
 }
 
 function firstBillingLine(text: string): string {
@@ -32,7 +32,7 @@ function firstBillingLine(text: string): string {
  * A turn failed on a billing wall (out of credits / payment required). The
  * gateway forwards the structured descriptor built by `agent/billing_links.py`;
  * we cache it per-session (drives the in-chat banner) AND raise one sticky,
- * billing-specific toast — never the generic "Hermes error" — with a smart CTA
+ * billing-specific toast — never the generic "Lemon AI error" — with a smart CTA
  * (Nous → in-app Settings → Billing, other providers → their billing page).
  */
 function surfaceBillingBlock(sessionId: string, raw: unknown): void {
@@ -347,7 +347,7 @@ export function handleMessageStreamEvent(ctx: GatewayEventContext): boolean {
     const failure =
       payload?.status === 'error'
         ? {
-            error: coerceGatewayText(payload.error).trim() || finalText || brandCopy('Hermes reported an error'),
+            error: coerceGatewayText(payload.error).trim() || finalText || brandCopy('Lemon AI reported an error'),
             partial: Boolean(payload.partial),
             surface: parseErrorSurface(payload.error_surface)
           }

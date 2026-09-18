@@ -36,7 +36,7 @@ export function writeElectronBuilderConfig(baseBuild, {
 }
 
 export function buildElectronBuilderArgs({ argv = process.argv.slice(2), configPath = DEFAULT_CONFIG_PATH } = {}) {
-  // Local `hermes desktop` builds only ever package (--dir or dist), never
+  // Local `lemon desktop` builds only ever package (--dir or dist), never
   // publish a GitHub release — no CI workflow drives this script. But the npm
   // lifecycle env sets CI=1 (so esbuild's postinstall doesn't try interactive
   // animations), and electron-builder treats CI=1 as a signal to implicitly

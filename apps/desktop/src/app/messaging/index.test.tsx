@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { MessagingPlatformInfo } from '@/types/hermes'
+import type { MessagingPlatformInfo } from '@/types/lemon'
 
 const getMessagingPlatforms = vi.fn()
 const updateMessagingPlatform = vi.fn()
@@ -12,7 +12,7 @@ const approvePairing = vi.fn()
 const revokePairing = vi.fn()
 const openExternalLink = vi.fn()
 
-vi.mock('@/hermes', () => ({
+vi.mock('@/lemon', () => ({
   approvePairing: (platformId: string, requestId: string, profile?: null | string) =>
     approvePairing(platformId, requestId, profile),
   getMessagingPlatforms: (profile?: null | string) => getMessagingPlatforms(profile),
@@ -105,14 +105,14 @@ describe('MessagingView profile scope', () => {
 
 describe('MessagingView setup-guide link', () => {
   it('brands platform descriptions and error messages from the backend', async () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
-    const sourceEnvPath = ['~/.hermes/', 'env'].join('.')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
+    const sourceEnvPath = ['~/.lemon-ai/', 'env'].join('.')
     const brandedEnvPath = ['~/.lemon-ai/', 'env'].join('.')
     getMessagingPlatforms.mockResolvedValue({
       platforms: [
         platform({
-          description: `Run 'hermes model', then check ${sourceEnvPath} before opening Hermes Desktop.`,
-          error_message: `Hermes backend failed. Check ${sourceEnvPath}.`
+          description: `Run 'lemon model', then check ${sourceEnvPath} before opening Lemon AI.`,
+          error_message: `Lemon AI backend failed. Check ${sourceEnvPath}.`
         })
       ]
     })
@@ -120,7 +120,7 @@ describe('MessagingView setup-guide link', () => {
     await renderMessaging()
 
     expect(
-      (await screen.findAllByText(`Run 'hermes model', then check ${brandedEnvPath} before opening Lemon AI.`))
+      (await screen.findAllByText(`Run 'lemon model', then check ${brandedEnvPath} before opening Lemon AI.`))
         .length
     ).toBeGreaterThan(0)
     expect(screen.getByText(`Lemon AI backend failed. Check ${brandedEnvPath}.`)).toBeTruthy()
@@ -140,7 +140,7 @@ describe('MessagingView setup-guide link', () => {
   })
 
   it('opens a real docs URL through the validated external opener', async () => {
-    const docsUrl = 'https://hermes-agent.nousresearch.com/docs/user-guide/messaging/teams'
+    const docsUrl = 'https://danglemon.github.io/lemon-agent/docs/user-guide/messaging/teams'
     getMessagingPlatforms.mockResolvedValue({ platforms: [platform({ docs_url: docsUrl })] })
 
     await renderMessaging()

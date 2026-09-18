@@ -46,8 +46,8 @@ import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { ProfileGlyph } from '@/components/ui/profile-glyph'
 import { Tip, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { DesktopRegistryConnection } from '@/global'
-import { getProfileSoul, updateProfileSoul } from '@/hermes'
 import { useI18n } from '@/i18n'
+import { getProfileSoul, updateProfileSoul } from '@/lemon'
 import { sortConnectionsForDisplay } from '@/lib/connection-display'
 import { triggerHaptic } from '@/lib/haptics'
 import { Loader2 } from '@/lib/icons'
@@ -90,7 +90,7 @@ import {
   refreshProfileRemoteOverrides
 } from '@/store/profile-remote-override'
 import { runExportProfileFlow, runImportProfileFlow } from '@/store/profile-share'
-import type { ProfileInfo } from '@/types/hermes'
+import type { ProfileInfo } from '@/types/lemon'
 
 import { CreateProfileDialog } from '../../profiles/create-profile-dialog'
 import { DeleteProfileDialog } from '../../profiles/delete-profile-dialog'

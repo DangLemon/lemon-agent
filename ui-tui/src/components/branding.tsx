@@ -1,4 +1,4 @@
-import { Box, Text, useStdout } from '@hermes/ink'
+import { Box, Text, useStdout } from '@lemon-ai/ink'
 import { useEffect, useState } from 'react'
 import unicodeSpinners from 'unicode-animations'
 
@@ -54,9 +54,9 @@ export function ArtLines({ lines }: { lines: [string, string][] }) {
 // Terminals can't scale glyphs, so "responsive" means picking a layout that
 // fits the available columns. Thresholds are picked so each tier reads
 // comfortably without forcing wrap or truncation drift on box-drawing edges.
-const TAG_FULL = 'Nous Research · Messenger of the Digital Gods'
+const TAG_FULL = 'Lemon Digital · Messenger of the Digital Gods'
 const TAG_MID = 'Messenger of the Digital Gods'
-const TAG_TINY = 'Nous Research'
+const TAG_TINY = 'Lemon Digital'
 const HIDE_BELOW = 34
 const COMPACT_FROM = 58
 
@@ -281,7 +281,7 @@ export function SessionPanel({ info, maxWidth, sid, t }: SessionPanelProps) {
 
   // MCP headline counts *connected* servers, not configured-but-disabled ones,
   // so it matches the classic CLI banner (`sum(s.connected)` in
-  // hermes_cli/banner.py) and the "connected" label on the collapse toggle.
+  // lemon_cli/banner.py) and the "connected" label on the collapse toggle.
   const mcpServers = info.mcp_servers ?? []
   const mcpConnected = mcpServers.filter(s => s.connected).length
 
@@ -472,7 +472,7 @@ export function SessionPanel({ info, maxWidth, sid, t }: SessionPanelProps) {
             - run{' '}
           </Text>
           <Text bold color={t.color.warn}>
-            {info.update_command || 'hermes update'}
+            {info.update_command || 'lemon update'}
           </Text>
           <Text bold={false} color={t.color.warn} dimColor>
             {' '}

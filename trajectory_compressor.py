@@ -29,12 +29,12 @@ from utils import base_url_host_matches, base_url_hostname
 import fire
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.console import Console
-from hermes_constants import OPENROUTER_BASE_URL, get_hermes_home
+from lemon_constants import OPENROUTER_BASE_URL, get_lemon_home
 from agent.retry_utils import jittered_backoff
-from hermes_cli.env_loader import load_hermes_dotenv
+from lemon_cli.env_loader import load_lemon_dotenv
 
-# Load .env from HERMES_HOME first, then project root as a dev fallback.
-load_hermes_dotenv(hermes_home=get_hermes_home(), project_env=Path(__file__).parent / ".env")
+# Load .env from LEMON_HOME first, then project root as a dev fallback.
+load_lemon_dotenv(lemon_home=get_lemon_home(), project_env=Path(__file__).parent / ".env")
 
 
 def _response_finish_reason(response: Any) -> str:
@@ -311,7 +311,7 @@ class TrajectoryCompressor:
             from agent.auxiliary_client import resolve_provider_client
             client, _ = resolve_provider_client(provider, model=self.config.summarization_model)
             if client is None:
-                raise RuntimeError(f"Provider '{provider}' is not configured. Check your API key or run: hermes setup")
+                raise RuntimeError(f"Provider '{provider}' is not configured. Check your API key or run: lemon setup")
             self.client = self.async_client = None  # Not used directly
         else:
             # Custom endpoint — use config's raw base_url + api_key_env

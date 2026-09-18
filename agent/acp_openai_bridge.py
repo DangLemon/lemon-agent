@@ -1,11 +1,11 @@
-"""OpenAI-shape bridge shared by Hermes' ACP clients.
+"""OpenAI-shape bridge shared by Lemon AI' ACP clients.
 
-ACP has no OpenAI-style ``tools``/``tool_calls`` channel, so Hermes' tool schemas travel INTO the
+ACP has no OpenAI-style ``tools``/``tool_calls`` channel, so Lemon AI' tool schemas travel INTO the
 prompt as text (:func:`render_tool_bridge_sections`) and calls are parsed back OUT of the response
 text (:func:`extract_tool_calls_from_text`). Clients differ only in WHICH tools they forward
 (``allowlist``): a CLI with no tools of its own forwards everything; an autonomous agent with its own
-read/edit/execute tools forwards only Hermes' agent-level tools, since re-offering overlapping ones
-makes Hermes redo finished work.
+read/edit/execute tools forwards only Lemon AI' agent-level tools, since re-offering overlapping ones
+makes Lemon AI redo finished work.
 """
 
 from __future__ import annotations
@@ -36,8 +36,8 @@ __all__ = [
 
 
 class StreamChunks(list):
-    """Chunk list that also carries response-level attributes (e.g. ``hermes_projected_messages``)
-    Hermes reads off the ``create`` result; a plain list would drop them on the stream path."""
+    """Chunk list that also carries response-level attributes (e.g. ``lemon_projected_messages``)
+    Lemon AI reads off the ``create`` result; a plain list would drop them on the stream path."""
 
 
 def completion_to_stream_chunks(completion: SimpleNamespace) -> StreamChunks:

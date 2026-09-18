@@ -1,8 +1,8 @@
-"""Lightweight i18n for Hermes' static user-facing strings (approval prompts, a few gateway replies).
+"""Lightweight i18n for Lemon AI' static user-facing strings (approval prompts, a few gateway replies).
 
 Catalogs are ``locales/<lang>.yaml`` flattened to dotted keys. Missing keys
 fall back to English, then to the key itself, so a broken catalog never crashes.
-Language resolution: explicit ``lang=`` > ``HERMES_LANGUAGE`` > ``display.language`` > ``en``.
+Language resolution: explicit ``lang=`` > ``LEMON_LANGUAGE`` > ``display.language`` > ``en``.
 """
 
 from __future__ import annotations
@@ -54,17 +54,17 @@ _catalog_lock = threading.Lock()
 
 
 def _locales_dir() -> Path:
-    """Locale dir: ``HERMES_BUNDLED_LOCALES`` (sealed packaging, e.g. Nix) if it exists, else ``<repo-root>/locales``.
+    """Locale dir: ``LEMON_BUNDLED_LOCALES`` (sealed packaging, e.g. Nix) if it exists, else ``<repo-root>/locales``.
 
     The source path is returned even when missing so ``_load_catalog`` can log
     the path it looked at rather than raise.
     """
-    override = os.getenv("HERMES_BUNDLED_LOCALES", "").strip()
+    override = os.getenv("LEMON_BUNDLED_LOCALES", "").strip()
     if override and Path(override).is_dir():
         return Path(override)
     if override:
         logger.warning(
-            "HERMES_BUNDLED_LOCALES points to a non-directory path (%s); "
+            "LEMON_BUNDLED_LOCALES points to a non-directory path (%s); "
             "falling back to bundled/source locale resolution", override,
         )
     return Path(__file__).resolve().parent.parent / "locales"
@@ -122,7 +122,7 @@ def _flatten_into(node: Any, prefix: str, out: dict[str, str]) -> None:
 def _config_language_cached() -> str | None:
     """``display.language`` from config.yaml, read once per process (``t()`` is a hot path)."""
     try:
-        from hermes_cli.config import load_config_readonly
+        from lemon_cli.config import load_config_readonly
         lang = (load_config_readonly().get("display") or {}).get("language")
         return _normalize_lang(lang) if lang else None
     except Exception as exc:
@@ -139,7 +139,7 @@ def reset_language_cache() -> None:
 
 def get_language() -> str:
     """Resolve the active language using env > config > default order."""
-    env_lang = os.environ.get("HERMES_LANGUAGE")
+    env_lang = os.environ.get("LEMON_LANGUAGE")
     return _normalize_lang(env_lang) if env_lang else _config_language_cached() or DEFAULT_LANGUAGE
 
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RowButton } from '@/components/ui/row-button'
+import { useI18n } from '@/i18n'
 import {
   captureCapabilityScope,
   getCustomEndpoints,
@@ -11,14 +12,13 @@ import {
   profileScopeKey,
   saveCustomEndpoint,
   validateCustomEndpoint
-} from '@/hermes'
-import { useI18n } from '@/i18n'
+} from '@/lemon'
 import { Check, Globe, Loader2, Plus, Save, Zap } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { $activeGatewayRoute, activeGatewayConnectionId } from '@/store/gateway'
 import { $connection } from '@/store/session'
 import { $settingsRequestProfile } from '@/store/settings-scope'
-import type { CustomEndpoint, CustomEndpointUpdate, CustomEndpointValidationResponse } from '@/types/hermes'
+import type { CustomEndpoint, CustomEndpointUpdate, CustomEndpointValidationResponse } from '@/types/lemon'
 
 import { Pill, SettingsContent, SettingsSkeleton } from './primitives'
 import { SettingsProfileScope } from './profile-scope'

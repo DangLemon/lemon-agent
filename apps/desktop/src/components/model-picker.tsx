@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 
-import { getLocalModelsStatus } from '@/hermes'
 import { useI18n } from '@/i18n'
+import { getLocalModelsStatus } from '@/lemon'
 import { modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
 import { modelSearchText } from '@/lib/model-search-text'
 import { currentPickerSelection } from '@/lib/model-status-label'
@@ -10,9 +10,9 @@ import { normalize } from '@/lib/text'
 import { useStoreSelector } from '@/lib/use-session-slice'
 import { $localModelsEnabled } from '@/store/local-models-flag'
 import { $localRuntimeJobs, runningModelDownloads, watchLocalRuntimeJobs } from '@/store/local-runtime-jobs'
-import type { LocalModelLoadProgress, ModelOptionProvider, ModelPricing } from '@/types/hermes'
+import type { LocalModelLoadProgress, ModelOptionProvider, ModelPricing } from '@/types/lemon'
 
-import type { HermesGateway } from '../hermes'
+import type { LemonGateway } from '../lemon'
 import { cn } from '../lib/utils'
 import { startManualOnboarding } from '../store/onboarding'
 
@@ -26,7 +26,7 @@ import { Skeleton } from './ui/skeleton'
 interface ModelPickerDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  gw?: HermesGateway
+  gw?: LemonGateway
   sessionId?: string | null
   currentModel: string
   currentProvider: string
@@ -62,7 +62,7 @@ export function ModelPickerDialog({
   // shouldFilter reorders items by its fuzzy-match score (≈alphabetical with
   // an empty query), which destroys the backend's curated order. We disable
   // it and do a plain substring filter that preserves array order — matching
-  // the `hermes model` CLI picker, which shows the curated list verbatim.
+  // the `lemon model` CLI picker, which shows the curated list verbatim.
   const [search, setSearch] = useState('')
 
   const modelOptions = useQuery({

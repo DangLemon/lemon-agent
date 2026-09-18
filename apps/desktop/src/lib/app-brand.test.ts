@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { harnessEnvFromBuildConstants } from '@/app/internal-company/capabilities'
 import { TRANSLATIONS } from '@/i18n/catalog'
-import { BOT_ATTENTION_HINTS } from '@/plugins/hermes-bots/data'
+import { BOT_ATTENTION_HINTS } from '@/plugins/lemon-bots/data'
 
 import {
   appBrandForEnv,
@@ -10,22 +10,22 @@ import {
   brandTranslationTree,
   lemonAppBrand,
   replaceAppBrandTokens,
-  replaceHermesBrandTerms,
+  replaceLemonBrandTerms,
   upstreamAppBrand
 } from './app-brand'
 
 describe('appBrandForEnv', () => {
-  it('keeps upstream Hermes branding by default', () => {
+  it('keeps upstream Lemon AI branding by default', () => {
     const brand = appBrandForEnv({})
 
     expect(brand.mode).toBe('upstream')
-    expect(brand.displayName).toBe('Hermes Agent')
-    expect(brand.wordmark).toBe('HERMES AGENT')
+    expect(brand.displayName).toBe('Lemon AI')
+    expect(brand.wordmark).toBe('LEMON AGENT')
     expect(brand.markSrc).toContain('nous-girl.jpg')
   })
 
   it('uses Lemon AI branding only for the internal desktop harness', () => {
-    const brand = appBrandForEnv({ VITE_HERMES_DESKTOP_HARNESS: 'internal' })
+    const brand = appBrandForEnv({ VITE_LEMON_DESKTOP_HARNESS: 'internal' })
 
     expect(brand.mode).toBe('internal-harness')
     expect(brand.displayName).toBe('Lemon AI')
@@ -42,123 +42,132 @@ describe('appBrandForEnv', () => {
   })
 
   it('centralizes user-facing URLs for upstream and Lemon builds', () => {
-    expect(upstreamAppBrand.urls.releaseNotes).toBe('https://github.com/NousResearch/hermes-agent/releases')
-    expect(upstreamAppBrand.urls.installer).toBe('https://hermes-agent.nousresearch.com/')
-    expect(lemonAppBrand.urls.releaseNotes).toBe('https://github.com/DangLemon/hermes-agent/releases')
-    expect(lemonAppBrand.urls.installer).toBe('https://github.com/DangLemon/hermes-agent/releases')
+    expect(upstreamAppBrand.urls.releaseNotes).toBe('https://github.com/DangLemon/lemon-agent/releases')
+    expect(upstreamAppBrand.urls.installer).toBe('https://github.com/DangLemon/lemon-agent/')
+    expect(lemonAppBrand.urls.releaseNotes).toBe('https://github.com/DangLemon/lemon-agent/releases')
+    expect(lemonAppBrand.urls.installer).toBe('https://github.com/DangLemon/lemon-agent/releases')
   })
 
-  it('replaces brand tokens without changing Hermes defaults', () => {
+  it('replaces brand tokens without changing Lemon AI defaults', () => {
     expect(replaceAppBrandTokens('Uninstall {appName}: remove {agentName}.', upstreamAppBrand)).toBe(
-      'Uninstall Hermes: remove the Hermes agent.'
+      'Uninstall Lemon AI: remove the Lemon AI agent.'
     )
     expect(replaceAppBrandTokens('Uninstall {appName}: remove {agentName}.', lemonAppBrand)).toBe(
       'Uninstall Lemon AI: remove the Lemon AI agent.'
     )
   })
 
-  it('replaces legacy Hermes terms across internal update copy', () => {
+  it('replaces leftover Hermes terms across internal update copy', () => {
     const source = 'Hermes Desktop checks for updates and restarts the Hermes Agent.'
 
-    expect(replaceHermesBrandTerms(source, upstreamAppBrand)).toBe(source)
-    expect(replaceHermesBrandTerms(source, lemonAppBrand)).toBe(
+    expect(replaceLemonBrandTerms(source, upstreamAppBrand)).toBe(source)
+    expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(
       'Lemon AI checks for updates and restarts the Lemon AI.'
     )
+  })
+
+  it('does not double-brand already-Lemon copy', () => {
+    const source = 'Lemon AI checks for updates and restarts the Lemon AI.'
+
+    expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(source)
   })
 
   it('brands renderer fallback copy without changing upstream copy', () => {
     const source =
       'Ask Hermes… Not connected — open Hermes to reconnect. Open in Hermes. Hermes is working. Reacted by Hermes. Hermes reported an error.'
 
-    expect(replaceHermesBrandTerms(source, upstreamAppBrand)).toBe(source)
-    expect(replaceHermesBrandTerms(source, lemonAppBrand)).toBe(
+    expect(replaceLemonBrandTerms(source, upstreamAppBrand)).toBe(source)
+    expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(
       'Ask Lemon AI… Not connected — open Lemon AI to reconnect. Open in Lemon AI. Lemon AI is working. Reacted by Lemon AI. Lemon AI reported an error.'
     )
   })
 
-  it('brands quoted product labels while preserving quoted executable Hermes commands', () => {
+  it('brands quoted leftover product labels while preserving quoted executable commands', () => {
     const source =
-      "Open 'Hermes Desktop', read \"Hermes Agent\", keep `Hermes Desktop`, then run 'hermes model' and `hermes mcp login amazon-ads`."
+      "Open 'Hermes Desktop', read \"Hermes Agent\", keep `Hermes Desktop`, then run 'hermes model' and `lemon mcp login amazon-ads`."
 
-    expect(replaceHermesBrandTerms(source, lemonAppBrand)).toBe(
-      "Open 'Lemon AI', read \"Lemon AI\", keep `Lemon AI`, then run 'hermes model' and `hermes mcp login amazon-ads`."
+    expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(
+      "Open 'Lemon AI', read \"Lemon AI\", keep `Lemon AI`, then run 'hermes model' and `lemon mcp login amazon-ads`."
     )
   })
 
   it('preserves only bounded bare executable commands and brands following prose', () => {
-    const source = 'Run hermes model before opening Hermes Desktop. Then run hermes doctor if Hermes Agent still fails.'
+    const source = 'Run hermes model before opening Hermes Desktop. Then run lemon doctor if Lemon AI still fails.'
 
-    expect(replaceHermesBrandTerms(source, lemonAppBrand)).toBe(
-      'Run hermes model before opening Lemon AI. Then run hermes doctor if Lemon AI still fails.'
+    expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(
+      'Run hermes model before opening Lemon AI. Then run lemon doctor if Lemon AI still fails.'
     )
   })
 
-  it('does not protect arbitrary quoted or backticked Hermes product text', () => {
-    const source = 'Read "Hermes Desktop" and `Hermes Agent`; keep "hermes doctor" and `hermes desktop --force-build`.'
+  it('does not protect arbitrary quoted leftover product text', () => {
+    const source = 'Read "Hermes Desktop" and `Hermes Agent`; keep "hermes doctor" and `lemon desktop --force-build`.'
 
-    expect(replaceHermesBrandTerms(source, lemonAppBrand)).toBe(
-      'Read "Lemon AI" and `Lemon AI`; keep "hermes doctor" and `hermes desktop --force-build`.'
+    expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(
+      'Read "Lemon AI" and `Lemon AI`; keep "hermes doctor" and `lemon desktop --force-build`.'
     )
   })
 
-  it('preserves the executable model command while branding config path hints without changing upstream copy', () => {
+  it('preserves the executable model command while branding leftover config path hints', () => {
     const source =
       "Run 'hermes model', then check ~/.hermes/.env and ~/.hermes/config.yaml if the Hermes backend or hermes gateway still fails."
 
-    expect(replaceHermesBrandTerms(source, upstreamAppBrand)).toBe(source)
-    expect(replaceHermesBrandTerms(source, lemonAppBrand)).toBe(
+    expect(replaceLemonBrandTerms(source, upstreamAppBrand)).toBe(source)
+    expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(
       "Run 'hermes model', then check ~/.lemon-ai/.env and ~/.lemon-ai/config.yaml if the Lemon AI backend or Lemon AI gateway still fails."
     )
   })
 
-  it('preserves interpolation values when the same text also contains executable Hermes commands', () => {
+  it('preserves interpolation values when the same text also contains executable commands', () => {
     const source = "Run 'hermes model', then reopen Hermes Agent.txt in Hermes Desktop."
 
-    expect(replaceHermesBrandTerms(source, lemonAppBrand, ['Hermes Agent.txt'])).toBe(
+    expect(replaceLemonBrandTerms(source, lemonAppBrand, ['Hermes Agent.txt'])).toBe(
       "Run 'hermes model', then reopen Hermes Agent.txt in Lemon AI."
     )
   })
 
-  it('preserves generic lower-case executable Hermes commands while branding surrounding UI text', () => {
+  it('preserves generic lower-case executable Lemon AI commands while branding surrounding UI text', () => {
     const cases = [
-      ['hermes', 'hermes'],
-      ['`hermes gateway`', '`hermes gateway`'],
-      ['hermes gateway', 'hermes gateway'],
-      ['hermes project', 'hermes project'],
-      ['hermes --profile default gateway', 'hermes --profile default gateway'],
-      ['hermes -p default project list --json', 'hermes -p default project list --json'],
-      ['hermes curator restore', 'hermes curator restore'],
-      ['hermes pets', 'hermes pets'],
-      ['hermes debug share --nous', 'hermes debug share --nous'],
-      ['hermes --help', 'hermes --help']
+      ['lemon', 'lemon'],
+      ['`lemon gateway`', '`lemon gateway`'],
+      ['lemon gateway', 'lemon gateway'],
+      ['lemon project', 'lemon project'],
+      ['lemon --profile default gateway', 'lemon --profile default gateway'],
+      ['lemon -p default project list --json', 'lemon -p default project list --json'],
+      ['lemon curator restore', 'lemon curator restore'],
+      ['lemon pets', 'lemon pets'],
+      ['lemon debug share --nous', 'lemon debug share --nous'],
+      ['lemon --help', 'lemon --help']
     ] as const
 
     for (const [source, expected] of cases) {
-      expect(replaceHermesBrandTerms(source, lemonAppBrand)).toBe(expected)
+      expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(expected)
     }
   })
 
   it('stops generic command protection before prose boundaries', () => {
-    expect(replaceHermesBrandTerms('Run hermes gateway before opening Hermes Desktop.', lemonAppBrand)).toBe(
-      'Run hermes gateway before opening Lemon AI.'
+    expect(replaceLemonBrandTerms('Run lemon gateway before opening Lemon AI.', lemonAppBrand)).toBe(
+      'Run lemon gateway before opening Lemon AI.'
     )
-    expect(replaceHermesBrandTerms('Try hermes project if Hermes Agent still fails.', lemonAppBrand)).toBe(
-      'Try hermes project if Lemon AI still fails.'
+    expect(replaceLemonBrandTerms('Try lemon project if Lemon AI still fails.', lemonAppBrand)).toBe(
+      'Try lemon project if Lemon AI still fails.'
     )
     expect(
-      replaceHermesBrandTerms('Hermes gateway is not connected. See https://example.com/hermes/help.', lemonAppBrand)
-    ).toBe('Lemon AI gateway is not connected. See https://example.com/hermes/help.')
+      replaceLemonBrandTerms('Lemon AI gateway is not connected. See https://example.com/lemon/help.', lemonAppBrand)
+    ).toBe('Lemon AI gateway is not connected. See https://example.com/lemon/help.')
   })
 
   it('keeps a bare command intact across shell operators and line breaks', () => {
-    expect(replaceHermesBrandTerms('hermes gateway && echo ok', lemonAppBrand)).toBe('hermes gateway && echo ok')
-    expect(replaceHermesBrandTerms('hermes gateway | tee gateway.log', lemonAppBrand)).toBe(
-      'hermes gateway | tee gateway.log'
+    expect(replaceLemonBrandTerms('lemon gateway && echo ok', lemonAppBrand)).toBe('lemon gateway && echo ok')
+    expect(replaceLemonBrandTerms('lemon gateway | tee gateway.log', lemonAppBrand)).toBe(
+      'lemon gateway | tee gateway.log'
     )
-    expect(replaceHermesBrandTerms('hermes gateway > gateway.log', lemonAppBrand)).toBe(
-      'hermes gateway > gateway.log'
+    expect(replaceLemonBrandTerms('lemon gateway > gateway.log', lemonAppBrand)).toBe(
+      'lemon gateway > gateway.log'
     )
-    expect(replaceHermesBrandTerms('hermes gateway\nHermes Agent is ready.', lemonAppBrand)).toBe(
+    expect(replaceLemonBrandTerms('lemon gateway\nLemon AI is ready.', lemonAppBrand)).toBe(
+      'lemon gateway\nLemon AI is ready.'
+    )
+    expect(replaceLemonBrandTerms('hermes gateway\nHermes Agent is ready.', lemonAppBrand)).toBe(
       'hermes gateway\nLemon AI is ready.'
     )
   })
@@ -167,80 +176,84 @@ describe('appBrandForEnv', () => {
     const locales = [TRANSLATIONS.en, TRANSLATIONS.zh, TRANSLATIONS['zh-hant'], TRANSLATIONS.ja, TRANSLATIONS.ar, TRANSLATIONS.ru]
 
     for (const translations of locales) {
-      expect(replaceHermesBrandTerms(translations.settings.gateway.remoteUrlDesc, lemonAppBrand)).toContain('/hermes')
-      expect(replaceHermesBrandTerms(translations.settings.gateway.sshHermesPathDesc, lemonAppBrand)).toContain(
-        'hermes'
+      expect(replaceLemonBrandTerms(translations.settings.gateway.remoteUrlDesc, lemonAppBrand)).toContain('/lemon')
+      expect(replaceLemonBrandTerms(translations.settings.gateway.sshLemonPathDesc, lemonAppBrand)).toContain(
+        'lemon'
       )
     }
   })
 
   it('leaves generic command and prose boundaries unchanged in upstream mode', () => {
     const source =
-      'Run hermes gateway before opening Hermes Desktop. Try hermes project if Hermes Agent still fails. Hermes gateway is unavailable.'
+      'Run lemon gateway before opening Lemon AI. Try lemon project if Lemon AI still fails. Lemon AI gateway is unavailable.'
 
-    expect(replaceHermesBrandTerms(source, upstreamAppBrand)).toBe(source)
+    expect(replaceLemonBrandTerms(source, upstreamAppBrand)).toBe(source)
   })
 
   it('preserves actual catalog and plugin executable command strings', () => {
-    expect(replaceHermesBrandTerms(TRANSLATIONS.en.skills.skillArchivedMessage, lemonAppBrand)).toBe(
-      'Restorable via hermes curator restore.'
+    expect(replaceLemonBrandTerms(TRANSLATIONS.en.skills.skillArchivedMessage, lemonAppBrand)).toBe(
+      'Restorable via lemon curator restore.'
     )
-    expect(replaceHermesBrandTerms(TRANSLATIONS.en.desktop.handoff.timedOut, lemonAppBrand)).toBe(
-      'Timed out waiting for the gateway. Is `hermes gateway` running?'
+    expect(replaceLemonBrandTerms(TRANSLATIONS.en.desktop.handoff.timedOut, lemonAppBrand)).toBe(
+      'Timed out waiting for the gateway. Is `lemon gateway` running?'
     )
-    expect(replaceHermesBrandTerms(BOT_ATTENTION_HINTS.missing_config, lemonAppBrand)).toBe(
-      'Provider not configured — run hermes model'
+    expect(replaceLemonBrandTerms(BOT_ATTENTION_HINTS.missing_config, lemonAppBrand)).toBe(
+      'Provider not configured — run lemon model'
     )
   })
 
   it('preserves bare CLI commands embedded in localized catalog copy', () => {
-    expect(replaceHermesBrandTerms(TRANSLATIONS.zh.skills.skillArchivedMessage, lemonAppBrand)).toBe(
-      '可通过 hermes curator restore 恢复。'
+    expect(replaceLemonBrandTerms(TRANSLATIONS.zh.skills.skillArchivedMessage, lemonAppBrand)).toBe(
+      '可通过 lemon curator restore 恢复。'
     )
-    expect(replaceHermesBrandTerms(TRANSLATIONS['zh-hant'].skills.skillArchivedMessage, lemonAppBrand)).toBe(
-      '可透過 hermes curator restore 還原。'
+    expect(replaceLemonBrandTerms(TRANSLATIONS['zh-hant'].skills.skillArchivedMessage, lemonAppBrand)).toBe(
+      '可透過 lemon curator restore 還原。'
     )
-    expect(replaceHermesBrandTerms(TRANSLATIONS.ja.skills.skillArchivedMessage, lemonAppBrand)).toBe(
-      'hermes curator restore で復元できます。'
+    expect(replaceLemonBrandTerms(TRANSLATIONS.ja.skills.skillArchivedMessage, lemonAppBrand)).toBe(
+      'lemon curator restore で復元できます。'
     )
-    expect(replaceHermesBrandTerms(TRANSLATIONS.ru.skills.skillArchivedMessage, lemonAppBrand)).toBe(
-      'Восстановить через hermes curator restore.'
-    )
-  })
-
-  it('preserves executable Hermes CLI commands while branding surrounding UI text', () => {
-    const source =
-      'Hermes gateway is not connected. Run `hermes gateway setup`, then try hermes mcp login amazon-ads. See https://example.com/hermes/help.'
-
-    expect(replaceHermesBrandTerms(source, lemonAppBrand)).toBe(
-      'Lemon AI gateway is not connected. Run `hermes gateway setup`, then try hermes mcp login amazon-ads. See https://example.com/hermes/help.'
+    expect(replaceLemonBrandTerms(TRANSLATIONS.ru.skills.skillArchivedMessage, lemonAppBrand)).toBe(
+      'Восстановить через lemon curator restore.'
     )
   })
 
-  it('preserves internal Hermes protocol, IPC channel, package, and module identifiers', () => {
+  it('preserves executable CLI commands while branding leftover surrounding UI text', () => {
     const source =
+      'Hermes gateway is not connected. Run `hermes gateway setup`, then try lemon mcp login amazon-ads. See https://example.com/hermes/help.'
+
+    expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(
+      'Lemon AI gateway is not connected. Run `hermes gateway setup`, then try lemon mcp login amazon-ads. See https://example.com/hermes/help.'
+    )
+  })
+
+  it('preserves leftover Hermes and current Lemon technical identifiers', () => {
+    const leftover =
       'Open Hermes Desktop for hermes://open/settings/plugins, call hermes:api, import @hermes/plugin-sdk, and load hermes-agent from /opt/hermes-agent/bin.'
 
-    expect(replaceHermesBrandTerms(source, lemonAppBrand)).toBe(
+    const current =
+      'Open Lemon AI for lemon://open/settings/plugins, call lemon:api, import @lemon-ai/plugin-sdk, and load lemon-agent from /opt/lemon-agent/bin.'
+
+    expect(replaceLemonBrandTerms(leftover, lemonAppBrand)).toBe(
       'Open Lemon AI for hermes://open/settings/plugins, call hermes:api, import @hermes/plugin-sdk, and load hermes-agent from /opt/hermes-agent/bin.'
     )
+    expect(replaceLemonBrandTerms(current, lemonAppBrand)).toBe(current)
   })
 
-  it('preserves lower-case technical identifiers while keeping legacy Hermes home display branding', () => {
+  it('preserves lower-case technical identifiers while branding leftover Hermes home paths', () => {
     const source =
       'Store data-hermes-mode and hermes.desktop.routeTiles.v1 next to ~/.hermes/config.yaml for Hermes Desktop.'
 
-    expect(replaceHermesBrandTerms(source, lemonAppBrand)).toBe(
+    expect(replaceLemonBrandTerms(source, lemonAppBrand)).toBe(
       'Store data-hermes-mode and hermes.desktop.routeTiles.v1 next to ~/.lemon-ai/config.yaml for Lemon AI.'
     )
   })
 
-  it('preserves explicit runtime values while branding static copy', () => {
+  it('preserves explicit runtime values while branding leftover static copy', () => {
     const source =
       'Hermes Desktop could not open Hermes Agent.txt from https://example.com/Hermes and reported: Hermes gateway unavailable.'
 
     expect(
-      replaceHermesBrandTerms(source, lemonAppBrand, [
+      replaceLemonBrandTerms(source, lemonAppBrand, [
         'Hermes Agent.txt',
         'https://example.com/Hermes',
         'Hermes gateway unavailable'
@@ -250,7 +263,7 @@ describe('appBrandForEnv', () => {
     )
   })
 
-  it('brands translation functions without mutating interpolated filenames', () => {
+  it('brands leftover translation functions without mutating interpolated filenames', () => {
     const branded = brandTranslationTree(
       {
         failedOpen: (name: string) => `Hermes Desktop could not open ${name}.`,
@@ -269,11 +282,11 @@ describe('appBrandForEnv', () => {
 describe('applyAppBrandRoot', () => {
   it('publishes contrast-safe Lemon theme tokens in harness mode', () => {
     const root = document.createElement('html')
-    const brand = appBrandForEnv({ VITE_HERMES_DESKTOP_HARNESS: 'internal' })
+    const brand = appBrandForEnv({ VITE_LEMON_DESKTOP_HARNESS: 'internal' })
 
     applyAppBrandRoot(root, brand)
 
-    expect(root.dataset.hermesBrand).toBe('lemon')
+    expect(root.dataset.lemonBrand).toBe('lemon')
     expect(root.style.getPropertyValue('--theme-primary')).toBe('#ffdd00')
     expect(root.style.getPropertyValue('--theme-accent-soft')).toBe('#fff4b8')
     expect(root.style.getPropertyValue('--theme-midground')).toBe('#322b29')
@@ -288,7 +301,7 @@ describe('applyAppBrandRoot', () => {
 
   it('uses yellow as readable brand ink on dark surfaces', () => {
     const root = document.createElement('html')
-    const brand = appBrandForEnv({ VITE_HERMES_DESKTOP_HARNESS: 'internal' })
+    const brand = appBrandForEnv({ VITE_LEMON_DESKTOP_HARNESS: 'internal' })
 
     applyAppBrandRoot(root, brand, 'dark')
 
@@ -301,10 +314,10 @@ describe('applyAppBrandRoot', () => {
 
   it('removes the harness brand marker for upstream mode', () => {
     const root = document.createElement('html')
-    root.dataset.hermesBrand = 'lemon'
+    root.dataset.lemonBrand = 'lemon'
 
     applyAppBrandRoot(root, appBrandForEnv({}))
 
-    expect(root.dataset.hermesBrand).toBeUndefined()
+    expect(root.dataset.lemonBrand).toBeUndefined()
   })
 })

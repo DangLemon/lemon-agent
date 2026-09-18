@@ -34,14 +34,14 @@ _LAUNCH_VOLUMES = '["/host/secret:/data:rw"]'
 def _polluted_launch_env(monkeypatch, tmp_path):
     """Launch profile A bridged a docker backend with sensitive policy into
     the process env; every test proves a routed profile observes none of it."""
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    monkeypatch.setenv("LEMON_HOME", str(tmp_path / ".lemon-ai"))
     monkeypatch.setenv("TERMINAL_ENV", "docker")
     monkeypatch.setenv("TERMINAL_CWD", _LAUNCH_CWD)
     monkeypatch.setenv("TERMINAL_DOCKER_VOLUMES", _LAUNCH_VOLUMES)
     monkeypatch.setenv("TERMINAL_DOCKER_SHARED_CONTAINER_KEY", "alpha-shared")
     monkeypatch.setenv("TERMINAL_SSH_HOST", "10.10.0.103")
     monkeypatch.setattr("agent.secret_scope.build_profile_secret_scope", lambda _h: {})
-    monkeypatch.setattr("hermes_cli.env_loader.hydrate_profile_secret_sources", lambda _h: None)
+    monkeypatch.setattr("lemon_cli.env_loader.hydrate_profile_secret_sources", lambda _h: None)
     import tools.terminal_tool as tt
 
     monkeypatch.setattr(tt, "_terminal_config_bridge_attempted", True)

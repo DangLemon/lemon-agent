@@ -4,7 +4,7 @@ Two-layer fetch cache (in-process + on-disk); the disk half writes atomically
 with ``0600`` permissions and honours a TTL, so that logic is audited in exactly
 one place. Each backend supplies only its cache-key shape and a serializer.
 The disk layer is strictly best-effort: a miss just triggers a refetch, because
-a cache problem must never block Hermes startup.
+a cache problem must never block Lemon AI startup.
 """
 
 from __future__ import annotations
@@ -46,11 +46,11 @@ class CachedFetch:
 
 
 def resolve_cache_home(home_path: Optional[Path] = None) -> Path:
-    """``home_path`` as resolved by ``load_hermes_dotenv()``, else ``$HERMES_HOME``/``~/.hermes``."""
+    """``home_path`` as resolved by ``load_lemon_dotenv()``, else ``$LEMON_HOME``/``~/.lemon-ai``."""
     if home_path is None:
-        from hermes_constants import get_hermes_home
+        from lemon_constants import get_lemon_home
 
-        home_path = get_hermes_home()
+        home_path = get_lemon_home()
     return home_path
 
 
@@ -102,7 +102,7 @@ K = TypeVar("K")
 class DiskCache(Generic[K]):
     """Best-effort, profile-aware on-disk cache for fetched secret values.
 
-    One JSON object per backend at ``<hermes_home>/cache/<basename>``::
+    One JSON object per backend at ``<lemon_home>/cache/<basename>``::
 
         {"key": "<serialized cache key>", "secrets": {...}, "fetched_at": 1.0}
 
@@ -205,7 +205,7 @@ def __getattr__(name):  # PEP 562 — lazy so no import cycles
     if target is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     import importlib
-    from hermes_cli.plugin_compat import warn_once
+    from lemon_cli.plugin_compat import warn_once
     warn_once(__name__, name, *target)
     return getattr(importlib.import_module(target[0]), target[1])
 # ---- END PLUGIN-COMPAT ----

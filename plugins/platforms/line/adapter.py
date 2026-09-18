@@ -751,12 +751,12 @@ class LineAdapter(BasePlatformAdapter):
 
     async def _handle_media(self, request) -> Any:
         """Serve a registered local file for LINE's media URLs. Defence-in-depth: the resolved
-        path is rechecked against allowed roots (tempdir, ``/tmp``→``/private/tmp`` on macOS, HERMES_HOME).
+        path is rechecked against allowed roots (tempdir, ``/tmp``→``/private/tmp`` on macOS, LEMON_HOME).
 
         Defence-in-depth: even though ``_register_media`` is only called from trusted internal code, we
         recheck the resolved path against an allowed-roots set before serving. Sources allowed:
         ``tempfile.gettempdir()``, ``/tmp`` (which resolves to ``/private/tmp`` on macOS), and
-        ``HERMES_HOME``. PR #8398.
+        ``LEMON_HOME``. PR #8398.
         """
         from aiohttp import web
         token = request.match_info["token"]
@@ -770,12 +770,12 @@ class LineAdapter(BasePlatformAdapter):
         if not path.is_file():
             return web.Response(status=404, text="not found")
         try:
-            from hermes_constants import get_hermes_home
-            hermes_home = Path(get_hermes_home()).resolve()
+            from lemon_constants import get_lemon_home
+            lemon_home = Path(get_lemon_home()).resolve()
         except Exception:
-            hermes_home = Path.home().joinpath(".hermes").resolve()
+            lemon_home = Path.home().joinpath(".lemon-ai").resolve()
         resolved = path.resolve()
-        if not any(resolved.is_relative_to(r) for r in (Path(tempfile.gettempdir()).resolve(), Path("/tmp").resolve(), hermes_home)):
+        if not any(resolved.is_relative_to(r) for r in (Path(tempfile.gettempdir()).resolve(), Path("/tmp").resolve(), lemon_home)):
             logger.warning("LINE: refusing to serve outside allowed roots: %s", resolved)
             return web.Response(status=403, text="forbidden")
         content_type = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
@@ -883,12 +883,12 @@ def validate_config(config) -> bool:
 
 
 def is_connected(config) -> bool:
-    """Surface in ``hermes status`` even before the adapter is instantiated."""
+    """Surface in ``lemon status`` even before the adapter is instantiated."""
     return validate_config(config)
 
 
 def _env_enablement() -> Optional[Dict[str, Any]]:
-    """Seed PlatformConfig.extra from env-only setups so ``hermes status`` sees them."""
+    """Seed PlatformConfig.extra from env-only setups so ``lemon status`` sees them."""
     if not _env_credentials_present():
         return None
     seeded: Dict[str, Any] = {}
@@ -928,13 +928,13 @@ _SETUP_PROMPTS = (  # (env var, prompt, masked)
 
 
 def interactive_setup() -> None:
-    """Minimal stdin wizard for ``hermes setup line`` (writes ``~/.hermes/.env``)."""
+    """Minimal stdin wizard for ``lemon setup line`` (writes ``~/.lemon-ai/.env``)."""
     print("\nLINE Messaging API setup\n------------------------\n"
           "Create a Messaging API channel at https://developers.line.biz/console/\nthen copy the values below.\n")
     try:
-        from hermes_cli.config import get_env_value as _get_env, save_env_value as _set_env
+        from lemon_cli.config import get_env_value as _get_env, save_env_value as _set_env
     except ImportError:
-        print("hermes_cli.config not available; set LINE_* vars manually in ~/.hermes/.env")
+        print("lemon_cli.config not available; set LINE_* vars manually in ~/.lemon-ai/.env")
         return
 
     for var, prompt, secret in _SETUP_PROMPTS:
@@ -942,7 +942,7 @@ def interactive_setup() -> None:
         suffix = " [keep current]" if existing else ""
         try:
             if secret:
-                from hermes_cli.secret_prompt import masked_secret_prompt
+                from lemon_cli.secret_prompt import masked_secret_prompt
                 value = masked_secret_prompt(f"{prompt}{suffix}: ")
             else:
                 value = input(f"{prompt}{suffix}: ").strip()

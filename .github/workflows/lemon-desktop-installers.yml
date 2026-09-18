@@ -33,7 +33,7 @@ concurrency:
   cancel-in-progress: ${{ !(github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }}
 
 env:
-  LEMON_AI_DESKTOP_HARNESS_CONFIG: ${{ github.workspace }}/apps/desktop/lemon-ai-desktop.config.json
+  LEMON_DESKTOP_HARNESS_CONFIG: ${{ github.workspace }}/apps/desktop/lemon-ai-desktop.config.json
   CSC_IDENTITY_AUTO_DISCOVERY: 'false'
   WIN_CSC_LINK: ''
   WIN_CSC_KEY_PASSWORD: ''
@@ -95,10 +95,10 @@ jobs:
         run: |
           set -euo pipefail
           bash -n scripts/install.sh
-          HERMES_INSTALLER_BRAND=lemon bash scripts/install.sh --help
-          HERMES_INSTALLER_BRAND=lemon bash scripts/install.sh --manifest
-          npm --workspace @hermes/bootstrap-installer run check
-          npm --workspace @hermes/bootstrap-installer run test:branding
+          LEMON_INSTALLER_BRAND=lemon bash scripts/install.sh --help
+          LEMON_INSTALLER_BRAND=lemon bash scripts/install.sh --manifest
+          npm --workspace @lemon-ai/bootstrap-installer run check
+          npm --workspace @lemon-ai/bootstrap-installer run test:branding
           cargo test --manifest-path apps/bootstrap-installer/src-tauri/Cargo.toml \
             internal_payload_probes_include_lemon_before_legacy_on_macos
 
@@ -214,18 +214,18 @@ jobs:
       - name: Run Lemon bootstrap and PowerShell installer checks (pwsh 7)
         shell: pwsh
         run: |
-          $env:HERMES_INSTALLER_BRAND = 'lemon'
+          $env:LEMON_INSTALLER_BRAND = 'lemon'
           pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/tests/test-install-ps1-internal-branding.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm --workspace @hermes/bootstrap-installer run check
+          npm --workspace @lemon-ai/bootstrap-installer run check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm --workspace @hermes/bootstrap-installer run test:branding
+          npm --workspace @lemon-ai/bootstrap-installer run test:branding
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run PowerShell installer checks (Windows PowerShell 5.1)
         shell: powershell
         run: |
-          $env:HERMES_INSTALLER_BRAND = 'lemon'
+          $env:LEMON_INSTALLER_BRAND = 'lemon'
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/test-install-ps1-internal-branding.ps1
 
       - name: Build Lemon AI NSIS installer
@@ -354,7 +354,7 @@ jobs:
             --version "$version" \
             --sha "$GITHUB_SHA" \
             --ref "$GITHUB_REF_NAME" \
-            --repository DangLemon/hermes-agent
+            --repository DangLemon/lemon-agent
 
       - name: Publish draft release
         env:

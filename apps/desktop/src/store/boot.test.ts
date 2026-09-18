@@ -18,17 +18,17 @@ describe('boot display branding', () => {
 
 
   it('preserves authoritative runtime paths in terminal failures', () => {
-    failDesktopBoot('Missing venv at /Users/test/Hermes Runtime/venv')
+    failDesktopBoot('Missing venv at /Users/test/Lemon AI Runtime/venv')
 
-    expect($desktopBoot.get().error).toBe('Missing venv at /Users/test/Hermes Runtime/venv')
-    expect($desktopBoot.get().message).toContain('/Users/test/Hermes Runtime/venv')
+    expect($desktopBoot.get().error).toBe('Missing venv at /Users/test/Lemon AI Runtime/venv')
+    expect($desktopBoot.get().message).toContain('/Users/test/Lemon AI Runtime/venv')
   })
 
   it('keeps completion and failure messages compatible for the upstream build', () => {
-    completeDesktopBoot('Hermes Desktop is ready')
-    expect($desktopBoot.get().message).toBe('Hermes Desktop is ready')
+    completeDesktopBoot('Lemon AI is ready')
+    expect($desktopBoot.get().message).toBe('Lemon AI is ready')
 
-    failDesktopBoot('Hermes gateway unavailable')
-    expect($desktopBoot.get().error).toBe('Hermes gateway unavailable')
+    failDesktopBoot('Lemon AI gateway unavailable')
+    expect($desktopBoot.get().error).toBe('Lemon AI gateway unavailable')
   })
 })

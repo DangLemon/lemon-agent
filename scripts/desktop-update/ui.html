@@ -23,7 +23,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>__HERMES_UPDATE_PRODUCT_NAME__</title>
+<title>__LEMON_UPDATE_PRODUCT_NAME__</title>
 <style>
   :root {
     --background: #ffffff;
@@ -61,11 +61,11 @@
     box-sizing: border-box;
     text-align: center;
   }
-  @keyframes hermes-fade-in {
+  @keyframes lemon-fade-in {
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
   }
-  .wrap { animation: hermes-fade-in 0.45s ease-out both; }
+  .wrap { animation: lemon-fade-in 0.45s ease-out both; }
   /* Loader size-20 (5rem); svg overflow-visible; curve path opacity .1 */
   #loader { width: 80px; height: 80px; color: var(--foreground); }
   #loader svg { width: 100%; height: 100%; overflow: visible; }
@@ -107,8 +107,8 @@
   <div class="wrap">
     <div id="loader" role="status" aria-label="Updating"></div>
     <div id="glyph"></div>
-    <h2 id="title">Updating __HERMES_UPDATE_PRODUCT_NAME__</h2>
-    <p id="line">__HERMES_UPDATE_PRODUCT_NAME__ will open once done.</p>
+    <h2 id="title">Updating __LEMON_UPDATE_PRODUCT_NAME__</h2>
+    <p id="line">__LEMON_UPDATE_PRODUCT_NAME__ will open once done.</p>
   </div>
 <script>
   /* ── Fourier Flow loader, ported verbatim from loader.tsx ─────────────── */
@@ -200,7 +200,7 @@
   render(performance.now())
 
   /* ── Event listener: running stage or terminal outcome ───────────────── */
-  const productName = '__HERMES_UPDATE_PRODUCT_NAME__'
+  const productName = '__LEMON_UPDATE_PRODUCT_NAME__'
   const titleEl = document.getElementById('title')
   const lineEl = document.getElementById('line')
   const glyphEl = document.getElementById('glyph')
@@ -240,7 +240,7 @@
       settle('error')
       glyphEl.textContent = '\u2715'
       titleEl.textContent = 'Failed to update'
-      lineEl.innerHTML = 'Run <code>hermes debug share</code> in a terminal to send a report.'
+      lineEl.innerHTML = 'Run <code>lemon debug share</code> in a terminal to send a report.'
     }
   }
 

@@ -12,7 +12,7 @@ import pytest
 from gateway.config import GatewayConfig, Platform
 from gateway.platforms.base import MessageEvent
 from gateway.session import SessionSource
-from hermes_constants import get_hermes_home, hermes_home_key
+from lemon_constants import get_lemon_home, lemon_home_key
 
 
 @pytest.mark.asyncio
@@ -28,11 +28,11 @@ async def test_gateway_boot_discovers_mcp_under_every_profile_home(
     seen: list[tuple[Path, str]] = []
 
     def fake_discover() -> list[str]:
-        seen.append((get_hermes_home(), threading.current_thread().name))
+        seen.append((get_lemon_home(), threading.current_thread().name))
         return []
 
     monkeypatch.setattr(
-        "hermes_cli.profiles.profiles_to_serve",
+        "lemon_cli.profiles.profiles_to_serve",
         lambda multiplex, profile_allowlist=None: homes,
     )
     monkeypatch.setattr(_mcp_discovery, "discover_mcp_tools", fake_discover)
@@ -55,7 +55,7 @@ async def test_reload_mcp_only_touches_requesting_profile(
 
     worker_home = tmp_path / "profiles" / "worker"
     worker_home.mkdir(parents=True)
-    worker_scope = hermes_home_key(worker_home)
+    worker_scope = lemon_home_key(worker_home)
 
     runner = GatewayRunner.__new__(GatewayRunner)
     runner.config = GatewayConfig(multiplex_profiles=True)
@@ -69,15 +69,15 @@ async def test_reload_mcp_only_touches_requesting_profile(
     monkeypatch.setattr(mcp_tool, "_servers", {"default-srv": object(), "worker-srv": object()})
     monkeypatch.setattr(
         mcp_tool, "_server_scope_keys",
-        {"default-srv": hermes_home_key(tmp_path), "worker-srv": worker_scope},
+        {"default-srv": lemon_home_key(tmp_path), "worker-srv": worker_scope},
     )
     seen: list[tuple] = []
 
     def fake_shutdown(*, scope=None) -> None:
-        seen.append(("shutdown", scope, get_hermes_home()))
+        seen.append(("shutdown", scope, get_lemon_home()))
 
     def fake_discover() -> list[str]:
-        seen.append(("discover", get_hermes_home()))
+        seen.append(("discover", get_lemon_home()))
         return []
 
     monkeypatch.setattr(_mcp_lifecycle, "shutdown_mcp_servers", fake_shutdown)
@@ -117,7 +117,7 @@ def test_deregister_scope_kwarg_targets_overlay_and_keeps_plugin_confinement() -
     assert reg.snapshot_registration("mcp__s__t", scope="/home/p1") is None
 
     # A plugin module may not name another profile's overlay.
-    reg._plugin_module_scopes["hermes_plugins.p"] = {"/home/p1"}
-    reg._caller_module = staticmethod(lambda: "hermes_plugins.p")
+    reg._plugin_module_scopes["lemon_plugins.p"] = {"/home/p1"}
+    reg._caller_module = staticmethod(lambda: "lemon_plugins.p")
     with pytest.raises(PermissionError):
         reg.deregister("anything", scope="/home/p2")

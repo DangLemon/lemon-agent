@@ -3,7 +3,7 @@
 //! Direct port of `runBootstrap` from `apps/desktop/electron/bootstrap-runner.ts`.
 //! Drives install.ps1 / install.sh stage-by-stage, emits progress events
 //! over the Tauri `bootstrap` channel, writes a forensic log to
-//! HERMES_HOME/logs/bootstrap-<timestamp>.log.
+//! LEMON_HOME/logs/bootstrap-<timestamp>.log.
 //!
 //! Lifecycle:
 //!   1. `start_bootstrap` (Tauri command) → spawns the worker task.
@@ -45,9 +45,9 @@ pub struct StartBootstrapArgs {
     /// bootstrap-runner passes false to avoid building-while-running.
     #[serde(default = "default_true")]
     pub include_desktop: bool,
-    /// Optional override for HERMES_HOME. Tests use this; production
+    /// Optional override for LEMON_HOME. Tests use this; production
     /// almost always falls back to the OS default.
-    pub hermes_home: Option<String>,
+    pub lemon_home: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -158,17 +158,17 @@ pub async fn get_bootstrap_status(
     })
 }
 
-/// Spawn the locally-built Hermes desktop binary, then close the installer
+/// Spawn the locally-built Lemon AI desktop binary, then close the installer
 /// window. Caller resolves the binary path from `install_root`.
 ///
 /// Returns Err with a human-readable message if the binary doesn't exist
 /// (e.g. when Stage-Desktop was skipped) so the frontend can present
 /// actionable failure UI rather than silently doing nothing.
 #[tauri::command]
-pub async fn launch_hermes_desktop(app: AppHandle, install_root: String) -> Result<(), String> {
+pub async fn launch_lemon_desktop(app: AppHandle, install_root: String) -> Result<(), String> {
     let install_root = PathBuf::from(install_root);
     let release_dir = install_root.join("apps").join("desktop").join("release");
-    let exe_path = resolve_hermes_desktop_exe(&install_root)
+    let exe_path = resolve_lemon_desktop_exe(&install_root)
         .ok_or_else(|| missing_desktop_message(crate::paths::product_name(), &release_dir))?;
 
     tracing::info!(
@@ -178,7 +178,7 @@ pub async fn launch_hermes_desktop(app: AppHandle, install_root: String) -> Resu
     );
 
     // Detach from us — the installer is about to exit. On macOS launch the
-    // bundle through LaunchServices instead of exec'ing Contents/MacOS/Hermes
+    // bundle through LaunchServices instead of exec'ing Contents/MacOS/Lemon AI
     // directly; this matches user double-click/open behavior and avoids cwd /
     // quarantine oddities after a self-update rebuild.
     let mut cmd = desktop_launch_command(&exe_path, &install_root);
@@ -204,7 +204,7 @@ pub async fn launch_hermes_desktop(app: AppHandle, install_root: String) -> Resu
 fn missing_desktop_message(product_name: &str, release_dir: &Path) -> String {
     format!(
         "Couldn't find a built {product_name} desktop at {}. The desktop build step \
-         may have been skipped or failed. Run `hermes desktop` from a \
+         may have been skipped or failed. Run `lemon desktop` from a \
          terminal to build and launch it.",
         release_dir.display()
     )
@@ -213,52 +213,29 @@ fn missing_desktop_message(product_name: &str, release_dir: &Path) -> String {
 /// Walks the well-known electron-builder unpacked-app paths under
 /// `install_root`. Mirrors the resolver in `cmd_gui` (apps/desktop/release/
 /// <os>-unpacked/<exe>).
-fn desktop_exe_candidates(internal: bool) -> &'static [(&'static str, &'static str)] {
+fn desktop_exe_candidates(_internal: bool) -> &'static [(&'static str, &'static str)] {
     if cfg!(target_os = "windows") {
-        if internal {
-            &[
-                ("win-unpacked", "Lemon AI.exe"),
-                ("win-arm64-unpacked", "Lemon AI.exe"),
-            ]
-        } else {
-            &[
-                ("win-unpacked", "Hermes.exe"),
-                ("win-arm64-unpacked", "Hermes.exe"),
-            ]
-        }
+        &[
+            ("win-unpacked", "Lemon AI.exe"),
+            ("win-arm64-unpacked", "Lemon AI.exe"),
+        ]
     } else if cfg!(target_os = "macos") {
-        if internal {
-            &[
-                ("mac/Lemon AI.app/Contents/MacOS", "Lemon AI"),
-                ("mac-arm64/Lemon AI.app/Contents/MacOS", "Lemon AI"),
-            ]
-        } else {
-            &[
-                ("mac/Hermes.app/Contents/MacOS", "Hermes"),
-                ("mac-arm64/Hermes.app/Contents/MacOS", "Hermes"),
-            ]
-        }
+        &[
+            ("mac/Lemon AI.app/Contents/MacOS", "Lemon AI"),
+            ("mac-arm64/Lemon AI.app/Contents/MacOS", "Lemon AI"),
+        ]
     } else {
-        linux_desktop_exe_candidates(internal)
+        linux_desktop_exe_candidates(false)
     }
 }
 
-fn linux_desktop_exe_candidates(internal: bool) -> &'static [(&'static str, &'static str)] {
-    if internal {
-        &[
-            ("linux-unpacked", "Lemon AI"),
-            ("linux-arm64-unpacked", "Lemon AI"),
-            ("linux-unpacked", "lemon-ai"),
-            ("linux-arm64-unpacked", "lemon-ai"),
-        ]
-    } else {
-        &[
-            ("linux-unpacked", "hermes"),
-            ("linux-arm64-unpacked", "hermes"),
-            ("linux-unpacked", "Hermes"),
-            ("linux-arm64-unpacked", "Hermes"),
-        ]
-    }
+fn linux_desktop_exe_candidates(_internal: bool) -> &'static [(&'static str, &'static str)] {
+    &[
+        ("linux-unpacked", "Lemon AI"),
+        ("linux-arm64-unpacked", "Lemon AI"),
+        ("linux-unpacked", "lemon-ai"),
+        ("linux-arm64-unpacked", "lemon-ai"),
+    ]
 }
 
 fn resolve_desktop_exe_from_candidates(
@@ -279,15 +256,15 @@ fn resolve_desktop_exe_for(install_root: &std::path::Path, internal: bool) -> Op
     resolve_desktop_exe_from_candidates(install_root, desktop_exe_candidates(internal))
 }
 
-pub(crate) fn resolve_hermes_desktop_exe(install_root: &std::path::Path) -> Option<PathBuf> {
+pub(crate) fn resolve_lemon_desktop_exe(install_root: &std::path::Path) -> Option<PathBuf> {
     resolve_desktop_exe_for(install_root, crate::paths::internal_desktop_build())
 }
 
-pub(crate) fn resolve_hermes_desktop_app(install_root: &std::path::Path) -> Option<PathBuf> {
-    let exe = resolve_hermes_desktop_exe(install_root)?;
+pub(crate) fn resolve_lemon_desktop_app(install_root: &std::path::Path) -> Option<PathBuf> {
+    let exe = resolve_lemon_desktop_exe(install_root)?;
     #[cfg(target_os = "macos")]
     {
-        // .../Hermes.app/Contents/MacOS/Hermes -> .../Hermes.app
+        // .../Lemon AI.app/Contents/MacOS/Lemon AI -> .../Lemon AI.app
         let app = exe.parent()?.parent()?.parent()?.to_path_buf();
         if app.extension().and_then(|e| e.to_str()) == Some("app") && app.is_dir() {
             return Some(app);
@@ -303,12 +280,12 @@ pub(crate) fn resolve_hermes_desktop_app(install_root: &std::path::Path) -> Opti
 
 /// True when a prior install completed (bootstrap-complete marker present) AND a
 /// launchable desktop app exists on disk. Used by the installer's launcher fast
-/// path so a bare re-open just opens Hermes instead of re-running setup.
-pub(crate) fn hermes_is_installed(install_root: &std::path::Path) -> bool {
+/// path so a bare re-open just opens Lemon AI instead of re-running setup.
+pub(crate) fn lemon_is_installed(install_root: &std::path::Path) -> bool {
     crate::paths::likely_bootstrap_markers(install_root)
         .iter()
         .any(|marker| marker.exists())
-        && resolve_hermes_desktop_exe(install_root).is_some()
+        && resolve_lemon_desktop_exe(install_root).is_some()
 }
 
 fn resolve_marker_commit(install_root: &Path, pin: &Pin) -> Option<String> {
@@ -364,7 +341,7 @@ fn write_bootstrap_complete_marker(install_root: &Path, pin: &Pin) -> Result<ser
     body.push(b'\n');
 
     // Atomic publish (temp sibling + flush + rename), matching Electron's
-    // writeFileAtomic(). hermes_is_installed() only checks existence, so a
+    // writeFileAtomic(). lemon_is_installed() only checks existence, so a
     // partial direct write would incorrectly enable the launcher fast path.
     let tmp_path = bootstrap_marker_tmp_path(&marker_path);
     {
@@ -425,15 +402,15 @@ fn bootstrap_marker_tmp_path(marker_path: &Path) -> PathBuf {
 /// exists or the spawn fails, so the caller can fall back to showing the
 /// installer UI.
 pub(crate) fn spawn_installed_desktop(install_root: &std::path::Path) -> std::io::Result<()> {
-    let exe = resolve_hermes_desktop_exe(install_root).ok_or_else(|| {
-        std::io::Error::new(std::io::ErrorKind::NotFound, "no built Hermes desktop app")
+    let exe = resolve_lemon_desktop_exe(install_root).ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::NotFound, "no built Lemon AI desktop app")
     })?;
     let mut cmd = desktop_launch_command_std(&exe, install_root);
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
         // DETACHED_PROCESS = 0x00000008 — keep the desktop alive after the
-        // installer exits, mirroring launch_hermes_desktop. Kept correct here
+        // installer exits, mirroring launch_lemon_desktop. Kept correct here
         // even though the only caller is macOS-gated today, so future reuse on
         // Windows doesn't reintroduce the relaunch race.
         cmd.creation_flags(0x0000_0008);
@@ -445,7 +422,7 @@ pub(crate) fn spawn_installed_desktop(install_root: &std::path::Path) -> std::io
 pub(crate) fn open_macos_app_detached(app_bundle: &std::path::Path) -> std::io::Result<()> {
     let mut cmd = std::process::Command::new("/usr/bin/open");
     cmd.arg(app_bundle);
-    cmd.current_dir(crate::paths::hermes_home());
+    cmd.current_dir(crate::paths::lemon_home());
     cmd.spawn().map(|_child| ())
 }
 
@@ -468,7 +445,7 @@ fn desktop_launch_command(
         if let Some(app_bundle) = app_bundle_for_exe(exe_path) {
             let mut cmd = tokio::process::Command::new("/usr/bin/open");
             cmd.arg(app_bundle);
-            cmd.current_dir(crate::paths::hermes_home());
+            cmd.current_dir(crate::paths::lemon_home());
             return cmd;
         }
     }
@@ -487,7 +464,7 @@ fn desktop_launch_command_std(
         if let Some(app_bundle) = app_bundle_for_exe(exe_path) {
             let mut cmd = std::process::Command::new("/usr/bin/open");
             cmd.arg(app_bundle);
-            cmd.current_dir(crate::paths::hermes_home());
+            cmd.current_dir(crate::paths::lemon_home());
             return cmd;
         }
     }
@@ -569,7 +546,7 @@ async fn run_bootstrap(
     ));
     for line in installer_diagnostic_lines(
         crate::paths::product_name(),
-        &crate::paths::hermes_home(),
+        &crate::paths::lemon_home(),
         &crate::paths::install_root(),
         &crate::paths::runtime_dir_name(),
         "desktop",
@@ -596,7 +573,7 @@ async fn run_bootstrap(
         &app,
         &script.path,
         &manifest_args_full,
-        args.hermes_home.as_deref(),
+        args.lemon_home.as_deref(),
         &mut manifest_cancel_rx,
         Some("__manifest__".to_string()),
     )
@@ -709,7 +686,7 @@ async fn run_bootstrap(
                 &app,
                 &script.path,
                 &stage_args,
-                args.hermes_home.as_deref(),
+                args.lemon_home.as_deref(),
                 &mut local_cancel_rx,
                 Some(stage.name.clone()),
             )
@@ -849,13 +826,13 @@ async fn run_bootstrap(
     }
 
     // 4. Resolve install_root. install.ps1/install.sh install under the active
-    // runtime dir for this desktop identity and fall back to a legacy Hermes
+    // runtime dir for this desktop identity and fall back to a legacy Lemon AI
     // checkout when an internal Lemon build is repairing an existing install.
-    let hermes_home = args
-        .hermes_home
+    let lemon_home = args
+        .lemon_home
         .clone()
-        .unwrap_or_else(|| crate::paths::hermes_home().to_string_lossy().into_owned());
-    let install_root = crate::paths::install_root_for_home(Path::new(&hermes_home));
+        .unwrap_or_else(|| crate::paths::lemon_home().to_string_lossy().into_owned());
+    let install_root = crate::paths::install_root_for_home(Path::new(&lemon_home));
 
     // Marker publish is terminal for this run: a write failure must emit Failed
     // so the UI leaves the progress state (it does not poll get_bootstrap_status).
@@ -874,15 +851,15 @@ async fn run_bootstrap(
         }
     };
 
-    // Copy ourselves to HERMES_HOME/hermes-setup.exe so the desktop app can
+    // Copy ourselves to LEMON_HOME/lemon-setup.exe so the desktop app can
     // re-invoke us with `--update` and shortcuts have a stable target. This is
     // a one-shot install concern; an `--update` re-invocation no-ops because
     // we're already running from that path. Best-effort — a failure here must
     // not fail an otherwise-successful install.
-    if let Err(err) = crate::paths::copy_self_to_hermes_home() {
+    if let Err(err) = crate::paths::copy_self_to_lemon_home() {
         tracing::warn!(
             ?err,
-            "failed to copy installer into HERMES_HOME (non-fatal)"
+            "failed to copy installer into LEMON_HOME (non-fatal)"
         );
         emit_log(&format!(
             "[bootstrap] warning: could not stage updater binary: {err}"
@@ -906,16 +883,16 @@ fn should_retry_missing_stage_frame(exit_code: Option<i32>, killed: bool, attemp
 
 fn installer_diagnostic_lines(
     product_name: &str,
-    hermes_home: &Path,
+    lemon_home: &Path,
     install_root: &Path,
     runtime_dir_name: &str,
     cli_args: &str,
 ) -> [String; 4] {
     [
-        format!("{product_name} home: {}", hermes_home.display()),
+        format!("{product_name} home: {}", lemon_home.display()),
         format!("{product_name} install root: {}", install_root.display()),
         format!("{product_name} runtime dir: {runtime_dir_name}"),
-        format!("{product_name} CLI command: hermes {cli_args}"),
+        format!("{product_name} CLI command: lemon {cli_args}"),
     ]
 }
 
@@ -949,7 +926,7 @@ async fn run_install_script(
     app: &AppHandle,
     script_path: &std::path::Path,
     args: &[String],
-    hermes_home_override: Option<&str>,
+    lemon_home_override: Option<&str>,
     cancel_rx: &mut Option<mpsc::Receiver<()>>,
     stage_name: Option<String>,
 ) -> Result<powershell::ScriptResult> {
@@ -1001,7 +978,7 @@ async fn run_install_script(
         }),
     };
 
-    powershell::run_script(script_path, args, sink, hermes_home_override, cancel_rx)
+    powershell::run_script(script_path, args, sink, lemon_home_override, cancel_rx)
         .await
         .map_err(|e| {
             tracing::error!(?e, "install script invocation failed");
@@ -1092,7 +1069,7 @@ mod tests {
 
     fn unique_tmp_dir(tag: &str) -> PathBuf {
         let base = std::env::temp_dir().join(format!(
-            "hermes-bootstrap-test-{tag}-{}-{}",
+            "lemon-bootstrap-test-{tag}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -1110,22 +1087,22 @@ mod tests {
         if cfg!(target_os = "macos") {
             let macos_dir = release
                 .join("mac-arm64")
-                .join("Hermes.app")
+                .join("Lemon AI.app")
                 .join("Contents")
                 .join("MacOS");
             std::fs::create_dir_all(&macos_dir).unwrap();
-            std::fs::write(macos_dir.join("Hermes"), b"#!/bin/sh\n").unwrap();
-            macos_dir.parent().unwrap().parent().unwrap().to_path_buf() // .../Hermes.app
+            std::fs::write(macos_dir.join("Lemon AI"), b"#!/bin/sh\n").unwrap();
+            macos_dir.parent().unwrap().parent().unwrap().to_path_buf() // .../Lemon AI.app
         } else if cfg!(target_os = "windows") {
             let dir = release.join("win-unpacked");
             std::fs::create_dir_all(&dir).unwrap();
-            let exe = dir.join("Hermes.exe");
+            let exe = dir.join("Lemon AI.exe");
             std::fs::write(&exe, b"stub").unwrap();
             exe
         } else {
             let dir = release.join("linux-unpacked");
             std::fs::create_dir_all(&dir).unwrap();
-            let exe = dir.join("hermes");
+            let exe = dir.join("Lemon AI");
             std::fs::write(&exe, b"stub").unwrap();
             exe
         }
@@ -1133,71 +1110,42 @@ mod tests {
 
     // The relaunch / install target is derived from the rebuilt desktop app.
     // On macOS this MUST resolve to the .app bundle (what `open` relaunches and
-    // what the updater ditto's over /Applications/Hermes.app). A regression in
+    // what the updater ditto's over /Applications/Lemon AI.app). A regression in
     // this derivation breaks the post-update auto-relaunch, so guard it.
     #[test]
-    fn desktop_exe_candidates_preserve_ordinary_and_internal_identity() {
+    fn desktop_exe_candidates_are_lemon_only() {
         let ordinary = desktop_exe_candidates(false);
         let internal = desktop_exe_candidates(true);
-
+        assert_eq!(ordinary, internal);
         if cfg!(target_os = "windows") {
-            assert_eq!(ordinary[0], ("win-unpacked", "Hermes.exe"));
-            assert_eq!(internal[0], ("win-unpacked", "Lemon AI.exe"));
-            assert!(!internal.contains(&("win-unpacked", "Hermes.exe")));
-            assert!(!internal.contains(&("win-arm64-unpacked", "Hermes.exe")));
+            assert_eq!(ordinary[0], ("win-unpacked", "Lemon AI.exe"));
         } else if cfg!(target_os = "macos") {
-            assert_eq!(ordinary[0], ("mac/Hermes.app/Contents/MacOS", "Hermes"));
-            assert_eq!(internal[0], ("mac/Lemon AI.app/Contents/MacOS", "Lemon AI"));
-            assert!(!internal.contains(&("mac/Hermes.app/Contents/MacOS", "Hermes")));
-            assert!(!internal.contains(&("mac-arm64/Hermes.app/Contents/MacOS", "Hermes")));
+            assert_eq!(ordinary[0], ("mac/Lemon AI.app/Contents/MacOS", "Lemon AI"));
         } else {
-            assert_eq!(ordinary[0], ("linux-unpacked", "hermes"));
-            assert_eq!(internal[0], ("linux-unpacked", "Lemon AI"));
-            assert!(!internal.contains(&("linux-unpacked", "hermes")));
-            assert!(!internal.contains(&("linux-arm64-unpacked", "hermes")));
-            assert!(!internal.contains(&("linux-unpacked", "Hermes")));
-            assert!(!internal.contains(&("linux-arm64-unpacked", "Hermes")));
+            assert_eq!(ordinary[0], ("linux-unpacked", "Lemon AI"));
+            assert!(ordinary.contains(&("linux-unpacked", "lemon-ai")));
+            assert!(!ordinary.contains(&("linux-unpacked", "lemon")));
         }
     }
 
     #[test]
-    fn linux_internal_desktop_candidates_only_accept_lemon_artifacts() {
-        let ordinary = linux_desktop_exe_candidates(false);
-        let internal = linux_desktop_exe_candidates(true);
-
-        assert_eq!(ordinary[0], ("linux-unpacked", "hermes"));
-        assert_eq!(internal[0], ("linux-unpacked", "Lemon AI"));
-        assert!(internal.contains(&("linux-unpacked", "lemon-ai")));
-        assert!(!internal.contains(&("linux-unpacked", "hermes")));
-        assert!(!internal.contains(&("linux-arm64-unpacked", "hermes")));
-        assert!(!internal.contains(&("linux-unpacked", "Hermes")));
-        assert!(!internal.contains(&("linux-arm64-unpacked", "Hermes")));
-    }
-
-    #[test]
-    fn linux_internal_desktop_resolver_prefers_lemon_executable() {
+    fn linux_desktop_resolver_accepts_only_lemon_executables() {
         let root = unique_tmp_dir("linux-lemon-resolver");
         let release = root.join("apps").join("desktop").join("release");
-        let lemon = release.join("linux-unpacked").join("Lemon AI");
-        let legacy = release.join("linux-unpacked").join("hermes");
-        std::fs::create_dir_all(lemon.parent().unwrap()).unwrap();
-        std::fs::write(&lemon, b"stub").unwrap();
-        std::fs::write(&legacy, b"stub").unwrap();
+        let branded = release.join("linux-unpacked").join("Lemon AI");
+        let binary = release.join("linux-unpacked").join("lemon-ai");
+        std::fs::create_dir_all(branded.parent().unwrap()).unwrap();
+        std::fs::write(&branded, b"stub").unwrap();
+        std::fs::write(&binary, b"stub").unwrap();
 
-        assert_eq!(
-            resolve_desktop_exe_from_candidates(&root, linux_desktop_exe_candidates(true)),
-            Some(lemon.clone())
-        );
         assert_eq!(
             resolve_desktop_exe_from_candidates(&root, linux_desktop_exe_candidates(false)),
-            Some(legacy.clone())
+            Some(branded.clone())
         );
-
-        std::fs::remove_file(&lemon).unwrap();
+        std::fs::remove_file(&branded).unwrap();
         assert_eq!(
             resolve_desktop_exe_from_candidates(&root, linux_desktop_exe_candidates(true)),
-            None,
-            "internal builds must not fall back to a Hermes executable"
+            Some(binary)
         );
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -1208,12 +1156,12 @@ mod tests {
 
         assert!(missing_desktop_message("Lemon AI", release)
             .starts_with("Couldn't find a built Lemon AI desktop at "));
-        assert!(missing_desktop_message("Hermes", release)
-            .starts_with("Couldn't find a built Hermes desktop at "));
+        assert!(missing_desktop_message("Lemon AI", release)
+            .starts_with("Couldn't find a built Lemon AI desktop at "));
     }
 
     #[test]
-    fn installer_diagnostics_label_lemon_paths_and_keep_hermes_command() {
+    fn installer_diagnostics_label_lemon_paths_and_keep_lemon_command() {
         let home = Path::new(r"C:\Users\tester\AppData\Local\Lemon AI");
         let root = home.join("lemon-agent");
         let lines = installer_diagnostic_lines("Lemon AI", home, &root, "lemon-agent", "desktop");
@@ -1227,15 +1175,15 @@ mod tests {
             format!("Lemon AI install root: {}", root.display())
         );
         assert_eq!(lines[2], "Lemon AI runtime dir: lemon-agent");
-        assert_eq!(lines[3], "Lemon AI CLI command: hermes desktop");
+        assert_eq!(lines[3], "Lemon AI CLI command: lemon desktop");
     }
 
     #[test]
-    fn resolve_hermes_desktop_app_finds_built_bundle() {
+    fn resolve_lemon_desktop_app_finds_built_bundle() {
         let root = unique_tmp_dir("app-ok");
         let expected = make_release_tree(&root);
 
-        let resolved = resolve_hermes_desktop_app(&root)
+        let resolved = resolve_lemon_desktop_app(&root)
             .expect("should resolve the freshly-built desktop app");
 
         #[cfg(target_os = "macos")]
@@ -1255,11 +1203,11 @@ mod tests {
     }
 
     #[test]
-    fn resolve_hermes_desktop_app_is_none_without_a_build() {
+    fn resolve_lemon_desktop_app_is_none_without_a_build() {
         let root = unique_tmp_dir("app-none");
         // No release tree created.
         assert!(
-            resolve_hermes_desktop_app(&root).is_none(),
+            resolve_lemon_desktop_app(&root).is_none(),
             "no resolved app when nothing has been built"
         );
         let _ = std::fs::remove_dir_all(&root);
@@ -1312,23 +1260,23 @@ mod tests {
             "temp sibling must not remain after atomic publish"
         );
         assert!(
-            hermes_is_installed(&root),
+            lemon_is_installed(&root),
             "atomically published marker must enable the installer fast path"
         );
         let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
-    fn hermes_is_installed_treats_marker_existence_as_sufficient() {
+    fn lemon_is_installed_treats_marker_existence_as_sufficient() {
         // Documents why write_bootstrap_complete_marker must publish atomically:
         // the launcher predicate only checks existence, so a partial/corrupt
         // final marker would still enable the fast path.
         let root = unique_tmp_dir("marker-existence-only");
         make_release_tree(&root);
-        std::fs::write(root.join(".hermes-bootstrap-complete"), b"").unwrap();
+        std::fs::write(root.join(".lemon-ai-bootstrap-complete"), b"").unwrap();
 
         assert!(
-            hermes_is_installed(&root),
+            lemon_is_installed(&root),
             "empty/partial marker content still counts as installed"
         );
         let _ = std::fs::remove_dir_all(&root);

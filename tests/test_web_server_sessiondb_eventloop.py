@@ -3,13 +3,13 @@ import asyncio
 import threading
 from pathlib import Path
 
-from hermes_cli import web_server
-import hermes_cli.web_models as _web_models
-import hermes_cli.web_routers.sessions as _rt_sessions
-import hermes_cli.web_server_sessions as _web_server_sessions
-from hermes_cli import web_server_sessions
-from hermes_cli.web_routers import analytics as web_analytics
-from hermes_cli.web_routers import sessions as web_sessions
+from lemon_cli import web_server
+import lemon_cli.web_models as _web_models
+import lemon_cli.web_routers.sessions as _rt_sessions
+import lemon_cli.web_server_sessions as _web_server_sessions
+from lemon_cli import web_server_sessions
+from lemon_cli.web_routers import analytics as web_analytics
+from lemon_cli.web_routers import sessions as web_sessions
 
 
 TARGET_HANDLERS = {

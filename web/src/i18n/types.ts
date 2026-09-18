@@ -157,11 +157,11 @@ export interface Translations {
     starting: string;
     startedInBackground: string;
     stopped: string;
-    updateHermes: string;
-    updateHermesConfirmMessage?: string;
-    updateHermesConfirmNow?: string;
-    updateHermesConfirmTitle?: string;
-    updatingHermes: string;
+    updateLemon: string;
+    updateLemonConfirmMessage?: string;
+    updateLemonConfirmNow?: string;
+    updateLemonConfirmTitle?: string;
+    updatingLemon: string;
     waitingForOutput: string;
   };
 
@@ -592,7 +592,7 @@ export interface Translations {
     fontMono?: string;
   };
 
-  // ── Achievements plugin (plugins/hermes-achievements) ──
+  // ── Achievements plugin (plugins/lemon-achievements) ──
   achievements: {
     hero: {
       kicker: string;

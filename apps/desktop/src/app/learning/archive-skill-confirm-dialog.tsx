@@ -1,7 +1,7 @@
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { deleteLearningNode, type ProfileScope } from '@/hermes'
 import { type Translations, useI18n } from '@/i18n'
-import { type AppBrand, appBrandForEnv, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { deleteLearningNode, type ProfileScope } from '@/lemon'
+import { type AppBrand, appBrandForEnv, replaceLemonBrandTerms } from '@/lib/app-brand'
 import { notify } from '@/store/notifications'
 
 export function notifySkillArchived(t: Translations): void {
@@ -19,7 +19,7 @@ export function archiveSkillDialogCopyForBrand(
   t: Translations,
   brand: AppBrand = appBrandForEnv()
 ): ArchiveSkillDialogCopy {
-  const text = (value: string): string => replaceHermesBrandTerms(value, brand)
+  const text = (value: string): string => replaceLemonBrandTerms(value, brand)
 
   if (brand.mode === 'upstream') {
     return {
@@ -34,7 +34,7 @@ export function archiveSkillDialogCopyForBrand(
     confirmLabel: text(t.skills.archive),
     description: text(t.skills.archiveSkillConfirmDescription),
     failureFallback: text(t.skills.archiveSkillFailed),
-    title: name => replaceHermesBrandTerms(t.skills.archiveSkillConfirmTitle(name), brand, [name])
+    title: name => replaceLemonBrandTerms(t.skills.archiveSkillConfirmTitle(name), brand, [name])
   }
 }
 

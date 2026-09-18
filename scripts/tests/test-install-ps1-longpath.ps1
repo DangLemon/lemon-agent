@@ -119,17 +119,14 @@ function Invoke-Normalization {
         LOCALAPPDATA = (Join-Parts @($root, 'AppData', 'Local'))
         APPDATA      = (Join-Parts @($root, 'AppData', 'Roaming'))
         USERPROFILE  = $root
-        HERMES_HOME  = ''
-        LEMON_AI_HOME = ''
-        HERMES_INSTALLER_BRAND = ''
-        HERMES_INSTALL_REPOSITORY = ''
-        HERMES_INSTALL_RUNTIME_DIR_NAME = ''
-        LEMON_AI_INSTALL_RUNTIME_DIR_NAME = ''
-        HERMES_DESKTOP_INTERNAL = ''
-        HERMES_DESKTOP_HOME_OVERRIDE = ''
-        HERMES_DESKTOP_RUNTIME_DIR_NAME = ''
-        LEMON_AI_DESKTOP_HARNESS_CONFIG = ''
-        HERMES_DESKTOP_HARNESS_CONFIG = ''
+        LEMON_HOME  = ''
+        LEMON_INSTALLER_BRAND = ''
+        LEMON_INSTALL_REPOSITORY = ''
+        LEMON_INSTALL_RUNTIME_DIR_NAME = ''
+        LEMON_DESKTOP_INTERNAL = ''
+        LEMON_DESKTOP_HOME_OVERRIDE = ''
+        LEMON_DESKTOP_RUNTIME_DIR_NAME = ''
+        LEMON_DESKTOP_HARNESS_CONFIG = ''
     }
     foreach ($key in $Environment.Keys) { $env0[$key] = $Environment[$key] }
 
@@ -154,7 +151,7 @@ function Invoke-Normalization {
         # record into this script's error stream, which fails the 5.1 lane even
         # under 'Continue'. Merging with 2>&1 keeps the bytes and produces no
         # error record. The installer's stdout here is a single JSON object and
-        # its diagnostics are all `[hermes] `-prefixed, so the two separate
+        # its diagnostics are all `[lemon] `-prefixed, so the two separate
         # cleanly on the way back out.
         $prevEAP = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
@@ -166,8 +163,8 @@ function Invoke-Normalization {
         }
         $exitCode = $LASTEXITCODE
         $raw = @(Get-Content -LiteralPath $outFile -ErrorAction SilentlyContinue)
-        $stderr = ($raw | Where-Object { $_ -like '`[hermes`]*' }) -join "`n"
-        $stdout = ($raw | Where-Object { $_ -notlike '`[hermes`]*' }) -join "`n"
+        $stderr = ($raw | Where-Object { $_ -like '`[lemon`]*' }) -join "`n"
+        $stdout = ($raw | Where-Object { $_ -notlike '`[lemon`]*' }) -join "`n"
     } finally {
         foreach ($key in $saved.Keys) {
             if ($null -eq $saved[$key]) {
@@ -207,7 +204,7 @@ function Invoke-Normalization {
         BootstrapMarker = $(if ($paths) { $paths.bootstrap_marker } else { $null })
         RecoveryUrl = $(if ($paths) { $paths.recovery_url } else { $null })
         InstallDir = $(if ($paths) { $paths.install_dir } else { $null })
-        HermesHome = $(if ($paths) { $paths.hermes_home } else { $null })
+        LemonHome = $(if ($paths) { $paths.lemon_home } else { $null })
         LongRoot   = $(if ($paths) { $paths.long_profile_root } else { $null })
     }
 }
@@ -277,8 +274,8 @@ Write-Host "-- normalization is a no-op for ordinary paths --"
 # A profile name with a space is NOT itself a short path; nothing to expand.
 # Force the public profile here so this normalization assertion stays
 # independent of the Lemon manifest present in the fork checkout.
-$result = Invoke-Normalization -Environment @{ HERMES_INSTALLER_BRAND = 'hermes' } `
-    -ExtraArgs @('-Repository', 'NousResearch/hermes-agent')
+$result = Invoke-Normalization -Environment @{ LEMON_INSTALLER_BRAND = 'lemon' } `
+    -ExtraArgs @('-Repository', 'DangLemon/lemon-agent')
 Assert-Equal -Expected 0 -Actual $result.ExitCode -Label "long paths: install.ps1 still reaches its early exit"
 Assert-Equal -Expected 0 -Actual $result.Rewrites.Count -Label "long paths: nothing rewritten"
 Assert-Equal -Expected $false -Actual ($result.InstallDir -match '~\d') -Label "long paths: InstallDir passes through clean"
@@ -290,60 +287,59 @@ $result = Invoke-Normalization
 $expectedLemonHome = "$($longRoot)${sep}AppData${sep}Local" + '\Lemon AI'
 $expectedLemonInstallDir = "$expectedLemonHome\lemon-agent"
 Assert-Equal -Expected 0 -Actual $result.ExitCode -Label "checkout manifest: install.ps1 still reaches its early exit"
-Assert-Equal -Expected "DangLemon/hermes-agent" -Actual $result.Repository -Label "checkout manifest chooses the Lemon repository"
+Assert-Equal -Expected "DangLemon/lemon-agent" -Actual $result.Repository -Label "checkout manifest chooses the Lemon repository"
 Assert-Equal -Expected "lemon-agent" -Actual $result.RuntimeDirName -Label "checkout manifest chooses the Lemon runtime directory"
 Assert-Equal -Expected ".lemon-ai-bootstrap-complete" -Actual $result.BootstrapMarker -Label "checkout manifest chooses the Lemon bootstrap marker"
-Assert-Equal -Expected "https://raw.githubusercontent.com/DangLemon/hermes-agent/main/scripts/install.ps1" -Actual $result.RecoveryUrl -Label "checkout manifest chooses the Lemon recovery URL"
-Assert-Equal -Expected $expectedLemonHome -Actual $result.HermesHome -Label "checkout manifest chooses the Lemon home"
+Assert-Equal -Expected "https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1" -Actual $result.RecoveryUrl -Label "checkout manifest chooses the Lemon recovery URL"
+Assert-Equal -Expected $expectedLemonHome -Actual $result.LemonHome -Label "checkout manifest chooses the Lemon home"
 Assert-Equal -Expected $expectedLemonInstallDir -Actual $result.InstallDir -Label "checkout manifest chooses the Lemon install dir"
 
-$explicitHome = Join-Path $longRoot 'explicit-hermes-home'
-$result = Invoke-Normalization -ExtraArgs @('-HermesHome', $explicitHome)
-Assert-Equal -Expected $explicitHome -Actual $result.HermesHome -Label "checkout manifest preserves explicit -HermesHome"
-Assert-Equal -Expected (Join-Path $explicitHome 'lemon-agent') -Actual $result.InstallDir -Label "checkout manifest derives InstallDir from explicit -HermesHome"
+$explicitHome = Join-Path $longRoot 'explicit-lemon-home'
+$result = Invoke-Normalization -ExtraArgs @('-LemonHome', $explicitHome)
+Assert-Equal -Expected $explicitHome -Actual $result.LemonHome -Label "checkout manifest preserves explicit -LemonHome"
+Assert-Equal -Expected (Join-Path $explicitHome 'lemon-agent') -Actual $result.InstallDir -Label "checkout manifest derives InstallDir from explicit -LemonHome"
 
-$result = Invoke-Normalization -Environment @{ HERMES_HOME = (Join-Path $longRoot 'ambient-hermes-home') }
-Assert-Equal -Expected $expectedLemonHome -Actual $result.HermesHome -Label "checkout manifest ignores inherited HERMES_HOME"
+$result = Invoke-Normalization -Environment @{ LEMON_HOME = (Join-Path $longRoot 'ambient-lemon-home') }
+Assert-Equal -Expected (Join-Path $longRoot 'ambient-lemon-home') -Actual $result.LemonHome -Label "checkout manifest honors inherited LEMON_HOME"
 
-$result = Invoke-Normalization -Environment @{ HERMES_INSTALL_RUNTIME_DIR_NAME = 'custom-runtime' }
-Assert-Equal -Expected 'lemon-agent' -Actual $result.RuntimeDirName -Label "checkout manifest ignores Hermes runtime alias"
-Assert-Equal -Expected $expectedLemonInstallDir -Actual $result.InstallDir -Label "checkout manifest keeps Lemon install dir when Hermes alias is inherited"
+$result = Invoke-Normalization -Environment @{ LEMON_INSTALL_RUNTIME_DIR_NAME = 'custom-runtime' }
+Assert-Equal -Expected 'custom-runtime' -Actual $result.RuntimeDirName -Label "checkout manifest honors LEMON_INSTALL_RUNTIME_DIR_NAME"
+Assert-Equal -Expected (Join-Path $expectedLemonHome 'custom-runtime') -Actual $result.InstallDir -Label "checkout manifest derives InstallDir from the inherited runtime alias"
 
 $customLemonHome = Join-Path $longRoot 'custom-lemon-home'
 $result = Invoke-Normalization -Environment @{
-    LEMON_AI_HOME = $customLemonHome
-    LEMON_AI_INSTALL_RUNTIME_DIR_NAME = 'lemon-runtime'
+    LEMON_HOME = $customLemonHome
+    LEMON_INSTALL_RUNTIME_DIR_NAME = 'lemon-runtime'
 }
-Assert-Equal -Expected $customLemonHome -Actual $result.HermesHome -Label "checkout manifest preserves LEMON_AI_HOME"
-Assert-Equal -Expected 'lemon-runtime' -Actual $result.RuntimeDirName -Label "checkout manifest preserves LEMON_AI_INSTALL_RUNTIME_DIR_NAME"
+Assert-Equal -Expected $customLemonHome -Actual $result.LemonHome -Label "checkout manifest preserves LEMON_HOME"
+Assert-Equal -Expected 'lemon-runtime' -Actual $result.RuntimeDirName -Label "checkout manifest preserves LEMON_INSTALL_RUNTIME_DIR_NAME"
 Assert-Equal -Expected (Join-Path $customLemonHome 'lemon-runtime') -Actual $result.InstallDir -Label "checkout manifest derives InstallDir from Lemon aliases"
 
 $result = Invoke-Normalization -Environment @{
-    LEMON_AI_INSTALL_RUNTIME_DIR_NAME = 'lemon-runtime'
-    HERMES_INSTALL_RUNTIME_DIR_NAME = 'hermes-runtime'
+    LEMON_INSTALL_RUNTIME_DIR_NAME = 'lemon-runtime'
 }
-Assert-Equal -Expected 'lemon-runtime' -Actual $result.RuntimeDirName -Label "checkout manifest prefers Lemon runtime alias over Hermes compatibility alias"
+Assert-Equal -Expected 'lemon-runtime' -Actual $result.RuntimeDirName -Label "checkout manifest selects the Lemon runtime alias"
 
 $invalidHarness = Join-Path ([System.IO.Path]::GetTempPath()) "missing-harness-selector-$PID.json"
-$result = Invoke-Normalization -Environment @{ LEMON_AI_DESKTOP_HARNESS_CONFIG = $invalidHarness }
-Assert-Equal -Expected "DangLemon/hermes-agent" -Actual $result.Repository -Label "invalid explicit selector keeps the Lemon repository"
+$result = Invoke-Normalization -Environment @{ LEMON_DESKTOP_HARNESS_CONFIG = $invalidHarness }
+Assert-Equal -Expected "DangLemon/lemon-agent" -Actual $result.Repository -Label "invalid explicit selector keeps the Lemon repository"
 Assert-Equal -Expected "lemon-agent" -Actual $result.RuntimeDirName -Label "invalid explicit selector keeps the Lemon runtime directory"
 Assert-Equal -Expected ".lemon-ai-bootstrap-complete" -Actual $result.BootstrapMarker -Label "invalid explicit selector keeps the Lemon bootstrap marker"
 
-$result = Invoke-Normalization -Environment @{ HERMES_INSTALLER_BRAND = 'hermes' }
-Assert-Equal -Expected "NousResearch/hermes-agent" -Actual $result.Repository -Label "brand=hermes overrides checkout manifest"
-Assert-Equal -Expected "hermes-agent" -Actual $result.RuntimeDirName -Label "brand=hermes keeps the Hermes runtime directory"
-Assert-Equal -Expected ".hermes-bootstrap-complete" -Actual $result.BootstrapMarker -Label "brand=hermes keeps the Hermes bootstrap marker"
-Assert-Equal -Expected "https://hermes-agent.nousresearch.com/install.ps1" -Actual $result.RecoveryUrl -Label "brand=hermes keeps the Hermes recovery URL"
+$result = Invoke-Normalization -Environment @{ LEMON_INSTALLER_BRAND = 'lemon' }
+Assert-Equal -Expected "DangLemon/lemon-agent" -Actual $result.Repository -Label "brand=lemon overrides checkout manifest"
+Assert-Equal -Expected "lemon-agent" -Actual $result.RuntimeDirName -Label "brand=lemon keeps the Lemon AI runtime directory"
+Assert-Equal -Expected ".lemon-ai-bootstrap-complete" -Actual $result.BootstrapMarker -Label "brand=lemon keeps the Lemon AI bootstrap marker"
+Assert-Equal -Expected "https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1" -Actual $result.RecoveryUrl -Label "brand=lemon keeps the Lemon AI recovery URL"
 
-$result = Invoke-Normalization -Environment @{ HERMES_INSTALLER_BRAND = 'hermes' } `
+$result = Invoke-Normalization -Environment @{ LEMON_INSTALLER_BRAND = 'lemon' } `
     -ExtraArgs @('-Repository', 'ExampleOrg/runtime-agent')
 Assert-Equal -Expected "ExampleOrg/runtime-agent" -Actual $result.Repository -Label "explicit custom repository selects the requested repository"
 Assert-Equal -Expected "https://raw.githubusercontent.com/ExampleOrg/runtime-agent/main/scripts/install.ps1" -Actual $result.RecoveryUrl -Label "explicit custom repository selects a repository-aware recovery URL"
 
 $result = Invoke-Normalization -Environment @{
-    HERMES_INSTALLER_BRAND = 'hermes'
-    HERMES_INSTALL_REPOSITORY = 'ExampleOrg/env-agent'
+    LEMON_INSTALLER_BRAND = 'lemon'
+    LEMON_INSTALL_REPOSITORY = 'ExampleOrg/env-agent'
 }
 Assert-Equal -Expected "ExampleOrg/env-agent" -Actual $result.Repository -Label "environment custom repository selects the requested repository"
 Assert-Equal -Expected "https://raw.githubusercontent.com/ExampleOrg/env-agent/main/scripts/install.ps1" -Actual $result.RecoveryUrl -Label "environment custom repository selects a repository-aware recovery URL"
@@ -352,38 +348,38 @@ $rawScript = Join-Path ([System.IO.Path]::GetTempPath()) "raw-install-$PID.ps1"
 Copy-Item -LiteralPath $installScript -Destination $rawScript -Force
 $result = Invoke-Normalization -ScriptPath $rawScript
 Assert-Equal -Expected 0 -Actual $result.ExitCode -Label "raw script: install.ps1 still reaches its early exit"
-Assert-Equal -Expected "DangLemon/hermes-agent" -Actual $result.Repository -Label "raw script chooses the Lemon repository"
+Assert-Equal -Expected "DangLemon/lemon-agent" -Actual $result.Repository -Label "raw script chooses the Lemon repository"
 Assert-Equal -Expected "lemon-agent" -Actual $result.RuntimeDirName -Label "raw script chooses the Lemon runtime directory"
 Assert-Equal -Expected ".lemon-ai-bootstrap-complete" -Actual $result.BootstrapMarker -Label "raw script chooses the Lemon bootstrap marker"
-Assert-Equal -Expected $expectedLemonHome -Actual $result.HermesHome -Label "raw script chooses the Lemon home"
+Assert-Equal -Expected $expectedLemonHome -Actual $result.LemonHome -Label "raw script chooses the Lemon home"
 
-$result = Invoke-Normalization -ScriptPath $rawScript -Environment @{ HERMES_INSTALLER_BRAND = 'lemon' }
-Assert-Equal -Expected "DangLemon/hermes-agent" -Actual $result.Repository -Label "brand=lemon overrides raw script default"
+$result = Invoke-Normalization -ScriptPath $rawScript -Environment @{ LEMON_INSTALLER_BRAND = 'lemon' }
+Assert-Equal -Expected "DangLemon/lemon-agent" -Actual $result.Repository -Label "brand=lemon overrides raw script default"
 Assert-Equal -Expected "lemon-agent" -Actual $result.RuntimeDirName -Label "brand=lemon chooses the Lemon runtime directory"
 Assert-Equal -Expected ".lemon-ai-bootstrap-complete" -Actual $result.BootstrapMarker -Label "brand=lemon chooses the Lemon bootstrap marker"
-Assert-Equal -Expected "https://raw.githubusercontent.com/DangLemon/hermes-agent/main/scripts/install.ps1" -Actual $result.RecoveryUrl -Label "brand=lemon chooses the Lemon recovery URL"
-Assert-Equal -Expected $expectedLemonHome -Actual $result.HermesHome -Label "brand=lemon chooses the Lemon home"
+Assert-Equal -Expected "https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.ps1" -Actual $result.RecoveryUrl -Label "brand=lemon chooses the Lemon recovery URL"
+Assert-Equal -Expected $expectedLemonHome -Actual $result.LemonHome -Label "brand=lemon chooses the Lemon home"
 Remove-Item -LiteralPath $rawScript -Force -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "-- Lemon harness selector uses Lemon install defaults --"
 
 $lemonHarness = New-InternalHarnessConfig "lemon-ai-harness-selector-$PID.json"
-$result = Invoke-Normalization @{ LEMON_AI_DESKTOP_HARNESS_CONFIG = $lemonHarness }
+$result = Invoke-Normalization @{ LEMON_DESKTOP_HARNESS_CONFIG = $lemonHarness }
 Assert-Equal -Expected 0 -Actual $result.ExitCode -Label "Lemon selector: install.ps1 still reaches its early exit"
-Assert-Equal -Expected "DangLemon/hermes-agent" -Actual $result.Repository -Label "Lemon selector chooses the Lemon repository"
+Assert-Equal -Expected "DangLemon/lemon-agent" -Actual $result.Repository -Label "Lemon selector chooses the Lemon repository"
 Assert-Equal -Expected "lemon-agent" -Actual $result.RuntimeDirName -Label "Lemon selector chooses the Lemon runtime directory"
 Assert-Equal -Expected ".lemon-ai-bootstrap-complete" -Actual $result.BootstrapMarker -Label "Lemon selector chooses the Lemon bootstrap marker"
-Assert-Equal -Expected $expectedLemonHome -Actual $result.HermesHome -Label "Lemon selector chooses the Lemon home"
+Assert-Equal -Expected $expectedLemonHome -Actual $result.LemonHome -Label "Lemon selector chooses the Lemon home"
 Assert-Equal -Expected $expectedLemonInstallDir -Actual $result.InstallDir -Label "Lemon selector chooses the Lemon install dir"
 
 $legacyHarness = New-InternalHarnessConfig "legacy-harness-selector-$PID.json"
-$result = Invoke-Normalization @{ HERMES_DESKTOP_HARNESS_CONFIG = $legacyHarness }
+$result = Invoke-Normalization @{ LEMON_DESKTOP_HARNESS_CONFIG = $legacyHarness }
 Assert-Equal -Expected 0 -Actual $result.ExitCode -Label "legacy selector: install.ps1 still reaches its early exit"
-Assert-Equal -Expected "DangLemon/hermes-agent" -Actual $result.Repository -Label "legacy selector still chooses the Lemon repository"
+Assert-Equal -Expected "DangLemon/lemon-agent" -Actual $result.Repository -Label "legacy selector still chooses the Lemon repository"
 Assert-Equal -Expected "lemon-agent" -Actual $result.RuntimeDirName -Label "legacy selector still chooses the Lemon runtime directory"
 Assert-Equal -Expected ".lemon-ai-bootstrap-complete" -Actual $result.BootstrapMarker -Label "legacy selector still chooses the Lemon bootstrap marker"
-Assert-Equal -Expected $expectedLemonHome -Actual $result.HermesHome -Label "legacy selector still chooses the Lemon home"
+Assert-Equal -Expected $expectedLemonHome -Actual $result.LemonHome -Label "legacy selector still chooses the Lemon home"
 
 Write-Host ""
 Write-Host "-- an unresolvable profile alias is rebuilt on the long profile root --"
@@ -417,7 +413,7 @@ $result = Invoke-Normalization @{
     LOCALAPPDATA = (Join-Parts @($shortProfile, 'AppData', 'Local'))
     APPDATA      = (Join-Parts @($shortProfile, 'AppData', 'Roaming'))
     USERPROFILE  = $shortProfile
-    HERMES_INSTALLER_BRAND = 'hermes'
+    LEMON_INSTALLER_BRAND = 'lemon'
 }
 foreach ($name in @('TEMP', 'TMP', 'LOCALAPPDATA', 'APPDATA', 'USERPROFILE')) {
     $value = Get-Rewrite $result $name
@@ -431,7 +427,7 @@ foreach ($name in @('TEMP', 'TMP', 'LOCALAPPDATA', 'APPDATA', 'USERPROFILE')) {
 # This is the difference between "the build works" and "the installer stops
 # claiming a successful build failed". Composed with literal backslashes
 # because that is how install.ps1 itself builds the default Windows path.
-$expectedInstallDir = "$($longRoot)${sep}AppData${sep}Local" + '\hermes\hermes-agent'
+$expectedInstallDir = "$($longRoot)${sep}AppData${sep}Local" + '\Lemon AI\lemon-agent'
 Assert-Equal -Expected $expectedInstallDir -Actual $result.InstallDir -Label "InstallDir is re-derived from the long LOCALAPPDATA"
 
 Write-Host ""
@@ -452,8 +448,8 @@ Write-Host ""
 Write-Host "-- an explicit -InstallDir is normalized, never replaced --"
 
 $result = Invoke-Normalization -Environment @{ TEMP = $shortTemp; TMP = $shortTemp } `
-    -ExtraArgs @('-InstallDir', (Join-Path $shortProfile 'custom-hermes'))
-Assert-Equal -Expected (Join-Path $longRoot 'custom-hermes') -Actual $result.InstallDir -Label "explicit -InstallDir keeps the caller's directory, on the long root"
+    -ExtraArgs @('-InstallDir', (Join-Path $shortProfile 'custom-lemon'))
+Assert-Equal -Expected (Join-Path $longRoot 'custom-lemon') -Actual $result.InstallDir -Label "explicit -InstallDir keeps the caller's directory, on the long root"
 
 # --- Summary ---------------------------------------------------------------
 Write-Host ""

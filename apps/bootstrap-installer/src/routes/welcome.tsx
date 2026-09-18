@@ -8,20 +8,20 @@ import { $productName, startInstall } from '../store'
  * Welcome screen.
  *
  * Mirrors the desktop's chat intro (apps/desktop/src/components/chat/intro.tsx):
- *   - HERMES AGENT wordmark rendered in Collapse Bold, uppercase, tracked
+ *   - LEMON AGENT wordmark rendered in Collapse Bold, uppercase, tracked
  *   - mix-blend-plus-lighter so the type "glows" on the canvas
  *   - fit-text utility so the wordmark sizes itself to the column
  *
  * No install-path footer. The default install location is correct for
- * 99% of users; the rest will use the CLI installer with a -HermesHome
+ * 99% of users; the rest will use the CLI installer with a -LemonHome
  * flag. Showing %LOCALAPPDATA% to grandma is developer-brain.
  */
 export default function Welcome() {
   const productName = useStore($productName)
-  const wordmark = productName === 'Lemon AI' ? 'LEMON AI' : 'HERMES AGENT'
+  const wordmark = productName === 'Lemon AI' ? 'LEMON AI' : 'LEMON AGENT'
 
   return (
-    <div className="hermes-fade-in flex h-full flex-col items-center justify-center gap-10 px-12 py-10">
+    <div className="lemon-fade-in flex h-full flex-col items-center justify-center gap-10 px-12 py-10">
       {/* Hero — same recipe the desktop's chat/intro.tsx uses */}
       <div className="w-full max-w-2xl min-w-0 text-center">
         <p

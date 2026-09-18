@@ -7,10 +7,10 @@ import { findGitBash } from './find-git-bash'
 const yes = () => true
 const no = () => false
 
-test('HERMES_GIT_BASH_PATH override takes precedence', () => {
+test('LEMON_GIT_BASH_PATH override takes precedence', () => {
   const result = findGitBash({
     isWindows: true,
-    env: { HERMES_GIT_BASH_PATH: 'D:\\CustomGit\\bin\\bash.exe' },
+    env: { LEMON_GIT_BASH_PATH: 'D:\\CustomGit\\bin\\bash.exe' },
     fileExists: yes,
     findOnPath: () => null
   })
@@ -18,9 +18,9 @@ test('HERMES_GIT_BASH_PATH override takes precedence', () => {
   assert.equal(result, 'D:\\CustomGit\\bin\\bash.exe')
 })
 
-test('HERMES_GIT_BASH_PATH invalid path falls through to candidates', () => {
+test('LEMON_GIT_BASH_PATH invalid path falls through to candidates', () => {
   const env = {
-    HERMES_GIT_BASH_PATH: 'X:\\Missing\\bash.exe',
+    LEMON_GIT_BASH_PATH: 'X:\\Missing\\bash.exe',
     LOCALAPPDATA: 'C:\\Users\\test\\AppData\\Local',
     ProgramFiles: 'C:\\Program Files',
     'ProgramFiles(x86)': 'C:\\Program Files (x86)'
@@ -31,10 +31,10 @@ test('HERMES_GIT_BASH_PATH invalid path falls through to candidates', () => {
   assert.equal(result, 'C:\\Program Files\\Git\\bin\\bash.exe')
 })
 
-test('HERMES_GIT_BASH_PATH empty string is ignored', () => {
+test('LEMON_GIT_BASH_PATH empty string is ignored', () => {
   const result = findGitBash({
     isWindows: true,
-    env: { HERMES_GIT_BASH_PATH: '', LOCALAPPDATA: '' },
+    env: { LEMON_GIT_BASH_PATH: '', LOCALAPPDATA: '' },
     fileExists: no,
     findOnPath: () => 'C:\\msys64\\usr\\bin\\bash.exe'
   })
@@ -48,8 +48,9 @@ test('selected Lemon AI home and legacy Hermes product dirs precede system Git',
     ProgramFiles: 'C:\\Program Files',
     'ProgramFiles(x86)': 'C:\\Program Files (x86)'
   }
+
   const lemon = 'C:\\Users\\test\\AppData\\Local\\Lemon AI\\git\\bin\\bash.exe'
-  const hermes = 'C:\\Users\\test\\AppData\\Local\\hermes\\git\\bin\\bash.exe'
+  const legacy = 'C:\\Users\\test\\AppData\\Local\\hermes\\git\\bin\\bash.exe'
 
   assert.equal(
     findGitBash({
@@ -57,7 +58,7 @@ test('selected Lemon AI home and legacy Hermes product dirs precede system Git',
       env,
       fileExists: p => p === lemon || p.includes('Program Files\\Git\\bin\\bash.exe'),
       findOnPath: () => null,
-      hermesHome: 'C:\\Users\\test\\AppData\\Local\\Lemon AI',
+      lemonHome: 'C:\\Users\\test\\AppData\\Local\\Lemon AI',
       localAppDataProductDirs: ['Lemon AI', 'hermes']
     }),
     lemon
@@ -67,11 +68,11 @@ test('selected Lemon AI home and legacy Hermes product dirs precede system Git',
     findGitBash({
       isWindows: true,
       env,
-      fileExists: p => p === hermes || p.includes('Program Files\\Git\\bin\\bash.exe'),
+      fileExists: p => p === legacy || p.includes('Program Files\\Git\\bin\\bash.exe'),
       findOnPath: () => null,
       localAppDataProductDirs: ['Lemon AI', 'hermes']
     }),
-    hermes
+    legacy
   )
 })
 

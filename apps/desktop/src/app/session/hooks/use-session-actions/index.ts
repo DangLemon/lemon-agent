@@ -6,14 +6,14 @@ import { NO_PROJECT_ID } from '@/app/chat/sidebar/projects/workspace-groups'
 import { graftRefreshedTailOntoBackfill } from '@/app/chat/transcript-backfill'
 import { revealTreePane } from '@/components/pane-shell/tree/store'
 import { setWorkspaceScope } from '@/components/pane-shell/workspace-scope'
+import { useI18n } from '@/i18n'
 import {
   deleteSession,
   fetchStoredTranscriptAcrossBackends,
   getAllSessionMessages,
   getLatestSessionMessages,
   setSessionArchived
-} from '@/hermes'
-import { useI18n } from '@/i18n'
+} from '@/lemon'
 import {
   type ChatMessage,
   preserveLocalAssistantErrors,
@@ -129,7 +129,7 @@ import {
   saveTranscriptTail
 } from '@/store/transcript-tail-cache'
 import { isWatchWindow } from '@/store/windows'
-import type { SessionCreateResponse, SessionMessage, SessionResumeResponse, UsageStats } from '@/types/hermes'
+import type { SessionCreateResponse, SessionMessage, SessionResumeResponse, UsageStats } from '@/types/lemon'
 
 import { navigateToWorkspacePage, NEW_CHAT_ROUTE, sessionRoute, SETTINGS_ROUTE } from '../../../routes'
 import type { ClientSessionState, SidebarNavItem } from '../../../types'

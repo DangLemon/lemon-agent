@@ -14,7 +14,7 @@ import type {
   SubscriptionTierOption,
   UsageBarData,
   UsageModelData
-} from '@hermes/shared/billing'
+} from '@lemon-ai/shared/billing'
 
 export type {
   BillingAutoReload,

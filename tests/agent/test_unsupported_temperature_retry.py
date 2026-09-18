@@ -50,6 +50,8 @@ class TestIsUnsupportedTemperatureError:
         "temperature: unknown parameter",
         # Some gateways
         "unrecognized request argument supplied: temperature",
+        # Copilot/Azure chat-completions names no parameter (tester report)
+        "Error code: 400 - {'error': {'code': 'invalid_request_error', 'message': 'invalid request body or unsupported field'}}",
     ])
     def test_matches_real_provider_messages(self, message):
         assert _is_unsupported_parameter_error(RuntimeError(message), "temperature") is True
@@ -87,6 +89,7 @@ class TestCallLlmUnsupportedTemperatureRetry:
         "HTTP 400: Unsupported parameter: temperature",
         "Error code: 400 - {'error': {'code': 'unsupported_parameter', 'param': 'temperature'}}",
         "Provider error: this model does not support temperature",
+        "Error code: 400 - {'error': {'code': 'invalid_request_error', 'message': 'invalid request body or unsupported field'}}",
     ])
     def test_retries_once_without_temperature(self, error_message):
         client = self._setup(RuntimeError(error_message))
@@ -244,3 +247,93 @@ class TestAsyncCallLlmUnsupportedTemperatureRetry:
                     max_tokens=500,
                 )
         assert client.chat.completions.create.await_count == 1
+
+
+class TestVisionCopilotRequestShape:
+    """Vision aux calls to Copilot must send the vision header and recover from
+    Copilot's unnamed unsupported-field 400 by dropping temperature."""
+
+    def test_vision_call_sets_copilot_vision_header(self):
+        client = MagicMock()
+        client.base_url = "https://api.githubcopilot.com"
+        client.chat.completions.create.return_value = _dummy_response()
+
+        with (
+            patch("agent.auxiliary_client._resolve_task_provider_model",
+                  return_value=("copilot", "gpt-5.4", None, None, None)),
+            patch("agent.auxiliary_client.resolve_vision_provider_client",
+                  return_value=("copilot", client, "gpt-5.4")),
+            patch("agent.auxiliary_client._validate_llm_response",
+                  side_effect=lambda resp, _task, **_kw: resp),
+        ):
+            result = call_llm(
+                task="vision",
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "what is this?"},
+                        {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc"}},
+                    ],
+                }],
+                temperature=0.1,
+            )
+
+        assert result == {"ok": True}
+        kwargs = client.chat.completions.create.call_args.kwargs
+        assert kwargs["extra_headers"]["Copilot-Vision-Request"] == "true"
+
+    def test_vision_unnamed_unsupported_field_retries_without_temperature(self):
+        client = MagicMock()
+        client.base_url = "https://api.githubcopilot.com"
+        unnamed = RuntimeError(
+            "Error code: 400 - {'error': {'code': 'invalid_request_error', "
+            "'message': 'invalid request body or unsupported field'}}"
+        )
+        client.chat.completions.create.side_effect = [unnamed, _dummy_response()]
+
+        with (
+            patch("agent.auxiliary_client._resolve_task_provider_model",
+                  return_value=("copilot", "gpt-5.4", None, None, None)),
+            patch("agent.auxiliary_client.resolve_vision_provider_client",
+                  return_value=("copilot", client, "gpt-5.4")),
+            patch("agent.auxiliary_client._validate_llm_response",
+                  side_effect=lambda resp, _task, **_kw: resp),
+        ):
+            result = call_llm(
+                task="vision",
+                messages=[{"role": "user", "content": "describe"}],
+                temperature=0.1,
+            )
+
+        assert result == {"ok": True}
+        assert client.chat.completions.create.call_count == 2
+        assert "temperature" in client.chat.completions.create.call_args_list[0].kwargs
+        assert "temperature" not in client.chat.completions.create.call_args_list[1].kwargs
+
+    def test_unnamed_unsupported_field_retries_without_extra_body(self):
+        client = MagicMock()
+        client.base_url = "https://api.githubcopilot.com"
+        unnamed = RuntimeError(
+            "Error code: 400 - {'error': {'code': 'invalid_request_error', "
+            "'message': 'invalid request body or unsupported field'}}"
+        )
+        client.chat.completions.create.side_effect = [unnamed, _dummy_response()]
+
+        with (
+            patch("agent.auxiliary_client._resolve_task_provider_model",
+                  return_value=("copilot", "gpt-5.4", None, None, None)),
+            patch("agent.auxiliary_client._get_cached_client",
+                  return_value=(client, "gpt-5.4")),
+            patch("agent.auxiliary_client._validate_llm_response",
+                  side_effect=lambda resp, _task, **_kw: resp),
+        ):
+            result = call_llm(
+                task="compression",
+                messages=[{"role": "user", "content": "x"}],
+                extra_body={"foo": "bar"},
+            )
+
+        assert result == {"ok": True}
+        assert client.chat.completions.create.call_count == 2
+        assert client.chat.completions.create.call_args_list[0].kwargs.get("extra_body") == {"foo": "bar"}
+        assert "extra_body" not in client.chat.completions.create.call_args_list[1].kwargs

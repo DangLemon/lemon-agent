@@ -14,10 +14,10 @@ import './kanban.css'
 import {
   cn,
   Codicon,
-  type HermesPlugin,
   host,
   type KeybindContribution,
   KEYBINDS_AREA,
+  type LemonPlugin,
   PALETTE_AREA,
   type PaletteContribution,
   type RouteContribution,
@@ -28,7 +28,7 @@ import {
   Tip,
   useQuery,
   useValue
-} from '@hermes/plugin-sdk'
+} from '@lemon-ai/plugin-sdk'
 
 import { $boardSlug, bindApi, boardKey, fetchBoard } from './api'
 import { KanbanBoardPage } from './board'
@@ -77,7 +77,7 @@ function KanbanCount() {
   )
 }
 
-const plugin: HermesPlugin = {
+const plugin: LemonPlugin = {
   id: 'kanban',
   name: 'Kanban',
   description: 'Multi-agent task board — board page, sidebar entry, and a live in-flight count in the status bar.',

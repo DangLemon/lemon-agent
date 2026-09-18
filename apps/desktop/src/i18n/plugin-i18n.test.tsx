@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { BOTS_LOCALES } from '@/plugins/hermes-bots/i18n'
+import { BOTS_LOCALES } from '@/plugins/lemon-bots/i18n'
 
 import { I18nProvider, useI18n } from './context'
 import { createPluginI18n, registerPluginLocales, translatePlugin, usePluginI18n } from './plugin-i18n'
@@ -69,31 +69,31 @@ describe('plugin locale registry', () => {
   })
 
   it('brands plugin translations while preserving interpolation values', () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
 
-    const sourceEnvPath = ['~/.hermes/', 'env'].join('.')
+    const sourceEnvPath = ['~/.lemon-ai/', 'env'].join('.')
     const brandedEnvPath = ['~/.lemon-ai/', 'env'].join('.')
-    const command = 'hermes model'
+    const command = 'lemon model'
 
     const dispose = registerPluginLocales('branded-plugin', {
       en: {
-        hint: (name: string) => `Run '${command}', then check ${sourceEnvPath} before reopening ${name} in Hermes Desktop.`
+        hint: (name: string) => `Run '${command}', then check ${sourceEnvPath} before reopening ${name} in Lemon AI.`
       }
     })
 
-    expect(translatePlugin('branded-plugin', 'en', 'hint', ['Hermes Agent.txt'])).toBe(
-      `Run '${command}', then check ${brandedEnvPath} before reopening Hermes Agent.txt in Lemon AI.`
+    expect(translatePlugin('branded-plugin', 'en', 'hint', ['Lemon AI.txt'])).toBe(
+      `Run '${command}', then check ${brandedEnvPath} before reopening Lemon AI.txt in Lemon AI.`
     )
 
     dispose()
   })
 
   it('brands Bot Mode newer-desktop fallback through plugin i18n', () => {
-    vi.stubGlobal('__HERMES_DESKTOP_HARNESS__', 'internal')
+    vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
 
-    const dispose = registerPluginLocales('hermes-bots-branding-test', BOTS_LOCALES)
+    const dispose = registerPluginLocales('lemon-bots-branding-test', BOTS_LOCALES)
 
-    expect(translatePlugin('hermes-bots-branding-test', 'en', 'bot.skillsNeedNewerDesktop', [])).toBe(
+    expect(translatePlugin('lemon-bots-branding-test', 'en', 'bot.skillsNeedNewerDesktop', [])).toBe(
       'Skills need a newer Lemon AI.'
     )
 

@@ -34,10 +34,10 @@ test('windowsQuote doubles embedded quotes', () => {
 test('terminalScriptEnv drops PATH in any casing and keeps the rest', () => {
   const env = terminalScriptEnv(
     { Path: 'C:\\junk', PATH: '/junk', PYTHONPATH: '/repo', PYTHONUTF8: '1' },
-    '/home/b/.hermes'
+    '/home/b/.lemon-ai'
   )
 
-  assert.deepEqual(env, { PYTHONPATH: '/repo', PYTHONUTF8: '1', HERMES_HOME: '/home/b/.hermes' })
+  assert.deepEqual(env, { PYTHONPATH: '/repo', PYTHONUTF8: '1', LEMON_HOME: '/home/b/.lemon-ai' })
 })
 
 test('terminalScriptEnv skips empty values and an absent home', () => {
@@ -47,35 +47,30 @@ test('terminalScriptEnv skips empty values and an absent home', () => {
 test('terminalScriptEnv carries Lemon desktop runtime identity into the launcher', () => {
   assert.deepEqual(
     terminalScriptEnv(
-      { PATH: '/desktop/path', HERMES_UPDATE_PRODUCT_NAME: 'stale' },
+      { PATH: '/desktop/path', LEMON_UPDATE_PRODUCT_NAME: 'stale' },
       '/home/b/.lemon-ai',
       {
-        LEMON_AI_DESKTOP_INTERNAL: '1',
-        LEMON_AI_HOME: '/home/b/.lemon-ai',
-        LEMON_AI_INSTALL_RUNTIME_DIR_NAME: 'lemon-agent',
-        HERMES_DESKTOP_INTERNAL: '1',
-        HERMES_INSTALL_RUNTIME_DIR_NAME: 'lemon-agent',
-        HERMES_UPDATE_PRODUCT_NAME: 'Lemon AI'
+        LEMON_DESKTOP_INTERNAL: '1',
+        LEMON_HOME: '/home/b/.lemon-ai',
+        LEMON_INSTALL_RUNTIME_DIR_NAME: 'lemon-agent',
+        LEMON_UPDATE_PRODUCT_NAME: 'Lemon AI'
       }
     ),
     {
-      LEMON_AI_DESKTOP_INTERNAL: '1',
-      LEMON_AI_HOME: '/home/b/.lemon-ai',
-      LEMON_AI_INSTALL_RUNTIME_DIR_NAME: 'lemon-agent',
-      HERMES_DESKTOP_INTERNAL: '1',
-      HERMES_HOME: '/home/b/.lemon-ai',
-      HERMES_INSTALL_RUNTIME_DIR_NAME: 'lemon-agent',
-      HERMES_UPDATE_PRODUCT_NAME: 'Lemon AI'
+      LEMON_DESKTOP_INTERNAL: '1',
+      LEMON_HOME: '/home/b/.lemon-ai',
+      LEMON_INSTALL_RUNTIME_DIR_NAME: 'lemon-agent',
+      LEMON_UPDATE_PRODUCT_NAME: 'Lemon AI'
     }
   )
 })
 
 test('buildTerminalScript execs the resolved runtime with its env', () => {
   const script = buildTerminalScript({
-    args: ['-m', 'hermes_cli.main', '--tui', '--resume', 'sess'],
-    command: '/home/b/.hermes/hermes-agent/venv/bin/python',
+    args: ['-m', 'lemon_cli.main', '--tui', '--resume', 'sess'],
+    command: '/home/b/.lemon-ai/lemon-agent/venv/bin/python',
     cwd: "/home/b/o'brien",
-    env: { PYTHONPATH: '/home/b/.hermes/hermes-agent' },
+    env: { PYTHONPATH: '/home/b/.lemon-ai/lemon-agent' },
     platform: 'darwin'
   })
 
@@ -84,8 +79,8 @@ test('buildTerminalScript execs the resolved runtime with its env', () => {
     [
       '#!/bin/sh',
       `cd '/home/b/o'\\''brien' || exit 1`,
-      `export PYTHONPATH='/home/b/.hermes/hermes-agent'`,
-      `exec '/home/b/.hermes/hermes-agent/venv/bin/python' '-m' 'hermes_cli.main' '--tui' '--resume' 'sess'`,
+      `export PYTHONPATH='/home/b/.lemon-ai/lemon-agent'`,
+      `exec '/home/b/.lemon-ai/lemon-agent/venv/bin/python' '-m' 'lemon_cli.main' '--tui' '--resume' 'sess'`,
       ''
     ].join('\n')
   )
@@ -94,7 +89,7 @@ test('buildTerminalScript execs the resolved runtime with its env', () => {
 test('buildTerminalScript emits a cmd script on Windows', () => {
   const script = buildTerminalScript({
     args: ['--tui', '--resume', 'sess'],
-    command: 'C:\\hermes\\venv\\Scripts\\hermes.exe',
+    command: 'C:\\lemon\\venv\\Scripts\\lemon.exe',
     cwd: 'C:\\Users\\b',
     env: { PYTHONUTF8: '1' },
     platform: 'win32'
@@ -104,7 +99,7 @@ test('buildTerminalScript emits a cmd script on Windows', () => {
     '@echo off',
     'cd /d "C:\\Users\\b"',
     'set "PYTHONUTF8=1"',
-    '"C:\\hermes\\venv\\Scripts\\hermes.exe" "--tui" "--resume" "sess"',
+    '"C:\\lemon\\venv\\Scripts\\lemon.exe" "--tui" "--resume" "sess"',
     ''
   ])
 })

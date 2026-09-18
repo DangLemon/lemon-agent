@@ -1,4 +1,4 @@
-import { appBrand, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { appBrand, replaceLemonBrandTerms } from '@/lib/app-brand'
 import type { NativeNotificationInput } from '@/store/native-notifications'
 import { dismissNotification, type NotificationInput, type NotificationKind, notify } from '@/store/notifications'
 
@@ -35,7 +35,7 @@ const LEVEL_TO_TOAST_KIND: Record<string, NotificationKind> = {
 }
 
 function brandStaticNoticeText(text: string): string {
-  return replaceHermesBrandTerms(text, appBrand())
+  return replaceLemonBrandTerms(text, appBrand())
 }
 
 // The severity glyphs the Python notice policy prefixes (`•` `⚠` `✕`/`✗` `✓`),
@@ -179,7 +179,7 @@ export function clearAgentNotice(key: string | undefined): void {
 }
 
 // Only these two credit notices are urgent enough to break through as a native
-// OS notification (when Hermes is backgrounded). The escalating usage line
+// OS notification (when Lemon AI is backgrounded). The escalating usage line
 // (`credits.usage`) and the grant-spent notice stay in-app toasts only — they
 // aren't worth interrupting the user's OS for.
 const NATIVE_NOTICE_KEYS = new Set(['credits.depleted', 'credits.restored'])

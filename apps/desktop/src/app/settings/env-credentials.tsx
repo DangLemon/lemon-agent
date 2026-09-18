@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 
-import { deleteEnvVar, getEnvVars, revealEnvVar, setEnvVar } from '@/hermes'
 import { useI18n } from '@/i18n'
+import { deleteEnvVar, getEnvVars, revealEnvVar, setEnvVar } from '@/lemon'
 import { type IconComponent } from '@/lib/icons'
 import { confirm } from '@/store/confirm'
 import { notify, notifyError } from '@/store/notifications'
-import type { EnvVarInfo } from '@/types/hermes'
+import type { EnvVarInfo } from '@/types/lemon'
 
 import { asText, includesQuery, redactedValue, withoutKey } from './helpers'
 import { Pill } from './primitives'

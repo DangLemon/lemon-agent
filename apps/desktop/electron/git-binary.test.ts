@@ -6,7 +6,7 @@ import { resolveGitBinaryPath } from './git-binary'
 
 const no = () => false
 
-test('Windows prefers PortableGit under selected Lemon HERMES_HOME before legacy Hermes and system Git', () => {
+test('Windows prefers PortableGit under selected Lemon LEMON_HOME before legacy Lemon AI and system Git', () => {
   const env = {
     LOCALAPPDATA: 'C:\\Users\\dang\\AppData\\Local',
     ProgramFiles: 'C:\\Program Files',
@@ -14,21 +14,21 @@ test('Windows prefers PortableGit under selected Lemon HERMES_HOME before legacy
   }
 
   const lemonCmd = 'C:\\Users\\dang\\AppData\\Local\\Lemon AI\\git\\cmd\\git.exe'
-  const legacyHermesCmd = 'C:\\Users\\dang\\AppData\\Local\\hermes\\git\\cmd\\git.exe'
+  const legacyLemonCmd = 'C:\\Users\\dang\\AppData\\Local\\lemon\\git\\cmd\\git.exe'
 
   const result = resolveGitBinaryPath({
     isWindows: true,
     env,
-    fileExists: candidate => candidate === lemonCmd || candidate === legacyHermesCmd || candidate.includes('Program Files\\Git\\cmd\\git.exe'),
+    fileExists: candidate => candidate === lemonCmd || candidate === legacyLemonCmd || candidate.includes('Program Files\\Git\\cmd\\git.exe'),
     findOnPath: () => 'C:\\PathGit\\git.exe',
-    hermesHome: 'C:\\Users\\dang\\AppData\\Local\\Lemon AI',
-    localAppDataProductDirs: ['Lemon AI', 'hermes']
+    lemonHome: 'C:\\Users\\dang\\AppData\\Local\\Lemon AI',
+    localAppDataProductDirs: ['Lemon AI', 'lemon']
   })
 
   assert.equal(result, lemonCmd)
 })
 
-test('Windows probes HERMES_HOME git cmd before bin', () => {
+test('Windows probes LEMON_HOME git cmd before bin', () => {
   const env = { LOCALAPPDATA: 'C:\\Users\\dang\\AppData\\Local' }
   const lemonCmd = 'C:\\Users\\dang\\AppData\\Local\\Lemon AI\\git\\cmd\\git.exe'
   const lemonBin = 'C:\\Users\\dang\\AppData\\Local\\Lemon AI\\git\\bin\\git.exe'
@@ -39,20 +39,20 @@ test('Windows probes HERMES_HOME git cmd before bin', () => {
       env,
       fileExists: candidate => candidate === lemonCmd || candidate === lemonBin,
       findOnPath: () => null,
-      hermesHome: 'C:\\Users\\dang\\AppData\\Local\\Lemon AI',
-      localAppDataProductDirs: ['hermes']
+      lemonHome: 'C:\\Users\\dang\\AppData\\Local\\Lemon AI',
+      localAppDataProductDirs: ['lemon']
     }),
     lemonCmd
   )
 })
 
-test('Windows preserves legacy Hermes PortableGit fallback before system Git and PATH', () => {
+test('Windows preserves legacy Lemon AI PortableGit fallback before system Git and PATH', () => {
   const env = {
     LOCALAPPDATA: 'C:\\Users\\dang\\AppData\\Local',
     ProgramFiles: 'C:\\Program Files'
   }
 
-  const legacyBin = 'C:\\Users\\dang\\AppData\\Local\\hermes\\git\\bin\\git.exe'
+  const legacyBin = 'C:\\Users\\dang\\AppData\\Local\\lemon\\git\\bin\\git.exe'
 
   assert.equal(
     resolveGitBinaryPath({
@@ -60,7 +60,7 @@ test('Windows preserves legacy Hermes PortableGit fallback before system Git and
       env,
       fileExists: candidate => candidate === legacyBin || candidate.includes('Program Files\\Git\\cmd\\git.exe'),
       findOnPath: () => 'C:\\PathGit\\git.exe',
-      localAppDataProductDirs: ['hermes']
+      localAppDataProductDirs: ['lemon']
     }),
     legacyBin
   )

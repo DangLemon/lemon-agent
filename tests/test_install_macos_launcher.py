@@ -1,4 +1,4 @@
-"""Regression coverage for the user-facing macOS Hermes launcher."""
+"""Regression coverage for the user-facing macOS Lemon AI launcher."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ def _setup_path_function() -> str:
 
 
 def test_venv_launcher_bypasses_uv_console_script_that_requires_realpath(tmp_path: Path) -> None:
-    """Stock macOS must start Hermes even when its uv console script needs realpath."""
+    """Stock macOS must start Lemon AI even when its uv console script needs realpath."""
     install_dir = tmp_path / "install"
     venv_bin = install_dir / "venv" / "bin"
     command_dir = tmp_path / "command"
@@ -47,9 +47,9 @@ def test_venv_launcher_bypasses_uv_console_script_that_requires_realpath(tmp_pat
         venv_bin / "python",
         '#!/bin/sh\nprintf "%s\\n" "$@" > "$LAUNCH_RESULT"\n',
     )
-    (install_dir / "hermes").write_text("# source entrypoint\n", encoding="utf-8")
+    (install_dir / "lemon").write_text("# source entrypoint\n", encoding="utf-8")
     _make_executable(
-        venv_bin / "hermes",
+        venv_bin / "lemon",
         "#!/bin/sh\n"
         f'PATH="{minimal_path}"\n'
         "'''exec' \"$(dirname -- \"$(realpath -- \"$0\")\")\"/'python3' \"$0\" \"$@\"\n"
@@ -76,7 +76,7 @@ def test_venv_launcher_bypasses_uv_console_script_that_requires_realpath(tmp_pat
     subprocess.run(["/bin/bash", "-c", harness], env=env, check=True)
 
     completed = subprocess.run(
-        [command_dir / "hermes", "--version"],
+        [command_dir / "lemon", "--version"],
         env=os.environ | {"LAUNCH_RESULT": str(result)},
         text=True,
         capture_output=True,
@@ -84,7 +84,7 @@ def test_venv_launcher_bypasses_uv_console_script_that_requires_realpath(tmp_pat
 
     assert completed.returncode == 0, completed.stderr
     assert result.read_text(encoding="utf-8").splitlines() == [
-        str(install_dir / "hermes"),
+        str(install_dir / "lemon"),
         "--version",
     ]
 
@@ -95,7 +95,7 @@ def test_internal_launcher_exports_selected_update_repository(tmp_path: Path) ->
     venv_bin = install_dir / "venv" / "bin"
     command_dir = tmp_path / "command"
     venv_bin.mkdir(parents=True)
-    (install_dir / "hermes").write_text("# source entrypoint\n", encoding="utf-8")
+    (install_dir / "lemon").write_text("# source entrypoint\n", encoding="utf-8")
     _make_executable(venv_bin / "python", "#!/bin/sh\nexit 0\n")
 
     harness = "\n".join(
@@ -113,11 +113,11 @@ def test_internal_launcher_exports_selected_update_repository(tmp_path: Path) ->
         "USE_VENV": "true",
         "INTERNAL_DESKTOP_BUILD": "true",
         "INSTALL_DIR": str(install_dir),
-        "REPOSITORY": "DangLemon/hermes-agent",
+        "REPOSITORY": "DangLemon/lemon-agent",
         "DISTRO": "macos",
         "COMMAND_LINK_DIR": str(command_dir),
     }
     subprocess.run(["/bin/bash", "-c", harness], env=env, check=True)
 
-    launcher = (command_dir / "hermes").read_text(encoding="utf-8")
-    assert "export HERMES_UPDATE_REPOSITORY=DangLemon/hermes-agent" in launcher
+    launcher = (command_dir / "lemon").read_text(encoding="utf-8")
+    assert "export LEMON_UPDATE_REPOSITORY=DangLemon/lemon-agent" in launcher

@@ -49,24 +49,24 @@ def _compat_config_file_lock(config_path: Path) -> Iterator[None]:
             finally:
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
-def _target_home(hermes_home: Path, profile: str) -> Path:
+def _target_home(lemon_home: Path, profile: str) -> Path:
     key = (profile or "").strip()
     if not key:
-        return hermes_home
+        return lemon_home
 
-    from hermes_cli.profiles import normalize_profile_name, validate_profile_name
+    from lemon_cli.profiles import normalize_profile_name, validate_profile_name
 
     canon = normalize_profile_name(key)
     validate_profile_name(canon)
     if canon == "default":
-        return hermes_home
+        return lemon_home
 
-    profiles_root = (hermes_home / "profiles").resolve()
+    profiles_root = (lemon_home / "profiles").resolve()
     target = (profiles_root / canon).resolve()
     try:
         target.relative_to(profiles_root)
     except ValueError as exc:
-        raise ValueError(f"Profile {profile!r} escapes Hermes profiles directory") from exc
+        raise ValueError(f"Profile {profile!r} escapes Lemon AI profiles directory") from exc
     return target
 
 
@@ -165,17 +165,17 @@ def seed_from_resource(resource_path: Path | str, *, hermes_home: Path | str | N
     if selected_home is None:
         raise ValueError("Lemon AI home is required")
     root_home = Path(selected_home)
-    os.environ["LEMON_AI_HOME"] = str(root_home)
+    os.environ["LEMON_HOME"] = str(root_home)
     os.environ["HERMES_HOME"] = str(root_home)
     target_home = _target_home(root_home, profile)
-    os.environ["LEMON_AI_HOME"] = str(target_home)
+    os.environ["LEMON_HOME"] = str(target_home)
     os.environ["HERMES_HOME"] = str(target_home)
 
-    from hermes_cli import config as config_mod
-    from hermes_cli import managed_scope
-    from hermes_cli.config import read_user_config_raw, save_config
+    from lemon_cli import config as config_mod
+    from lemon_cli import managed_scope
+    from lemon_cli.config import read_user_config_raw, save_config
     try:
-        from hermes_cli.config import config_write_transaction
+        from lemon_cli.config import config_write_transaction
     except ImportError:
         config_write_transaction = _compat_config_file_lock
 

@@ -7,11 +7,11 @@ import { I18nProvider } from '@/i18n'
 import { $localModelsEnabled } from '@/store/local-models-flag'
 import { $localRuntimeJobs } from '@/store/local-runtime-jobs'
 import { stubMenuDomApis, stubResizeObserver } from '@/test/jsdom'
-import type { LocalRuntimeJob, ModelOptionsResponse } from '@/types/hermes'
+import type { LocalRuntimeJob, ModelOptionsResponse } from '@/types/lemon'
 
 import { ModelPickerDialog } from './model-picker'
 
-vi.mock('@/hermes', () => ({
+vi.mock('@/lemon', () => ({
   captureCapabilityScope: vi.fn((scope?: null | string | { connectionId?: null | string; profile?: null | string }) => {
     if (scope && typeof scope === 'object') {
       const profile = (scope.profile ?? '').trim()

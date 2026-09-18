@@ -1,23 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { HermesReadDirResult } from '@/global'
-import type * as HermesModule from '@/hermes'
+import type { LemonReadDirResult } from '@/global'
+import type * as LemonModule from '@/lemon'
 
 import { $pluginRecords, publishPlugin, setPluginEnabled } from './plugins-store'
 import { discoverRuntimePlugins, loadRuntimePlugin, watchRuntimePlugins } from './runtime-loader'
 
-// getStatus would supply the connected backend's hermes_home — a REMOTE path in
+// getStatus would supply the connected backend's lemon_home — a REMOTE path in
 // remote mode. The disk scanner must NOT derive the plugin root from it (#66899).
-const getStatus = vi.fn(async () => ({ hermes_home: '/remote/box/.hermes' }))
+const getStatus = vi.fn(async () => ({ lemon_home: '/remote/box/.lemon-ai' }))
 
-vi.mock('@/hermes', async importActual => ({
-  ...(await importActual<typeof HermesModule>()),
+vi.mock('@/lemon', async importActual => ({
+  ...(await importActual<typeof LemonModule>()),
   getStatus: () => getStatus()
 }))
 
 const desktopPluginsRoot = vi.fn<() => Promise<string>>()
 const agentPluginsRoot = vi.fn<() => Promise<string>>()
-const readDir = vi.fn<(path: string) => Promise<HermesReadDirResult>>()
+const readDir = vi.fn<(path: string) => Promise<LemonReadDirResult>>()
 const readFileText = vi.fn<(path: string) => Promise<{ text: string; truncated?: boolean }>>()
 const readPluginSource = vi.fn<(path: string) => Promise<{ text: string; truncated?: boolean }>>()
 const watchDirectory = vi.fn<(path: string) => Promise<{ id: string }>>()
@@ -26,7 +26,7 @@ const stopPreviewFileWatch = vi.fn<(id: string) => Promise<boolean>>()
 const onPreviewFileChanged = vi.fn()
 
 function forceInternalHarnessForTest(): () => void {
-  const key = '__HERMES_DESKTOP_HARNESS__'
+  const key = '__LEMON_DESKTOP_HARNESS__'
   const previous = Object.getOwnPropertyDescriptor(globalThis, key)
 
   Object.defineProperty(globalThis, key, {
@@ -57,7 +57,7 @@ beforeEach(() => {
   stopPreviewFileWatch.mockResolvedValue(true)
   onPreviewFileChanged.mockReset()
   getStatus.mockClear()
-  ;(window as unknown as { hermesDesktop: unknown }).hermesDesktop = {
+  ;(window as unknown as { lemonDesktop: unknown }).lemonDesktop = {
     agentPluginsRoot,
     desktopPluginsRoot,
     onPreviewFileChanged,
@@ -70,23 +70,23 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  delete (window as unknown as { hermesDesktop?: unknown }).hermesDesktop
+  delete (window as unknown as { lemonDesktop?: unknown }).lemonDesktop
 })
 
 describe('scanDiskPlugins (#66899)', () => {
-  it('scans the Electron-resolved local roots, never the backend hermes_home', async () => {
-    desktopPluginsRoot.mockResolvedValue('/local/.hermes/desktop-plugins')
-    agentPluginsRoot.mockResolvedValue('/local/.hermes/plugins')
+  it('scans the Electron-resolved local roots, never the backend lemon_home', async () => {
+    desktopPluginsRoot.mockResolvedValue('/local/.lemon-ai/desktop-plugins')
+    agentPluginsRoot.mockResolvedValue('/local/.lemon-ai/plugins')
     readDir.mockResolvedValue({ entries: [] })
 
     await discoverRuntimePlugins()
 
     expect(desktopPluginsRoot).toHaveBeenCalled()
-    expect(readDir).toHaveBeenCalledWith('/local/.hermes/desktop-plugins')
-    expect(readDir).toHaveBeenCalledWith('/local/.hermes/plugins')
-    // The remote backend's hermes_home must never feed the local plugin scan.
+    expect(readDir).toHaveBeenCalledWith('/local/.lemon-ai/desktop-plugins')
+    expect(readDir).toHaveBeenCalledWith('/local/.lemon-ai/plugins')
+    // The remote backend's lemon_home must never feed the local plugin scan.
     expect(getStatus).not.toHaveBeenCalled()
-    expect(readDir).not.toHaveBeenCalledWith('/remote/box/.hermes/desktop-plugins')
+    expect(readDir).not.toHaveBeenCalledWith('/remote/box/.lemon-ai/desktop-plugins')
   })
 
   it('no-ops when the resolvers yield no local root', async () => {
@@ -99,16 +99,16 @@ describe('scanDiskPlugins (#66899)', () => {
   })
 
   it('treats a package without a Desktop half as metadata, not a throwing file read', async () => {
-    desktopPluginsRoot.mockResolvedValue('/local/.hermes/desktop-plugins')
-    agentPluginsRoot.mockResolvedValue('/local/.hermes/plugins')
+    desktopPluginsRoot.mockResolvedValue('/local/.lemon-ai/desktop-plugins')
+    agentPluginsRoot.mockResolvedValue('/local/.lemon-ai/plugins')
     readDir.mockImplementation(async dir => {
-      if (dir === '/local/.hermes/plugins') {
-        return { entries: [{ isDirectory: true, name: 'my-feature', path: '/local/.hermes/plugins/my-feature' }] }
+      if (dir === '/local/.lemon-ai/plugins') {
+        return { entries: [{ isDirectory: true, name: 'my-feature', path: '/local/.lemon-ai/plugins/my-feature' }] }
       }
 
-      if (dir === '/local/.hermes/plugins/my-feature') {
+      if (dir === '/local/.lemon-ai/plugins/my-feature') {
         return {
-          entries: [{ isDirectory: false, name: 'plugin.yaml', path: '/local/.hermes/plugins/my-feature/plugin.yaml' }]
+          entries: [{ isDirectory: false, name: 'plugin.yaml', path: '/local/.lemon-ai/plugins/my-feature/plugin.yaml' }]
         }
       }
 
@@ -117,23 +117,23 @@ describe('scanDiskPlugins (#66899)', () => {
 
     await discoverRuntimePlugins()
 
-    expect(readDir).toHaveBeenCalledWith('/local/.hermes/plugins/my-feature')
-    expect(readDir).not.toHaveBeenCalledWith('/local/.hermes/plugins/my-feature/desktop')
+    expect(readDir).toHaveBeenCalledWith('/local/.lemon-ai/plugins/my-feature')
+    expect(readDir).not.toHaveBeenCalledWith('/local/.lemon-ai/plugins/my-feature/desktop')
     expect(readFileText).not.toHaveBeenCalled()
   })
 
   it('a DIRECTORY named plugin.js is not a plugin entry (metadata walk rejects it)', async () => {
-    desktopPluginsRoot.mockResolvedValue('/local/.hermes/desktop-plugins')
+    desktopPluginsRoot.mockResolvedValue('/local/.lemon-ai/desktop-plugins')
     agentPluginsRoot.mockResolvedValue('')
     readDir.mockImplementation(async dir => {
-      if (dir === '/local/.hermes/desktop-plugins') {
-        return { entries: [{ isDirectory: true, name: 'odd', path: '/local/.hermes/desktop-plugins/odd' }] }
+      if (dir === '/local/.lemon-ai/desktop-plugins') {
+        return { entries: [{ isDirectory: true, name: 'odd', path: '/local/.lemon-ai/desktop-plugins/odd' }] }
       }
 
-      if (dir === '/local/.hermes/desktop-plugins/odd') {
+      if (dir === '/local/.lemon-ai/desktop-plugins/odd') {
         // A folder literally named plugin.js — must resolve to "no entry".
         return {
-          entries: [{ isDirectory: true, name: 'plugin.js', path: '/local/.hermes/desktop-plugins/odd/plugin.js' }]
+          entries: [{ isDirectory: true, name: 'plugin.js', path: '/local/.lemon-ai/desktop-plugins/odd/plugin.js' }]
         }
       }
 
@@ -147,40 +147,40 @@ describe('scanDiskPlugins (#66899)', () => {
   })
 
   it('still scans the standalone root when agentPluginsRoot is absent (older shell)', async () => {
-    delete (window.hermesDesktop as unknown as { agentPluginsRoot?: unknown }).agentPluginsRoot
-    desktopPluginsRoot.mockResolvedValue('/local/.hermes/desktop-plugins')
+    delete (window.lemonDesktop as unknown as { agentPluginsRoot?: unknown }).agentPluginsRoot
+    desktopPluginsRoot.mockResolvedValue('/local/.lemon-ai/desktop-plugins')
     readDir.mockResolvedValue({ entries: [] })
 
     await discoverRuntimePlugins()
 
-    expect(readDir).toHaveBeenCalledWith('/local/.hermes/desktop-plugins')
+    expect(readDir).toHaveBeenCalledWith('/local/.lemon-ai/desktop-plugins')
     expect(readDir).toHaveBeenCalledTimes(1)
   })
 
   it('loads a unified desktop half OPT-IN: inventoried but not activated by default', async () => {
-    desktopPluginsRoot.mockResolvedValue('/local/.hermes/desktop-plugins')
-    agentPluginsRoot.mockResolvedValue('/local/.hermes/plugins')
+    desktopPluginsRoot.mockResolvedValue('/local/.lemon-ai/desktop-plugins')
+    agentPluginsRoot.mockResolvedValue('/local/.lemon-ai/plugins')
     let desktopEntryPresent = true
 
     readDir.mockImplementation(async dir => {
-      if (dir === '/local/.hermes/plugins') {
-        return { entries: [{ isDirectory: true, name: 'uni', path: '/local/.hermes/plugins/uni' }] }
+      if (dir === '/local/.lemon-ai/plugins') {
+        return { entries: [{ isDirectory: true, name: 'uni', path: '/local/.lemon-ai/plugins/uni' }] }
       }
 
-      if (dir === '/local/.hermes/plugins/uni') {
+      if (dir === '/local/.lemon-ai/plugins/uni') {
         return {
-          entries: [{ isDirectory: true, name: 'desktop', path: '/local/.hermes/plugins/uni/desktop' }]
+          entries: [{ isDirectory: true, name: 'desktop', path: '/local/.lemon-ai/plugins/uni/desktop' }]
         }
       }
 
-      if (dir === '/local/.hermes/plugins/uni/desktop') {
+      if (dir === '/local/.lemon-ai/plugins/uni/desktop') {
         return {
           entries: desktopEntryPresent
             ? [
                 {
                   isDirectory: false,
                   name: 'plugin.js',
-                  path: '/local/.hermes/plugins/uni/desktop/plugin.js'
+                  path: '/local/.lemon-ai/plugins/uni/desktop/plugin.js'
                 }
               ]
             : []
@@ -224,7 +224,7 @@ describe('scanDiskPlugins (#66899)', () => {
       await discoverRuntimePlugins()
 
       // Inventoried for Settings → Plugins, but the root's opt-in posture wins:
-      // ~/.hermes/plugins stays installed-but-inert until the user toggles it.
+      // ~/.lemon-ai/plugins stays installed-but-inert until the user toggles it.
       expect($pluginRecords.get().uni).toMatchObject({ kind: 'disk', status: 'disabled' })
       expect(register).not.toHaveBeenCalled()
 
@@ -250,9 +250,9 @@ describe('scanDiskPlugins (#66899)', () => {
 })
 
 describe('watchRuntimePlugins dir watch (#66899)', () => {
-  it('watches both Electron-resolved local roots, never the backend hermes_home', async () => {
-    desktopPluginsRoot.mockResolvedValue('/local/.hermes/desktop-plugins')
-    agentPluginsRoot.mockResolvedValue('/local/.hermes/plugins')
+  it('watches both Electron-resolved local roots, never the backend lemon_home', async () => {
+    desktopPluginsRoot.mockResolvedValue('/local/.lemon-ai/desktop-plugins')
+    agentPluginsRoot.mockResolvedValue('/local/.lemon-ai/plugins')
     readDir.mockResolvedValue({ entries: [] })
     watchDirectory.mockResolvedValue({ id: 'watch-1' })
 
@@ -260,9 +260,9 @@ describe('watchRuntimePlugins dir watch (#66899)', () => {
     // Drain the async scan + startDirWatches chains.
     await vi.waitFor(() => expect(watchDirectory).toHaveBeenCalledTimes(2))
 
-    expect(watchDirectory).toHaveBeenCalledWith('/local/.hermes/desktop-plugins')
-    expect(watchDirectory).toHaveBeenCalledWith('/local/.hermes/plugins')
-    expect(watchDirectory).not.toHaveBeenCalledWith('/remote/box/.hermes/desktop-plugins')
+    expect(watchDirectory).toHaveBeenCalledWith('/local/.lemon-ai/desktop-plugins')
+    expect(watchDirectory).toHaveBeenCalledWith('/local/.lemon-ai/plugins')
+    expect(watchDirectory).not.toHaveBeenCalledWith('/remote/box/.lemon-ai/desktop-plugins')
     expect(getStatus).not.toHaveBeenCalled()
   })
 })
@@ -298,10 +298,10 @@ describe('plugin source reads (512 KiB preview-cap bug)', () => {
   /** Two-level standalone-root listing the metadata-walk probe needs:
    *  the root lists the package folder, the folder lists plugin.js. */
   const standaloneRootWith = (name: string) => {
-    const folder = `/local/.hermes/desktop-plugins/${name}`
+    const folder = `/local/.lemon-ai/desktop-plugins/${name}`
 
     readDir.mockImplementation(async dir => {
-      if (dir === '/local/.hermes/desktop-plugins') {
+      if (dir === '/local/.lemon-ai/desktop-plugins') {
         return { entries: [{ isDirectory: true, name, path: folder }] }
       }
 
@@ -314,8 +314,8 @@ describe('plugin source reads (512 KiB preview-cap bug)', () => {
   }
 
   it('loads the full source via readPluginSource when the shell offers it', async () => {
-    ;(window.hermesDesktop as unknown as { readPluginSource: unknown }).readPluginSource = readPluginSource
-    desktopPluginsRoot.mockResolvedValue('/local/.hermes/desktop-plugins')
+    ;(window.lemonDesktop as unknown as { readPluginSource: unknown }).readPluginSource = readPluginSource
+    desktopPluginsRoot.mockResolvedValue('/local/.lemon-ai/desktop-plugins')
     agentPluginsRoot.mockResolvedValue('')
     standaloneRootWith('big')
     // The preview read would truncate this source — it must never be used.
@@ -335,7 +335,7 @@ describe('plugin source reads (512 KiB preview-cap bug)', () => {
       await discoverRuntimePlugins()
 
       // The EVALUATED source came from the full read, not the truncated preview.
-      expect(readPluginSource).toHaveBeenCalledWith('/local/.hermes/desktop-plugins/big/plugin.js')
+      expect(readPluginSource).toHaveBeenCalledWith('/local/.lemon-ai/desktop-plugins/big/plugin.js')
       expect(register).toHaveBeenCalledTimes(1)
       expect($pluginRecords.get().big).toMatchObject({ kind: 'disk', status: 'loaded' })
     } finally {
@@ -345,7 +345,7 @@ describe('plugin source reads (512 KiB preview-cap bug)', () => {
   })
 
   it('older shell without readPluginSource: a truncated preview read fails LOUDLY, never evaluates', async () => {
-    desktopPluginsRoot.mockResolvedValue('/local/.hermes/desktop-plugins')
+    desktopPluginsRoot.mockResolvedValue('/local/.lemon-ai/desktop-plugins')
     agentPluginsRoot.mockResolvedValue('')
     standaloneRootWith('huge')
     // 512 KiB window of a larger file — parses fine, but is NOT the plugin.
@@ -364,7 +364,7 @@ describe('plugin source reads (512 KiB preview-cap bug)', () => {
       expect($pluginRecords.get().huge).toMatchObject({
         kind: 'disk',
         status: 'error',
-        file: '/local/.hermes/desktop-plugins/huge/plugin.js'
+        file: '/local/.lemon-ai/desktop-plugins/huge/plugin.js'
       })
       expect($pluginRecords.get().huge.error).toMatch(/512 KiB/)
     } finally {
@@ -374,7 +374,7 @@ describe('plugin source reads (512 KiB preview-cap bug)', () => {
 
   it('brands the truncated-source recovery hint for internal builds', async () => {
     const restoreHarness = forceInternalHarnessForTest()
-    desktopPluginsRoot.mockResolvedValue('/local/.hermes/desktop-plugins')
+    desktopPluginsRoot.mockResolvedValue('/local/.lemon-ai/desktop-plugins')
     agentPluginsRoot.mockResolvedValue('')
     standaloneRootWith('huge-internal')
     readFileText.mockResolvedValue({
@@ -396,7 +396,7 @@ describe('plugin source reads (512 KiB preview-cap bug)', () => {
   })
 
   it('older shell, small plugin (not truncated): still loads through readFileText', async () => {
-    desktopPluginsRoot.mockResolvedValue('/local/.hermes/desktop-plugins')
+    desktopPluginsRoot.mockResolvedValue('/local/.lemon-ai/desktop-plugins')
     agentPluginsRoot.mockResolvedValue('')
     standaloneRootWith('small')
 
@@ -425,7 +425,7 @@ describe('plugin source reads (512 KiB preview-cap bug)', () => {
 describe('bundled-shadowed disk copies', () => {
   it('skips a disk copy of a bundled plugin but publishes a visible inventory row', async () => {
     // The bundled twin is already registered (build-time glob).
-    publishPlugin({ id: 'hermes-bots', name: 'Bot Mode', kind: 'bundled', status: 'loaded' })
+    publishPlugin({ id: 'lemon-bots', name: 'Bot Mode', kind: 'bundled', status: 'loaded' })
 
     // Same blob→data: URL reroute as the opt-in test above.
     const createObjectURL = vi
@@ -449,21 +449,21 @@ describe('bundled-shadowed disk copies', () => {
 
     try {
       const id = await loadRuntimePlugin(
-        'export default { id: "hermes-bots", name: "Bot Mode", register() {} }',
-        'hermes-bots',
-        { file: '/local/.hermes/desktop-plugins/hermes-bots/plugin.js' }
+        'export default { id: "lemon-bots", name: "Bot Mode", register() {} }',
+        'lemon-bots',
+        { file: '/local/.lemon-ai/desktop-plugins/lemon-bots/plugin.js' }
       )
 
       // Skipped — the bundled copy stays the only live registration...
       expect(id).toBeNull()
-      expect($pluginRecords.get()['hermes-bots']).toMatchObject({ kind: 'bundled', status: 'loaded' })
+      expect($pluginRecords.get()['lemon-bots']).toMatchObject({ kind: 'bundled', status: 'loaded' })
 
       // ...but the stale folder is DISCOVERABLE: an inventory row names it,
       // carries its path (reveal/delete affordance), and can never activate.
-      expect($pluginRecords.get()['hermes-bots:disk-shadowed']).toMatchObject({
+      expect($pluginRecords.get()['lemon-bots:disk-shadowed']).toMatchObject({
         kind: 'disk',
         status: 'disabled',
-        file: '/local/.hermes/desktop-plugins/hermes-bots/plugin.js'
+        file: '/local/.lemon-ai/desktop-plugins/lemon-bots/plugin.js'
       })
     } finally {
       createObjectURL.mockRestore()

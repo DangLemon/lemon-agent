@@ -15,9 +15,9 @@ from gateway.config import Platform, PlatformConfig
 from gateway.kanban_watchers_notifier import _wake_scope_id
 from gateway.run import GatewayRunner
 from gateway.session import build_session_key
-from hermes_cli import kanban_db as kb
-from hermes_cli import kanban_db_connect as kbc
-from hermes_cli import kanban_db_notify as kbn
+from lemon_cli import kanban_db as kb
+from lemon_cli import kanban_db_connect as kbc
+from lemon_cli import kanban_db_notify as kbn
 from plugins.platforms.slack.adapter import SlackAdapter
 
 TEAM = "T0B8U2M6NRE"
@@ -104,7 +104,7 @@ def _wake_source_from(adapter):
 
 
 def test_slack_wake_resumes_the_creators_workspace_scoped_session(tmp_path, monkeypatch):
-    monkeypatch.setenv("HERMES_KANBAN_DB", str(tmp_path / "wake-scope.db"))
+    monkeypatch.setenv("LEMON_KANBAN_DB", str(tmp_path / "wake-scope.db"))
     kb.init_db()
     _completed_subscription(
         platform="slack",
@@ -138,7 +138,7 @@ def test_slack_wake_resumes_the_creators_workspace_scoped_session(tmp_path, monk
 
 def test_slack_wake_falls_back_to_the_adapter_channel_workspace_map(tmp_path, monkeypatch):
     """Subscriptions that stored no workspace resolve it from the adapter."""
-    monkeypatch.setenv("HERMES_KANBAN_DB", str(tmp_path / "wake-scope-fallback.db"))
+    monkeypatch.setenv("LEMON_KANBAN_DB", str(tmp_path / "wake-scope-fallback.db"))
     kb.init_db()
     _completed_subscription(
         platform="slack",
@@ -158,7 +158,7 @@ def test_slack_wake_falls_back_to_the_adapter_channel_workspace_map(tmp_path, mo
 
 def test_unknown_channel_keeps_the_previous_unscoped_wake(tmp_path, monkeypatch):
     """An unresolvable workspace yields an unscoped key, not a wrong scope."""
-    monkeypatch.setenv("HERMES_KANBAN_DB", str(tmp_path / "wake-scope-unknown.db"))
+    monkeypatch.setenv("LEMON_KANBAN_DB", str(tmp_path / "wake-scope-unknown.db"))
     kb.init_db()
     _completed_subscription(
         platform="slack",
@@ -176,7 +176,7 @@ def test_unknown_channel_keeps_the_previous_unscoped_wake(tmp_path, monkeypatch)
 
 def test_unscoped_platform_wake_key_is_byte_identical(tmp_path, monkeypatch):
     """Platforms without tenant scoping must keep their exact key shape."""
-    monkeypatch.setenv("HERMES_KANBAN_DB", str(tmp_path / "wake-scope-telegram.db"))
+    monkeypatch.setenv("LEMON_KANBAN_DB", str(tmp_path / "wake-scope-telegram.db"))
     kb.init_db()
     _completed_subscription(
         platform="telegram",

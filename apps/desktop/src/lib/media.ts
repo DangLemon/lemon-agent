@@ -77,20 +77,33 @@ export function isFileMediaPath(path: string): boolean {
   return /^(?:file:|\/|~\/|[a-z]:[\\/]|\\\\)/i.test(path)
 }
 
+// Raster images can use the Electron media protocol (no data-URL size cap,
+// no file:// renderer block). SVG stays on the data-URL path so the custom
+// scheme never serves executable XML.
+function isStreamableDisplayImage(path: string): boolean {
+  const ext = path.split(/[?#]/, 1)[0]?.split('.').pop()?.toLowerCase()
+
+  return mediaKind(path) === 'image' && ext !== 'svg'
+}
+
 export async function resolveMediaDisplaySrc(path: string): Promise<string> {
   if (isInlineMediaSrc(path) || !isFileMediaPath(path)) {
     return path
   }
 
-  if (window.hermesDesktop && isRemoteGateway()) {
+  if (window.lemonDesktop && isStreamableDisplayImage(path)) {
+    return isRemoteGateway() ? mediaGatewayStreamUrl(path) : mediaStreamUrl(path)
+  }
+
+  if (window.lemonDesktop && isRemoteGateway()) {
     return gatewayMediaDataUrl(path)
   }
 
-  if (!window.hermesDesktop?.readFileDataUrl) {
+  if (!window.lemonDesktop?.readFileDataUrl) {
     return mediaExternalUrl(path)
   }
 
-  return window.hermesDesktop.readFileDataUrl(filePathFromMediaPath(path))
+  return window.lemonDesktop.readFileDataUrl(filePathFromMediaPath(path))
 }
 
 // Audio/video need a seekable source instead of a whole-file data URL. Keep
@@ -102,7 +115,7 @@ export async function resolveMediaPlaybackSrc(path: string): Promise<string> {
     return path
   }
 
-  if (window.hermesDesktop && ['audio', 'video'].includes(mediaKind(path))) {
+  if (window.lemonDesktop && ['audio', 'video'].includes(mediaKind(path))) {
     return isRemoteGateway() ? mediaGatewayStreamUrl(path) : mediaStreamUrl(path)
   }
 
@@ -147,17 +160,18 @@ export function mediaGatewayStreamUrl(path: string): string {
       .filter(Boolean)
       .join('&')
 
-    return `hermes-media://remote/${file}${scope ? `?${scope}` : ''}`
+    return `lemon-media://remote/${file}${scope ? `?${scope}` : ''}`
   }
 
   return mediaExternalUrl(path)
 }
 
 // Custom Electron scheme (registered in electron/main.ts) that streams a local
-// file with Range support. Used for audio/video so playback bypasses the data
-// URL size cap and supports seeking. `path` may be a plain path or `file://…`.
+// file with Range support. Used for audio/video playback and raster image
+// previews so they bypass the data-URL size cap (and file:// renderer block).
+// `path` may be a plain path or `file://…`.
 export function mediaStreamUrl(path: string): string {
-  return `hermes-media://stream/${encodeURIComponent(filePathFromMediaPath(path))}`
+  return `lemon-media://stream/${encodeURIComponent(filePathFromMediaPath(path))}`
 }
 
 export function mediaPathFromMarkdownHref(href?: string): string | null {
@@ -192,7 +206,7 @@ export function isRemoteGateway(): boolean {
 
 // Fetch gateway-local media as a data URL via the authenticated desktop FS
 // bridge. Remote Desktop artifacts can live anywhere the gateway can read
-// (workspace, skills, ~/.hermes/cache, etc.); /api/media is intentionally
+// (workspace, skills, ~/.lemon-ai/cache, etc.); /api/media is intentionally
 // narrower and rejects non-images plus images outside its media roots.
 export async function gatewayMediaDataUrl(path: string): Promise<string> {
   return readDesktopFileDataUrl(filePathFromMediaPath(path))
@@ -209,11 +223,11 @@ export async function downloadGatewayMediaFile(
   const file = filePathFromMediaPath(path)
   const conn = $connection.get()
 
-  if (!window.hermesDesktop?.saveGatewayFile) {
+  if (!window.lemonDesktop?.saveGatewayFile) {
     throw new Error('Desktop file download bridge is unavailable')
   }
 
-  return window.hermesDesktop.saveGatewayFile({
+  return window.lemonDesktop.saveGatewayFile({
     connectionId: conn?.connectionId,
     path: file,
     profile: conn?.profile,

@@ -3,14 +3,14 @@ import { type FC, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
-import { appBrand, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { appBrand, replaceLemonBrandTerms } from '@/lib/app-brand'
 import { triggerHaptic } from '@/lib/haptics'
 import { Plus } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { QUICK_REACTIONS } from '@/store/reactions'
-import type { MessageReaction } from '@/types/hermes'
+import type { MessageReaction } from '@/types/lemon'
 
-// Served from the app's own origin (vite.config.ts `hermes:emojibase-assets`
+// Served from the app's own origin (vite.config.ts `lemon:emojibase-assets`
 // plugin bundles emojibase-data): Electron must work offline, and the app
 // should never phone a CDN to draw a picker.
 const EMOJIBASE_URL = './emojibase'
@@ -198,7 +198,7 @@ export const ReactionBadge: FC<{
           <span
             className="reaction-pop leading-none"
             key={`${reaction.author}-${reaction.emoji}`}
-            title={replaceHermesBrandTerms('Reacted by Hermes', appBrand())}
+            title={replaceLemonBrandTerms('Reacted by Lemon AI', appBrand())}
           >
             {reaction.emoji}
           </span>

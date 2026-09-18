@@ -4,14 +4,14 @@ import { useCallback, useEffect } from 'react'
 
 import { useGatewayRequest } from '@/app/gateway/hooks/use-gateway-request'
 import { $pluginRecords } from '@/contrib/plugins-store'
-import { getEnvVars, getHermesConfigSchema } from '@/hermes'
 import { useI18n } from '@/i18n'
+import { getEnvVars, getLemonConfigSchema } from '@/lemon'
 import { Package, Palette, Settings2, Wrench } from '@/lib/icons'
 import { $agentPlugins, isDesktopRelevantPlugin, loadAgentPlugins } from '@/store/agent-plugins'
 import { $gatewayState } from '@/store/session'
 import { TRANSLUCENCY_SUPPORTED } from '@/store/translucency'
 
-import { useHermesConfigRecord } from '../hooks/use-config-record'
+import { useLemonConfigRecord } from '../hooks/use-config-record'
 import { useOnProfileSwitch } from '../hooks/use-on-profile-switch'
 
 import {
@@ -29,11 +29,11 @@ import {
  */
 export function useSettingsSearchCatalog(enabled: boolean) {
   const { t } = useI18n()
-  const configQuery = useHermesConfigRecord()
+  const configQuery = useLemonConfigRecord()
 
   const schemaQuery = useQuery({
-    queryKey: ['hermes-config-schema'],
-    queryFn: () => getHermesConfigSchema(),
+    queryKey: ['lemon-config-schema'],
+    queryFn: () => getLemonConfigSchema(),
     enabled,
     staleTime: 5 * 60 * 1000
   })

@@ -33,7 +33,7 @@ def _load_auxiliary_client() -> None:
         extract_content_or_reasoning = extract_content_or_reasoning or _aux.extract_content_or_reasoning
 
 
-from hermes_constants import get_hermes_dir
+from lemon_constants import get_lemon_dir
 from tools.debug_helpers import DebugSession
 from tools.website_policy import check_website_access
 from tools.vision_tools_image_prep import (
@@ -53,7 +53,7 @@ _debug = DebugSession("vision_tools", env_var="VISION_TOOLS_DEBUG")
 def _cfg_auxiliary(*keys: str, default=None):
     """``auxiliary.<keys...>`` from config.yaml; ``default`` when config is unavailable."""
     try:
-        from hermes_cli.config import cfg_get, load_config
+        from lemon_cli.config import cfg_get, load_config
         return cfg_get(load_config(), "auxiliary", *keys, default=default)
     except Exception:
         return default
@@ -73,7 +73,7 @@ def _read_vision_setting(env_var: str, key: str, cast, minimum=None):
 
 
 # HTTP download timeout (separate from ``auxiliary.vision.timeout``, which governs the LLM call).
-_VISION_DOWNLOAD_TIMEOUT = _read_vision_setting("HERMES_VISION_DOWNLOAD_TIMEOUT", "download_timeout", float)
+_VISION_DOWNLOAD_TIMEOUT = _read_vision_setting("LEMON_VISION_DOWNLOAD_TIMEOUT", "download_timeout", float)
 if _VISION_DOWNLOAD_TIMEOUT is None:
     _VISION_DOWNLOAD_TIMEOUT = 30.0
 
@@ -96,8 +96,8 @@ def _detect_host_cpus() -> int:
 
 
 def _resolve_vision_cpu_workers() -> int:
-    """HERMES_VISION_MAX_CONCURRENCY → ``auxiliary.vision.max_concurrency`` → host cores (< 1 ignored)."""
-    val = _read_vision_setting("HERMES_VISION_MAX_CONCURRENCY", "max_concurrency", int, minimum=1)
+    """LEMON_VISION_MAX_CONCURRENCY → ``auxiliary.vision.max_concurrency`` → host cores (< 1 ignored)."""
+    val = _read_vision_setting("LEMON_VISION_MAX_CONCURRENCY", "max_concurrency", int, minimum=1)
     return val or _detect_host_cpus()
 
 
@@ -262,15 +262,25 @@ _EMBED_MAX_DIMENSION = 1568
 _RESIZE_TARGET_BYTES = 5 * 1024 * 1024
 
 _SIZE_ERROR_HINTS = (
-    "too large", "payload", "413", "content_too_large",
+    "too large", "too big", "payload", "413", "content_too_large",
     "request_too_large", "exceeds", "size limit",
 )
 
 
 def _is_image_size_error(error: Exception) -> bool:
-    """Detect if an API error is related to image or payload size."""
+    """Detect if an API error is related to image or payload size.
+
+    Generic ``invalid_request_error`` / Copilot ``unsupported field`` 400s are
+    request-shape rejections (temperature, extra_body), not size — those are
+    retried in the aux client. Matching them here used to skip that recovery
+    and tell the user to "try a smaller JPEG".
+    """
     err_str = str(error).lower()
-    return any(hint in err_str for hint in _SIZE_ERROR_HINTS + ("image_url", "invalid_request"))
+    if any(hint in err_str for hint in _SIZE_ERROR_HINTS):
+        return True
+    return "image_url" in err_str and any(
+        hint in err_str for hint in ("too", "large", "size", "limit", "exceed")
+    )
 
 
 def _build_scale_note(scale_info: Optional[dict], crop_offset: Optional[dict]) -> Optional[str]:
@@ -457,7 +467,7 @@ def _should_use_native_vision_fast_path() -> bool:
     try:
         from agent.auxiliary_client import _read_main_provider, _read_main_model
         from agent.image_routing import decide_image_input_mode, _lookup_supports_vision
-        from hermes_cli.config import load_config
+        from lemon_cli.config import load_config
         provider = _read_main_provider()
         model = _read_main_model()
         cfg = load_config()
@@ -532,7 +542,7 @@ async def _prepare_image(
         resolved = await resolve_image_source(image_url, ResolveContext(task_id=task_id))
     except ImageResolutionError as exc:
         raise _ImagePrepError(str(exc)) from exc
-    temp_dir = get_hermes_dir("cache/vision", "temp_vision_images")
+    temp_dir = get_lemon_dir("cache/vision", "temp_vision_images")
     temp_dir.mkdir(parents=True, exist_ok=True)
     path = temp_dir / f"temp_image_{uuid.uuid4()}.img"
     await asyncio.to_thread(path.write_bytes, resolved.data)
@@ -658,11 +668,19 @@ _IMAGE_ERROR_RULES = (
       "unrecognized request argument", "image input"),
      "{model} does not support vision or our request was not "
      "accepted by the server. Error: {e}"),
+    (("too large", "too big", "payload", "413", "content_too_large",
+      "request_too_large", "exceeds", "size limit"),
+     "The vision API rejected the image as too large. Try a smaller "
+     "JPEG/PNG and retry. Error: {e}"),
+    (("unsupported field", "invalid request body"),
+     "The vision provider rejected the request shape (often an extra "
+     "field such as temperature on GPT-5/Copilot). Retry; if it keeps "
+     "failing, set auxiliary.vision.provider to a vision-capable "
+     "backend. Error: {e}"),
     (("invalid_request", "image_url"),
      "The vision API rejected the image. This can happen when the "
-     "image is in an unsupported format, corrupted, or still too "
-     "large after auto-resize. Try a smaller JPEG/PNG and retry. "
-     "Error: {e}"),
+     "image is in an unsupported format or corrupted. Convert to "
+     "JPEG/PNG and retry. Error: {e}"),
 )
 _VIDEO_ERROR_RULES = (
     (_BILLING_HINTS, _IMAGE_ERROR_RULES[0][1]),
@@ -760,7 +778,7 @@ async def vision_analyze_tool(
     image_url: str, user_prompt: str, model: str = None,
     task_id: Optional[str] = None, region: Optional[list] = None) -> str:
     """Describe an image (URL, local path, data: URL) with the auxiliary vision LLM. ``user_prompt``
-    is pre-formatted by the caller. Temp images live under $HERMES_HOME/cache/vision/."""
+    is pre-formatted by the caller. Temp images live under $LEMON_HOME/cache/vision/."""
     async def stage(prompt: str, debug_call_data: dict, temp_paths: list) -> tuple:
         prepared = await _prepare_image(image_url, task_id, region, validate_decode=False)
         temp_paths.append(prepared.path)
@@ -952,7 +970,7 @@ async def _materialize_video(video_url: str, task_id: Optional[str], temp_paths:
                 video_url, ResolveContext(task_id=task_id), permitted=("video",))
         except ImageResolutionError as exc:
             raise ValueError(f"Could not read video from terminal backend: {exc}") from exc
-        temp_dir = get_hermes_dir("cache/video", "temp_video_files")
+        temp_dir = get_lemon_dir("cache/video", "temp_video_files")
         temp_dir.mkdir(parents=True, exist_ok=True)
         path = temp_dir / f"terminal_video_{uuid.uuid4()}{suffix}"
         path.write_bytes(resolved.data)
@@ -967,7 +985,7 @@ async def _materialize_video(video_url: str, task_id: Optional[str], temp_paths:
         blocked = check_website_access(video_url)
         if blocked:
             raise PermissionError(blocked["message"])
-        path = get_hermes_dir("cache/video", "temp_video_files") / f"temp_video_{uuid.uuid4()}.mp4"
+        path = get_lemon_dir("cache/video", "temp_video_files") / f"temp_video_{uuid.uuid4()}.mp4"
         temp_paths.append(path)
         # Video downloads retry every failure class (legacy behavior).
         await _download_media(

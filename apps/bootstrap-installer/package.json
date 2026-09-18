@@ -1,8 +1,8 @@
 {
-  "name": "@hermes/bootstrap-installer",
+  "name": "@lemon-ai/bootstrap-installer",
   "private": true,
   "version": "0.0.1",
-  "description": "Lemon AI and Hermes Agent native desktop setup application.",
+  "description": "Lemon AI and Lemon AI native desktop setup application.",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5175",

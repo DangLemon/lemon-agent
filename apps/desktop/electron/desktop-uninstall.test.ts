@@ -28,9 +28,9 @@ import {
 // --- uninstallArgsForMode ---
 
 test('uninstallArgsForMode maps each mode to the module-runner argv', () => {
-  assert.deepEqual(uninstallArgsForMode('gui'), ['-m', 'hermes_cli.uninstall', '--mode', 'gui'])
-  assert.deepEqual(uninstallArgsForMode('lite'), ['-m', 'hermes_cli.uninstall', '--mode', 'lite'])
-  assert.deepEqual(uninstallArgsForMode('full'), ['-m', 'hermes_cli.uninstall', '--mode', 'full'])
+  assert.deepEqual(uninstallArgsForMode('gui'), ['-m', 'lemon_cli.uninstall', '--mode', 'gui'])
+  assert.deepEqual(uninstallArgsForMode('lite'), ['-m', 'lemon_cli.uninstall', '--mode', 'lite'])
+  assert.deepEqual(uninstallArgsForMode('full'), ['-m', 'lemon_cli.uninstall', '--mode', 'full'])
 })
 
 test('uninstallArgsForMode throws on an unknown mode (no silent full wipe)', () => {
@@ -58,12 +58,12 @@ test('mode predicates classify what each mode removes', () => {
 
 test('resolveRemovableAppPath finds the .app bundle on macOS', () => {
   assert.equal(
-    resolveRemovableAppPath('/Applications/Hermes.app/Contents/MacOS/Hermes', 'darwin'),
-    '/Applications/Hermes.app'
+    resolveRemovableAppPath('/Applications/Lemon AI.app/Contents/MacOS/Lemon AI', 'darwin'),
+    '/Applications/Lemon AI.app'
   )
   assert.equal(
-    resolveRemovableAppPath('/Users/x/Applications/Hermes.app/Contents/MacOS/Hermes', 'darwin'),
-    '/Users/x/Applications/Hermes.app'
+    resolveRemovableAppPath('/Users/x/Applications/Lemon AI.app/Contents/MacOS/Lemon AI', 'darwin'),
+    '/Users/x/Applications/Lemon AI.app'
   )
 })
 
@@ -82,34 +82,34 @@ test('resolveRemovableAppPath: dev-run .app resolves (safety is shouldRemoveAppB
 
 test('resolveRemovableAppPath finds the install dir on Windows', () => {
   assert.equal(
-    resolveRemovableAppPath('C:\\Users\\x\\AppData\\Local\\Programs\\Lemon AI\\Hermes.exe', 'win32'),
+    resolveRemovableAppPath('C:\\Users\\x\\AppData\\Local\\Programs\\Lemon AI\\Lemon AI.exe', 'win32'),
     'C:\\Users\\x\\AppData\\Local\\Programs\\Lemon AI'
   )
   assert.equal(
-    resolveRemovableAppPath('C:\\Users\\x\\AppData\\Local\\Programs\\Hermes\\Hermes.exe', 'win32'),
-    'C:\\Users\\x\\AppData\\Local\\Programs\\Hermes'
+    resolveRemovableAppPath('C:\\Users\\x\\AppData\\Local\\Programs\\Lemon AI\\Lemon AI.exe', 'win32'),
+    'C:\\Users\\x\\AppData\\Local\\Programs\\Lemon AI'
   )
   assert.equal(
-    resolveRemovableAppPath('C:\\Users\\x\\AppData\\Local\\hermes-desktop\\Hermes.exe', 'win32'),
-    'C:\\Users\\x\\AppData\\Local\\hermes-desktop'
+    resolveRemovableAppPath('C:\\Users\\x\\AppData\\Local\\lemon-desktop\\Lemon AI.exe', 'win32'),
+    'C:\\Users\\x\\AppData\\Local\\lemon-desktop'
   )
 })
 
 test('resolveRemovableAppPath returns null for an unrecognized Windows dir', () => {
-  assert.equal(resolveRemovableAppPath('C:\\Temp\\foo\\Hermes.exe', 'win32'), null)
+  assert.equal(resolveRemovableAppPath('C:\\Temp\\foo\\Lemon AI.exe', 'win32'), null)
 })
 
 test('resolveRemovableAppPath uses APPIMAGE on Linux when set', () => {
   assert.equal(
-    resolveRemovableAppPath('/tmp/.mount_HermesXXXX/hermes', 'linux', { APPIMAGE: '/home/x/Apps/Hermes.AppImage' }),
-    '/home/x/Apps/Hermes.AppImage'
+    resolveRemovableAppPath('/tmp/.mount_LemonXXXX/lemon', 'linux', { APPIMAGE: '/home/x/Apps/Lemon AI.AppImage' }),
+    '/home/x/Apps/Lemon AI.AppImage'
   )
 })
 
 test('resolveRemovableAppPath finds the unpacked dir on Linux', () => {
-  assert.equal(resolveRemovableAppPath('/opt/hermes/linux-unpacked/hermes', 'linux', {}), '/opt/hermes/linux-unpacked')
+  assert.equal(resolveRemovableAppPath('/opt/lemon/linux-unpacked/lemon', 'linux', {}), '/opt/lemon/linux-unpacked')
   // A system-package install (/usr/bin) → null, left to apt/dnf.
-  assert.equal(resolveRemovableAppPath('/usr/bin/hermes', 'linux', {}), null)
+  assert.equal(resolveRemovableAppPath('/usr/bin/lemon', 'linux', {}), null)
 })
 
 test('resolveRemovableAppPath returns null for an empty exe path', () => {
@@ -120,8 +120,8 @@ test('resolveRemovableAppPath returns null for an empty exe path', () => {
 // --- shouldRemoveAppBundle ---
 
 test('shouldRemoveAppBundle requires packaged AND a resolved path', () => {
-  assert.equal(shouldRemoveAppBundle(true, '/Applications/Hermes.app'), true)
-  assert.equal(shouldRemoveAppBundle(false, '/Applications/Hermes.app'), false)
+  assert.equal(shouldRemoveAppBundle(true, '/Applications/Lemon AI.app'), true)
+  assert.equal(shouldRemoveAppBundle(false, '/Applications/Lemon AI.app'), false)
   assert.equal(shouldRemoveAppBundle(true, null), false)
   assert.equal(shouldRemoveAppBundle(false, null), false)
 })
@@ -131,12 +131,12 @@ test('shouldRemoveAppBundle requires packaged AND a resolved path', () => {
 test('buildPosixCleanupScript waits for the PID, runs the uninstall module, removes bundle', () => {
   const script = buildPosixCleanupScript({
     desktopPid: 4321,
-    pythonExe: '/home/x/.hermes/hermes-agent/venv/bin/python',
+    pythonExe: '/home/x/.lemon-ai/lemon-agent/venv/bin/python',
     pythonPath: null,
-    agentRoot: '/home/x/.hermes/hermes-agent',
-    uninstallArgs: ['-m', 'hermes_cli.uninstall', '--mode', 'gui'],
-    appPath: '/opt/hermes/linux-unpacked',
-    hermesHome: '/home/x/.hermes'
+    agentRoot: '/home/x/.lemon-ai/lemon-agent',
+    uninstallArgs: ['-m', 'lemon_cli.uninstall', '--mode', 'gui'],
+    appPath: '/opt/lemon/linux-unpacked',
+    lemonHome: '/home/x/.lemon-ai'
   })
 
   assert.match(script, /^#!\/bin\/bash/)
@@ -144,27 +144,26 @@ test('buildPosixCleanupScript waits for the PID, runs the uninstall module, remo
   assert.match(script, /kill -0 "\$pid"/)
   // bounded wait (~30s), not unbounded
   assert.match(script, /seq 1 60/)
-  assert.match(script, /'-m' 'hermes_cli\.uninstall' '--mode' 'gui'/)
-  assert.match(script, /rm -rf '\/opt\/hermes\/linux-unpacked'/)
-  assert.match(script, /export LEMON_AI_HOME='\/home\/x\/\.hermes'/)
-  assert.match(script, /export HERMES_HOME='\/home\/x\/\.hermes'/)
+  assert.match(script, /'-m' 'lemon_cli\.uninstall' '--mode' 'gui'/)
+  assert.match(script, /rm -rf '\/opt\/lemon\/linux-unpacked'/)
+  assert.match(script, /export LEMON_HOME='\/home\/x\/\.lemon-ai'/)
 })
 
 test('buildPosixCleanupScript exports PYTHONPATH when pythonPath is set (lite/full)', () => {
   const script = buildPosixCleanupScript({
     desktopPid: 1,
     pythonExe: '/usr/bin/python3',
-    pythonPath: '/home/x/.hermes/hermes-agent',
-    agentRoot: '/home/x/.hermes/hermes-agent',
-    uninstallArgs: ['-m', 'hermes_cli.uninstall', '--mode', 'full'],
+    pythonPath: '/home/x/.lemon-ai/lemon-agent',
+    agentRoot: '/home/x/.lemon-ai/lemon-agent',
+    uninstallArgs: ['-m', 'lemon_cli.uninstall', '--mode', 'full'],
     appPath: null,
-    hermesHome: '/home/x/.hermes'
+    lemonHome: '/home/x/.lemon-ai'
   })
 
-  // System python + source on PYTHONPATH so import hermes_cli works while the
+  // System python + source on PYTHONPATH so import lemon_cli works while the
   // venv is torn down.
-  assert.match(script, /export PYTHONPATH='\/home\/x\/\.hermes\/hermes-agent'/)
-  assert.match(script, /'\/usr\/bin\/python3' '-m' 'hermes_cli\.uninstall' '--mode' 'full'/)
+  assert.match(script, /export PYTHONPATH='\/home\/x\/\.lemon-ai\/lemon-agent'/)
+  assert.match(script, /'\/usr\/bin\/python3' '-m' 'lemon_cli\.uninstall' '--mode' 'full'/)
 })
 
 test('buildPosixCleanupScript carries validated Lemon identity into detached cleanup', () => {
@@ -173,41 +172,37 @@ test('buildPosixCleanupScript carries validated Lemon identity into detached cle
     pythonExe: '/usr/bin/python3',
     pythonPath: '/home/x/.lemon-ai/lemon-agent',
     agentRoot: '/home/x/.lemon-ai/lemon-agent',
-    uninstallArgs: ['-m', 'hermes_cli.uninstall', '--mode', 'full'],
+    uninstallArgs: ['-m', 'lemon_cli.uninstall', '--mode', 'full'],
     appPath: '/Applications/Lemon AI.app',
-    hermesHome: '/home/x/.lemon-ai',
+    lemonHome: '/home/x/.lemon-ai',
     runtimeEnv: {
-      LEMON_AI_DESKTOP_INTERNAL: '1',
-      LEMON_AI_UPDATE_PRODUCT_NAME: 'Lemon AI',
-      HERMES_DESKTOP_INTERNAL: '1',
-      HERMES_UPDATE_PRODUCT_NAME: 'Lemon AI',
-      HERMES_UPDATE_REPOSITORY: 'DangLemon/hermes-agent',
-      HERMES_HOME: '/should/not/override',
+      LEMON_DESKTOP_INTERNAL: '1',
+      LEMON_UPDATE_PRODUCT_NAME: 'Lemon AI',
+      LEMON_UPDATE_REPOSITORY: 'DangLemon/lemon-agent',
+      LEMON_HOME: '/should/not/override',
       'BAD-NAME': 'ignored'
     }
   })
 
-  assert.match(script, /export LEMON_AI_DESKTOP_INTERNAL='1'/)
-  assert.match(script, /export LEMON_AI_UPDATE_PRODUCT_NAME='Lemon AI'/)
-  assert.match(script, /export HERMES_DESKTOP_INTERNAL='1'/)
-  assert.match(script, /export HERMES_UPDATE_PRODUCT_NAME='Lemon AI'/)
-  assert.match(script, /export HERMES_UPDATE_REPOSITORY='DangLemon\/hermes-agent'/)
+  assert.match(script, /export LEMON_DESKTOP_INTERNAL='1'/)
+  assert.match(script, /export LEMON_UPDATE_PRODUCT_NAME='Lemon AI'/)
+  assert.match(script, /export LEMON_UPDATE_REPOSITORY='DangLemon\/lemon-agent'/)
   assert.doesNotMatch(script, /should\/not\/override/)
   assert.doesNotMatch(script, /BAD-NAME/)
 })
 
 test('safeRuntimeEnvEntries preserves Lemon home and runtime overrides', () => {
   const entries = safeRuntimeEnvEntries({
-    HERMES_DESKTOP_HOME_OVERRIDE: '/Users/dang/.lemon-ai',
-    HERMES_DESKTOP_RUNTIME_DIR_NAME: 'lemon-agent',
-    HERMES_UPDATE_REPOSITORY: 'DangLemon/hermes-agent',
-    HERMES_HOME: '/should/not/be duplicated'
+    LEMON_DESKTOP_HOME_OVERRIDE: '/Users/dang/.lemon-ai',
+    LEMON_DESKTOP_RUNTIME_DIR_NAME: 'lemon-agent',
+    LEMON_UPDATE_REPOSITORY: 'DangLemon/lemon-agent',
+    LEMON_HOME: '/should/not/be duplicated'
   })
 
   assert.deepEqual(entries, [
-    ['HERMES_DESKTOP_HOME_OVERRIDE', '/Users/dang/.lemon-ai'],
-    ['HERMES_DESKTOP_RUNTIME_DIR_NAME', 'lemon-agent'],
-    ['HERMES_UPDATE_REPOSITORY', 'DangLemon/hermes-agent']
+    ['LEMON_DESKTOP_HOME_OVERRIDE', '/Users/dang/.lemon-ai'],
+    ['LEMON_DESKTOP_RUNTIME_DIR_NAME', 'lemon-agent'],
+    ['LEMON_UPDATE_REPOSITORY', 'DangLemon/lemon-agent']
   ])
 })
 
@@ -217,9 +212,9 @@ test('buildPosixCleanupScript omits PYTHONPATH when pythonPath is null (gui)', (
     pythonExe: '/p/python',
     pythonPath: null,
     agentRoot: '/a',
-    uninstallArgs: ['-m', 'hermes_cli.uninstall', '--mode', 'gui'],
+    uninstallArgs: ['-m', 'lemon_cli.uninstall', '--mode', 'gui'],
     appPath: null,
-    hermesHome: '/h'
+    lemonHome: '/h'
   })
 
   assert.doesNotMatch(script, /export PYTHONPATH/)
@@ -231,14 +226,14 @@ test('buildPosixCleanupScript omits the bundle rm when appPath is null', () => {
     pythonExe: '/p/python',
     pythonPath: null,
     agentRoot: '/a',
-    uninstallArgs: ['-m', 'hermes_cli.uninstall', '--mode', 'lite'],
+    uninstallArgs: ['-m', 'lemon_cli.uninstall', '--mode', 'lite'],
     appPath: null,
-    hermesHome: '/h'
+    lemonHome: '/h'
   })
 
   assert.doesNotMatch(script, /rm -rf '\//)
   // Still runs the uninstall.
-  assert.match(script, /'-m' 'hermes_cli\.uninstall' '--mode' 'lite'/)
+  assert.match(script, /'-m' 'lemon_cli\.uninstall' '--mode' 'lite'/)
 })
 
 test('buildPosixCleanupScript single-quote-escapes paths with apostrophes', () => {
@@ -247,9 +242,9 @@ test('buildPosixCleanupScript single-quote-escapes paths with apostrophes', () =
     pythonExe: "/home/o'brien/python",
     pythonPath: null,
     agentRoot: '/a',
-    uninstallArgs: ['-m', 'hermes_cli.uninstall', '--mode', 'gui'],
+    uninstallArgs: ['-m', 'lemon_cli.uninstall', '--mode', 'gui'],
     appPath: null,
-    hermesHome: '/h'
+    lemonHome: '/h'
   })
 
   // The apostrophe is closed-escaped-reopened so the shell sees the literal.
@@ -262,25 +257,25 @@ test('buildWindowsCleanupScript waits (bounded) for PID, runs uninstall, rmdir b
   const script = buildWindowsCleanupScript({
     desktopPid: 9988,
     pythonExe: 'C:\\Python313\\python.exe',
-    pythonPath: 'C:\\hermes',
-    agentRoot: 'C:\\hermes',
-    uninstallArgs: ['-m', 'hermes_cli.uninstall', '--mode', 'full'],
-    appPath: 'C:\\Users\\x\\AppData\\Local\\Programs\\Hermes',
-    hermesHome: 'C:\\Users\\x\\AppData\\Local\\hermes'
+    pythonPath: 'C:\\lemon',
+    agentRoot: 'C:\\lemon',
+    uninstallArgs: ['-m', 'lemon_cli.uninstall', '--mode', 'full'],
+    appPath: 'C:\\Users\\x\\AppData\\Local\\Programs\\Lemon AI',
+    lemonHome: 'C:\\Users\\x\\AppData\\Local\\lemon'
   })
 
   assert.match(script, /@echo off/)
   assert.match(script, /set "PID=9988"/)
-  // PYTHONPATH set so a system python can import hermes_cli from source.
-  assert.match(script, /set "PYTHONPATH=C:\\hermes;%PYTHONPATH%"/)
-  assert.match(script, /"C:\\Python313\\python.exe" "-m" "hermes_cli\.uninstall" "--mode" "full"/)
+  // PYTHONPATH set so a system python can import lemon_cli from source.
+  assert.match(script, /set "PYTHONPATH=C:\\lemon;%PYTHONPATH%"/)
+  assert.match(script, /"C:\\Python313\\python.exe" "-m" "lemon_cli\.uninstall" "--mode" "full"/)
   // Bounded wait-loop (no infinite loop), whole-token PID match (no substring).
   assert.match(script, /if %waited% geq 60 goto waited_done/)
   assert.match(script, /findstr \/r \/c:" %PID% "/)
   assert.doesNotMatch(script, /find "%PID%"/) // the old substring-prone form is gone
   // Removal is a retry loop (Windows releases dir handles lazily).
   assert.match(script, /:rmloop/)
-  assert.match(script, /rmdir \/s \/q "C:\\Users\\x\\AppData\\Local\\Programs\\Hermes" >nul 2>&1/)
+  assert.match(script, /rmdir \/s \/q "C:\\Users\\x\\AppData\\Local\\Programs\\Lemon AI" >nul 2>&1/)
   assert.match(script, /if %tries% geq 10 goto rmdone/)
   assert.match(script, /del "%~f0"/)
 })
@@ -291,9 +286,9 @@ test('buildWindowsCleanupScript omits PYTHONPATH + rmdir when not needed (gui, n
     pythonExe: 'C:\\h\\venv\\Scripts\\python.exe',
     pythonPath: null,
     agentRoot: 'C:\\h',
-    uninstallArgs: ['-m', 'hermes_cli.uninstall', '--mode', 'gui'],
+    uninstallArgs: ['-m', 'lemon_cli.uninstall', '--mode', 'gui'],
     appPath: null,
-    hermesHome: 'C:\\h'
+    lemonHome: 'C:\\h'
   })
 
   assert.doesNotMatch(script, /rmdir/)
@@ -306,25 +301,21 @@ test('buildWindowsCleanupScript carries validated Lemon identity into detached c
     pythonExe: 'C:\\Python313\\python.exe',
     pythonPath: null,
     agentRoot: 'C:\\Lemon AI\\lemon-agent',
-    uninstallArgs: ['-m', 'hermes_cli.uninstall', '--mode', 'gui'],
+    uninstallArgs: ['-m', 'lemon_cli.uninstall', '--mode', 'gui'],
     appPath: null,
-    hermesHome: 'C:\\Lemon AI',
+    lemonHome: 'C:\\Lemon AI',
     runtimeEnv: {
-      LEMON_AI_DESKTOP_INTERNAL: '1',
-      LEMON_AI_UPDATE_PRODUCT_NAME: 'Lemon AI',
-      HERMES_DESKTOP_INTERNAL: '1',
-      HERMES_UPDATE_PRODUCT_NAME: 'Lemon AI',
-      HERMES_UPDATE_REPOSITORY: 'DangLemon/hermes-agent',
+      LEMON_DESKTOP_INTERNAL: '1',
+      LEMON_UPDATE_PRODUCT_NAME: 'Lemon AI',
+      LEMON_UPDATE_REPOSITORY: 'DangLemon/lemon-agent',
       PYTHONPATH: 'ignored',
       'BAD-NAME': 'ignored'
     }
   })
 
-  assert.match(script, /set "LEMON_AI_DESKTOP_INTERNAL=1"/)
-  assert.match(script, /set "LEMON_AI_UPDATE_PRODUCT_NAME=Lemon AI"/)
-  assert.match(script, /set "HERMES_DESKTOP_INTERNAL=1"/)
-  assert.match(script, /set "HERMES_UPDATE_PRODUCT_NAME=Lemon AI"/)
-  assert.match(script, /set "HERMES_UPDATE_REPOSITORY=DangLemon\/hermes-agent"/)
+  assert.match(script, /set "LEMON_DESKTOP_INTERNAL=1"/)
+  assert.match(script, /set "LEMON_UPDATE_PRODUCT_NAME=Lemon AI"/)
+  assert.match(script, /set "LEMON_UPDATE_REPOSITORY=DangLemon\/lemon-agent"/)
   assert.doesNotMatch(script, /PYTHONPATH=ignored/)
   assert.doesNotMatch(script, /BAD-NAME/)
 })

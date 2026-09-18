@@ -12,7 +12,7 @@ import { Streamdown } from 'streamdown'
 
 import { requestComposerFocus, requestComposerInsertRefs } from '@/app/chat/composer/focus'
 import { droppedFileInlineRef } from '@/app/chat/composer/inline-refs'
-import { HERMES_PATHS_MIME } from '@/app/chat/hooks/use-composer-actions'
+import { LEMON_PATHS_MIME } from '@/app/chat/hooks/use-composer-actions'
 import { RichCodeBlock } from '@/components/assistant-ui/embeds'
 import { CodeEditor } from '@/components/chat/code-editor'
 import { FileDiffPanel } from '@/components/chat/diff-lines'
@@ -20,7 +20,7 @@ import { chunkTextLines, useFixedRowWindow } from '@/components/chat/fixed-row-w
 import { LazyShiki as ShikiHighlighter } from '@/components/chat/shiki-highlighter'
 import { PageLoader } from '@/components/page-loader'
 import { Tip } from '@/components/ui/tooltip'
-import type { HermesConnection } from '@/global'
+import type { LemonConnection } from '@/global'
 import { translateNow, useI18n } from '@/i18n'
 import {
   desktopFileDiff,
@@ -35,6 +35,7 @@ import { createMemoizedMathPlugin } from '@/lib/katex-memo'
 import { isComposerChord } from '@/lib/keybinds/chords'
 import { shikiLanguageForFilename } from '@/lib/markdown-code'
 import { normalizeFilePreviewMath } from '@/lib/markdown-preprocess'
+import { resolveMediaDisplaySrc } from '@/lib/media'
 import { cn } from '@/lib/utils'
 import type { PreviewTarget } from '@/store/preview'
 import { setPreviewDirty } from '@/store/preview-edit'
@@ -266,20 +267,20 @@ function dataUrlToBlob(dataUrl: string) {
   return new Blob([bytes], { type: 'application/pdf' })
 }
 
-async function readTextPreview(filePath: string, connection?: HermesConnection | null) {
+async function readTextPreview(filePath: string, connection?: LemonConnection | null) {
   try {
     return await readDesktopFileText(filePath, connection)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
 
-    if (!message.includes("No handler registered for 'hermes:readFileText'")) {
+    if (!message.includes("No handler registered for 'lemon:readFileText'")) {
       throw error
     }
   }
 
   // Back-compat for a running Electron process whose preload hasn't been
   // restarted since readFileText was added. readFileDataUrl already existed.
-  const dataUrl = await window.hermesDesktop.readFileDataUrl(filePath)
+  const dataUrl = await window.lemonDesktop.readFileDataUrl(filePath)
   const [, metadata = '', data = ''] = dataUrl.match(/^data:([^,]*),(.*)$/) || []
   const base64 = metadata.includes(';base64')
   const mimeType = metadata.replace(/;base64$/, '') || undefined
@@ -531,7 +532,7 @@ function startLineDrag(event: ReactDragEvent<HTMLElement>, filePath: string, { e
   const lineEnd = end > start ? end : undefined
   const label = lineEnd ? `${filePath}:${start}-${end}` : `${filePath}:${start}`
 
-  event.dataTransfer.setData(HERMES_PATHS_MIME, JSON.stringify([{ line: start, lineEnd, path: filePath }]))
+  event.dataTransfer.setData(LEMON_PATHS_MIME, JSON.stringify([{ line: start, lineEnd, path: filePath }]))
   event.dataTransfer.setData('text/plain', label)
   event.dataTransfer.effectAllowed = 'copy'
 }
@@ -736,9 +737,21 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
       setState({ loading: true })
 
       try {
-        if (isImage || isPdf) {
+        if (isImage) {
           // Prefer bytes the caller already handed us (a pasted/dropped
           // screenshot) over re-reading a path that may be transient/unreadable.
+          // Local/gateway files stream through lemon-media so the rail can
+          // preview generated images without the data-URL size cap.
+          const dataUrl = target.dataUrl || (await resolveMediaDisplaySrc(filePath))
+
+          if (active) {
+            setState({ dataUrl, loading: false })
+          }
+
+          return
+        }
+
+        if (isPdf) {
           const dataUrl = target.dataUrl || (await readDesktopFileDataUrl(filePath))
 
           if (active) {

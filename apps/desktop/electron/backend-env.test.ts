@@ -7,16 +7,16 @@ import {
   appendUniquePathEntries,
   buildDesktopBackendEnv,
   buildDesktopBackendPath,
-  hermesManagedNodePathEntries,
-  normalizeHermesHomeRoot,
+  lemonManagedNodePathEntries,
+  normalizeLemonHomeRoot,
   pathEnvKey,
   POSIX_SANE_PATH_ENTRIES
 } from './backend-env'
 
-test('desktop backend PATH adds Hermes-managed bins and missing POSIX sane entries', () => {
+test('desktop backend PATH adds Lemon AI-managed bins and missing POSIX sane entries', () => {
   const result = buildDesktopBackendPath({
-    hermesHome: '/Users/test/.hermes',
-    venvRoot: '/Users/test/.hermes/hermes-agent/venv',
+    lemonHome: '/Users/test/.lemon-ai',
+    venvRoot: '/Users/test/.lemon-ai/lemon-agent/venv',
     currentPath: '/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin',
     platform: 'darwin',
     pathModule: path.posix
@@ -25,9 +25,9 @@ test('desktop backend PATH adds Hermes-managed bins and missing POSIX sane entri
   const entries = result.split(':')
   // Both managed-Node layouts lead, POSIX-native shape first, then the venv.
   assert.deepEqual(entries.slice(0, 3), [
-    '/Users/test/.hermes/node/bin',
-    '/Users/test/.hermes/node',
-    '/Users/test/.hermes/hermes-agent/venv/bin'
+    '/Users/test/.lemon-ai/node/bin',
+    '/Users/test/.lemon-ai/node',
+    '/Users/test/.lemon-ai/lemon-agent/venv/bin'
   ])
   assert.ok(entries.includes('/opt/homebrew/bin'), 'Apple Silicon Homebrew bin is added')
   assert.ok(entries.includes('/opt/homebrew/sbin'), 'Apple Silicon Homebrew sbin is added')
@@ -39,44 +39,44 @@ test('desktop backend PATH adds Hermes-managed bins and missing POSIX sane entri
 })
 
 test('managed Node dirs lead with the platform-native layout but always offer both', () => {
-  const posix = hermesManagedNodePathEntries('/Users/test/.hermes', {
+  const posix = lemonManagedNodePathEntries('/Users/test/.lemon-ai', {
     platform: 'darwin',
     pathModule: path.posix
   })
 
-  const windows = hermesManagedNodePathEntries('C:\\Users\\test\\AppData\\Local\\hermes', {
+  const windows = lemonManagedNodePathEntries('C:\\Users\\test\\AppData\\Local\\lemon', {
     platform: 'win32',
     pathModule: path.win32
   })
 
   // install.sh uses node/bin; install.ps1 unpacks node.exe into node\ itself.
   // Both shapes are always emitted so migrated installs keep resolving.
-  assert.deepEqual(posix, ['/Users/test/.hermes/node/bin', '/Users/test/.hermes/node'])
+  assert.deepEqual(posix, ['/Users/test/.lemon-ai/node/bin', '/Users/test/.lemon-ai/node'])
   assert.deepEqual(windows, [
-    'C:\\Users\\test\\AppData\\Local\\hermes\\node',
-    'C:\\Users\\test\\AppData\\Local\\hermes\\node\\bin'
+    'C:\\Users\\test\\AppData\\Local\\lemon\\node',
+    'C:\\Users\\test\\AppData\\Local\\lemon\\node\\bin'
   ])
 })
 
-test('managed Node dirs are empty without a Hermes home', () => {
-  assert.deepEqual(hermesManagedNodePathEntries(undefined, { platform: 'darwin', pathModule: path.posix }), [])
-  assert.deepEqual(hermesManagedNodePathEntries('', { platform: 'win32', pathModule: path.win32 }), [])
+test('managed Node dirs are empty without a Lemon AI home', () => {
+  assert.deepEqual(lemonManagedNodePathEntries(undefined, { platform: 'darwin', pathModule: path.posix }), [])
+  assert.deepEqual(lemonManagedNodePathEntries('', { platform: 'win32', pathModule: path.win32 }), [])
 })
 
 test('every managed Node dir outranks the inherited PATH on both platforms', () => {
   for (const [platform, pathModule, home, inherited, delimiter] of [
-    ['darwin', path.posix, '/Users/test/.hermes', '/usr/local/bin:/usr/bin', ':'],
-    ['win32', path.win32, 'C:\\hermes', 'C:\\Program Files\\nodejs;C:\\Windows\\System32', ';']
+    ['darwin', path.posix, '/Users/test/.lemon-ai', '/usr/local/bin:/usr/bin', ':'],
+    ['win32', path.win32, 'C:\\lemon', 'C:\\Program Files\\nodejs;C:\\Windows\\System32', ';']
   ] as const) {
     const entries = buildDesktopBackendPath({
-      hermesHome: home,
+      lemonHome: home,
       venvRoot: null,
       currentPath: inherited,
       platform,
       pathModule
     }).split(delimiter)
 
-    const managed = hermesManagedNodePathEntries(home, { platform, pathModule })
+    const managed = lemonManagedNodePathEntries(home, { platform, pathModule })
     const firstInherited = Math.min(...inherited.split(delimiter).map(entry => entries.indexOf(entry)))
 
     for (const dir of managed) {
@@ -90,8 +90,8 @@ test('every managed Node dir outranks the inherited PATH on both platforms', () 
 
 test('desktop backend PATH preserves first occurrence and avoids duplicates', () => {
   const result = buildDesktopBackendPath({
-    hermesHome: '/Users/test/.hermes',
-    venvRoot: '/Users/test/.hermes/hermes-agent/venv',
+    lemonHome: '/Users/test/.lemon-ai',
+    venvRoot: '/Users/test/.lemon-ai/lemon-agent/venv',
     currentPath: '/opt/homebrew/bin:/usr/bin:/opt/homebrew/bin:/bin',
     platform: 'darwin',
     pathModule: path.posix
@@ -107,9 +107,9 @@ test('desktop backend PATH preserves first occurrence and avoids duplicates', ()
 
 test('buildDesktopBackendEnv extends PYTHONPATH and backend PATH together', () => {
   const env = buildDesktopBackendEnv({
-    hermesHome: '/Users/test/.hermes',
-    pythonPathEntries: ['/repo/hermes-agent'],
-    venvRoot: '/Users/test/.hermes/hermes-agent/venv',
+    lemonHome: '/Users/test/.lemon-ai',
+    pythonPathEntries: ['/repo/lemon-agent'],
+    venvRoot: '/Users/test/.lemon-ai/lemon-agent/venv',
     currentEnv: {
       PATH: '/usr/bin:/bin',
       PYTHONPATH: '/existing/pythonpath'
@@ -118,10 +118,10 @@ test('buildDesktopBackendEnv extends PYTHONPATH and backend PATH together', () =
     pathModule: path.posix
   })
 
-  assert.equal(env.PYTHONPATH, '/repo/hermes-agent:/existing/pythonpath')
+  assert.equal(env.PYTHONPATH, '/repo/lemon-agent:/existing/pythonpath')
   assert.ok(
     env.PATH.startsWith(
-      '/Users/test/.hermes/node/bin:/Users/test/.hermes/node:/Users/test/.hermes/hermes-agent/venv/bin:'
+      '/Users/test/.lemon-ai/node/bin:/Users/test/.lemon-ai/node:/Users/test/.lemon-ai/lemon-agent/venv/bin:'
     )
   )
   assert.ok(env.PATH.includes('/opt/homebrew/bin'))
@@ -129,7 +129,7 @@ test('buildDesktopBackendEnv extends PYTHONPATH and backend PATH together', () =
 
 test('buildDesktopBackendEnv forces PYTHONUTF8 unless the user set it explicitly', () => {
   const defaulted = buildDesktopBackendEnv({
-    hermesHome: '/Users/test/.hermes',
+    lemonHome: '/Users/test/.lemon-ai',
     currentEnv: { PATH: '/usr/bin' },
     platform: 'darwin',
     pathModule: path.posix
@@ -138,7 +138,7 @@ test('buildDesktopBackendEnv forces PYTHONUTF8 unless the user set it explicitly
   assert.equal(defaulted.PYTHONUTF8, '1')
 
   const optedOut = buildDesktopBackendEnv({
-    hermesHome: '/Users/test/.hermes',
+    lemonHome: '/Users/test/.lemon-ai',
     currentEnv: { PATH: '/usr/bin', PYTHONUTF8: '0' },
     platform: 'darwin',
     pathModule: path.posix
@@ -148,54 +148,54 @@ test('buildDesktopBackendEnv forces PYTHONUTF8 unless the user set it explicitly
 })
 
 
-test('buildDesktopBackendEnv propagates HERMES_MANAGED_DIR only when supplied', () => {
+test('buildDesktopBackendEnv propagates LEMON_MANAGED_DIR only when supplied', () => {
   const mac = buildDesktopBackendEnv({
-    hermesHome: '/Users/test/.hermes',
-    managedDir: '/Users/test/Library/Application Support/Hermes/internal-managed/1',
+    lemonHome: '/Users/test/.lemon-ai',
+    managedDir: '/Users/test/Library/Application Support/Lemon AI/internal-managed/1',
     currentEnv: { PATH: '/usr/bin' },
     platform: 'darwin',
     pathModule: path.posix
   })
 
-  assert.equal(mac.HERMES_MANAGED_DIR, '/Users/test/Library/Application Support/Hermes/internal-managed/1')
+  assert.equal(mac.LEMON_MANAGED_DIR, '/Users/test/Library/Application Support/Lemon AI/internal-managed/1')
 
   const win = buildDesktopBackendEnv({
-    hermesHome: 'C:\\Users\\test\\AppData\\Local\\hermes',
-    managedDir: 'C:\\Users\\test\\AppData\\Roaming\\Hermes\\internal-managed\\1',
+    lemonHome: 'C:\\Users\\test\\AppData\\Local\\lemon',
+    managedDir: 'C:\\Users\\test\\AppData\\Roaming\\Lemon AI\\internal-managed\\1',
     currentEnv: { Path: 'C:\\Windows\\System32' },
     platform: 'win32',
     pathModule: path.win32
   })
 
-  assert.equal(win.HERMES_MANAGED_DIR, 'C:\\Users\\test\\AppData\\Roaming\\Hermes\\internal-managed\\1')
+  assert.equal(win.LEMON_MANAGED_DIR, 'C:\\Users\\test\\AppData\\Roaming\\Lemon AI\\internal-managed\\1')
 
   const ordinary = buildDesktopBackendEnv({
-    hermesHome: '/Users/test/.hermes',
+    lemonHome: '/Users/test/.lemon-ai',
     currentEnv: { PATH: '/usr/bin' },
     platform: 'darwin',
     pathModule: path.posix
   })
 
-  assert.equal(Object.prototype.hasOwnProperty.call(ordinary, 'HERMES_MANAGED_DIR'), false)
+  assert.equal(Object.prototype.hasOwnProperty.call(ordinary, 'LEMON_MANAGED_DIR'), false)
 })
 
-test('normalizeHermesHomeRoot maps profile homes back to the global Hermes root', () => {
+test('normalizeLemonHomeRoot maps profile homes back to the global Lemon AI root', () => {
   assert.equal(
-    normalizeHermesHomeRoot('/Users/test/.hermes/profiles/oracle', { pathModule: path.posix }),
-    '/Users/test/.hermes'
+    normalizeLemonHomeRoot('/Users/test/.lemon-ai/profiles/oracle', { pathModule: path.posix }),
+    '/Users/test/.lemon-ai'
   )
   assert.equal(
-    normalizeHermesHomeRoot('C:\\Users\\test\\AppData\\Local\\hermes\\profiles\\oracle', { pathModule: path.win32 }),
-    'C:\\Users\\test\\AppData\\Local\\hermes'
+    normalizeLemonHomeRoot('C:\\Users\\test\\AppData\\Local\\lemon\\profiles\\oracle', { pathModule: path.win32 }),
+    'C:\\Users\\test\\AppData\\Local\\lemon'
   )
-  assert.equal(normalizeHermesHomeRoot('/Users/test/.hermes', { pathModule: path.posix }), '/Users/test/.hermes')
+  assert.equal(normalizeLemonHomeRoot('/Users/test/.lemon-ai', { pathModule: path.posix }), '/Users/test/.lemon-ai')
 })
 
 test('Windows PATH casing and delimiter are preserved without POSIX sane entries', () => {
   const env = buildDesktopBackendEnv({
-    hermesHome: 'C:\\Users\\test\\AppData\\Local\\hermes',
-    pythonPathEntries: ['C:\\repo\\hermes-agent'],
-    venvRoot: 'C:\\Users\\test\\AppData\\Local\\hermes\\hermes-agent\\venv',
+    lemonHome: 'C:\\Users\\test\\AppData\\Local\\lemon',
+    pythonPathEntries: ['C:\\repo\\lemon-agent'],
+    venvRoot: 'C:\\Users\\test\\AppData\\Local\\lemon\\lemon-agent\\venv',
     currentEnv: {
       Path: 'C:\\Windows\\System32;C:\\Windows',
       PYTHONPATH: 'C:\\existing\\pythonpath'
@@ -210,7 +210,7 @@ test('Windows PATH casing and delimiter are preserved without POSIX sane entries
   // straight into node\, no bin\), then the POSIX shape for migrated installs.
   assert.ok(
     env.Path.startsWith(
-      'C:\\Users\\test\\AppData\\Local\\hermes\\node;C:\\Users\\test\\AppData\\Local\\hermes\\node\\bin;'
+      'C:\\Users\\test\\AppData\\Local\\lemon\\node;C:\\Users\\test\\AppData\\Local\\lemon\\node\\bin;'
     )
   )
   assert.ok(env.Path.includes('\\venv\\Scripts;'))

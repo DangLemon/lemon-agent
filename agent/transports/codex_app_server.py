@@ -17,7 +17,7 @@ import threading
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from tools.environments.local import hermes_subprocess_env
+from tools.environments.local import lemon_subprocess_env
 
 MIN_CODEX_VERSION = (0, 125, 0)
 
@@ -47,16 +47,16 @@ class CodexAppServerClient:
         extra_args: Optional[list[str]] = None, env: Optional[dict[str, str]] = None,
     ) -> None:
         self._codex_bin = codex_bin
-        # codex needs LLM provider creds but must not receive Tier-1 Hermes secrets (gateway/GitHub/infra tokens).
+        # codex needs LLM provider creds but must not receive Tier-1 Lemon AI secrets (gateway/GitHub/infra tokens).
         # codex app-server is a model-driving CLI executor: it runs a model-chosen agentic loop that
         # executes shell commands, so it legitimately needs LLM provider credentials
         # (inherit_credentials=True) to authenticate against the model endpoint. But the previous
-        # `os.environ.copy()` also handed it every Tier-1 Hermes secret — gateway bot tokens, GitHub auth,
+        # `os.environ.copy()` also handed it every Tier-1 Lemon AI secret — gateway bot tokens, GitHub auth,
         # Modal/Daytona infra tokens, the dashboard session token, AUXILIARY_* side-LLM keys,
         # GATEWAY_RELAY_* auth — none of which a coding subprocess has any use for. Route through the
         # centralized helper so Tier-1 + dynamic-internal secrets are always stripped while provider creds
         # still flow, matching copilot_acp_client (#29157 sibling spawn-site gap).
-        spawn_env = hermes_subprocess_env(inherit_credentials=True)
+        spawn_env = lemon_subprocess_env(inherit_credentials=True)
         if env:
             spawn_env.update(env)
         if codex_home:
@@ -65,10 +65,10 @@ class CodexAppServerClient:
         cmd = [codex_bin, "app-server", *(extra_args or [])]
         # Kanban workers must write handoff/status to the board DB outside the
         # workspace: keep the sandbox on, add the Kanban root as writable.
-        if spawn_env.get("HERMES_KANBAN_TASK"):
-            kanban_db = spawn_env.get("HERMES_KANBAN_DB")
-            default_root = os.path.join(spawn_env.get("HERMES_HOME", os.path.expanduser("~/.hermes")), "kanban")
-            kanban_root = os.path.dirname(kanban_db) if kanban_db else spawn_env.get("HERMES_KANBAN_ROOT", default_root)
+        if spawn_env.get("LEMON_KANBAN_TASK"):
+            kanban_db = spawn_env.get("LEMON_KANBAN_DB")
+            default_root = os.path.join(spawn_env.get("LEMON_HOME", os.path.expanduser("~/.lemon-ai")), "kanban")
+            kanban_root = os.path.dirname(kanban_db) if kanban_db else spawn_env.get("LEMON_KANBAN_ROOT", default_root)
             cmd += [
                 "-c", 'sandbox_mode="workspace-write"',
                 "-c", f'sandbox_workspace_write.writable_roots=["{kanban_root}"]',
@@ -80,7 +80,7 @@ class CodexAppServerClient:
         # Hide the console the codex child would otherwise flash on Windows (#56747).
         # Hide-only — stdio pipes stay intact for the app-server wire.
         # See #56747.
-        from hermes_cli._subprocess_compat import windows_hide_flags
+        from lemon_cli._subprocess_compat import windows_hide_flags
 
         self._proc = subprocess.Popen(
             cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -102,7 +102,7 @@ class CodexAppServerClient:
         self._stderr_reader.start()
 
     def initialize(
-        self, client_name: str = "hermes", client_title: str = "Hermes Agent",
+        self, client_name: str = "lemon", client_title: str = "Lemon AI",
         client_version: str = "0.1", capabilities: Optional[dict] = None, timeout: float = 10.0,
     ) -> dict:
         """Send ``initialize`` + ``initialized``; return the server's InitializeResponse."""

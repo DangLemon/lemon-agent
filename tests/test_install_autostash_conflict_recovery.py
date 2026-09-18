@@ -18,7 +18,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent
 INSTALL_SH = REPO_ROOT / "scripts" / "install.sh"
 INSTALL_PS1 = REPO_ROOT / "scripts" / "install.ps1"
-MANAGED_ORIGIN = "https://github.com/NousResearch/hermes-agent.git"
+MANAGED_ORIGIN = "https://github.com/DangLemon/lemon-agent.git"
 POWERSHELL = next(
     (candidate for candidate in ("pwsh", "powershell") if shutil.which(candidate)),
     None,
@@ -37,9 +37,9 @@ def _git(cwd: Path, *args: str, check: bool = True) -> subprocess.CompletedProce
 
 def _installer_env(tmp_path: Path, managed: Path, remote: Path) -> dict[str, str]:
     return os.environ | {
-        "HERMES_INSTALLER_BRAND": "hermes",
-        "HERMES_HOME": str(tmp_path / "hermes-home"),
-        "HERMES_INSTALL_DIR": str(managed),
+        "LEMON_INSTALLER_BRAND": "lemon",
+        "LEMON_HOME": str(tmp_path / "lemon-home"),
+        "LEMON_INSTALL_DIR": str(managed),
         "GIT_CONFIG_COUNT": "1",
         "GIT_CONFIG_KEY_0": f"url.{remote.as_uri()}.insteadOf",
         "GIT_CONFIG_VALUE_0": MANAGED_ORIGIN,
@@ -60,7 +60,7 @@ def _make_managed_checkout(tmp_path: Path) -> tuple[Path, Path]:
     _git(seed, "remote", "add", "origin", str(remote))
     _git(seed, "push", "-u", "origin", "main")
 
-    managed = tmp_path / "hermes-agent"
+    managed = tmp_path / "lemon-agent"
     _git(tmp_path, "clone", "--branch", "main", str(remote), str(managed))
     _git(managed, "remote", "set-url", "origin", MANAGED_ORIGIN)
 
@@ -141,8 +141,8 @@ def test_install_ps1_repository_stage_recovers_from_autostash_conflict(
             "-NonInteractive",
             "-InstallDir",
             str(managed),
-            "-HermesHome",
-            str(tmp_path / "hermes-home"),
+            "-LemonHome",
+            str(tmp_path / "lemon-home"),
         ],
         cwd=tmp_path,
         env=_installer_env(tmp_path, managed, remote),

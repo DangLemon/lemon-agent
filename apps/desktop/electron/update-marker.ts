@@ -1,7 +1,7 @@
 /**
  * In-app update mutual-exclusion marker (#50238).
  *
- * The Tauri updater writes HERMES_HOME/.hermes-update-in-progress for the whole
+ * The Tauri updater writes LEMON_HOME/.lemon-ai-update-in-progress for the whole
  * duration of an `--update` run (see apps/bootstrap-installer/src-tauri/src/
  * update.rs `UpdateMarkerGuard`). The marker body is two lines: the updater's
  * pid and the unix-seconds it started.
@@ -9,7 +9,7 @@
  * Why: if the user relaunches the desktop mid-update — the window vanished with
  * no progress and looks crashed — a fresh instance must NOT spawn its own local
  * backend. That backend re-locks the venv shim, the updater's straggler cleanup
- * (`force_kill_other_hermes`, taskkill /IM hermes.exe) kills it, the launch
+ * (`force_kill_other_lemon`, taskkill /IM lemon.exe) kills it, the launch
  * fails with the 45s "backend didn't come up" timeout, and the user relaunches
  * into the same trap — an infinite respawn/kill loop. The desktop gates local
  * backend startup on this marker and parks until the update finishes.
@@ -29,24 +29,24 @@ import path from 'path'
 // recycled the pid onto an unrelated process), so the gate self-heals.
 export const UPDATE_MARKER_MAX_AGE_MS = 20 * 60 * 1000
 
-export const HERMES_UPDATE_MARKER_NAME = '.hermes-update-in-progress'
+export const LEMON_UPDATE_MARKER_NAME = '.lemon-ai-update-in-progress'
 
 function uniqueNames(names: Array<string | null | undefined>) {
   return Array.from(new Set(names.filter((name): name is string => typeof name === 'string' && name.length > 0)))
 }
 
-export function markerPath(hermesHome, { markerName = HERMES_UPDATE_MARKER_NAME }: { markerName?: string } = {}) {
-  return path.join(hermesHome, markerName)
+export function markerPath(lemonHome, { markerName = LEMON_UPDATE_MARKER_NAME }: { markerName?: string } = {}) {
+  return path.join(lemonHome, markerName)
 }
 
 function markerCandidatePaths(
-  hermesHome,
+  lemonHome,
   {
-    markerName = HERMES_UPDATE_MARKER_NAME,
+    markerName = LEMON_UPDATE_MARKER_NAME,
     legacyMarkerNames = []
   }: { markerName?: string; legacyMarkerNames?: string[] } = {}
 ) {
-  return uniqueNames([markerName, ...legacyMarkerNames]).map(name => markerPath(hermesHome, { markerName: name }))
+  return uniqueNames([markerName, ...legacyMarkerNames]).map(name => markerPath(lemonHome, { markerName: name }))
 }
 
 // True only if a host process with this pid is currently alive. Signal 0 does
@@ -80,12 +80,12 @@ export function isPidAlive(pid, kill: typeof process.kill = process.kill.bind(pr
  * clock for tests.
  */
 export function readLiveUpdateMarker(
-  hermesHome,
+  lemonHome,
   {
     kill,
     now = Date.now,
     maxAgeMs = UPDATE_MARKER_MAX_AGE_MS,
-    markerName = HERMES_UPDATE_MARKER_NAME,
+    markerName = LEMON_UPDATE_MARKER_NAME,
     legacyMarkerNames = []
   }: {
     now?: () => number
@@ -95,7 +95,7 @@ export function readLiveUpdateMarker(
     legacyMarkerNames?: string[]
   } = {}
 ) {
-  for (const file of markerCandidatePaths(hermesHome, { markerName, legacyMarkerNames })) {
+  for (const file of markerCandidatePaths(lemonHome, { markerName, legacyMarkerNames })) {
     let raw
 
     try {
@@ -130,7 +130,7 @@ export function readLiveUpdateMarker(
  * Write the update-in-progress marker *from the desktop* before handing off
  * to the detached updater.
  *
- * The Tauri-based hermes-setup.exe takes several seconds to initialise its
+ * The Tauri-based lemon-setup.exe takes several seconds to initialise its
  * window and reach the Rust `run_update` entry point where it writes the
  * marker itself. During that gap the desktop's `app.quit()` teardown kills
  * the backend child, the renderer's WebSocket drops, and the renderer
@@ -150,14 +150,14 @@ export function readLiveUpdateMarker(
  * real PID, so `readLiveUpdateMarker` will self-heal once that PID exits.
  */
 export function writeUpdateMarker(
-  hermesHome,
+  lemonHome,
   pid,
   {
     kill,
     now = Date.now,
     maxAgeMs = UPDATE_MARKER_MAX_AGE_MS,
     startedAt,
-    markerName = HERMES_UPDATE_MARKER_NAME,
+    markerName = LEMON_UPDATE_MARKER_NAME,
     legacyMarkerNames = []
   }: {
     now?: () => number
@@ -168,9 +168,9 @@ export function writeUpdateMarker(
     legacyMarkerNames?: string[]
   } = {}
 ) {
-  const file = markerPath(hermesHome, { markerName })
+  const file = markerPath(lemonHome, { markerName })
   const nowMs = now()
-  const owner = readLiveUpdateMarker(hermesHome, { kill, maxAgeMs, now: () => nowMs, markerName, legacyMarkerNames })
+  const owner = readLiveUpdateMarker(lemonHome, { kill, maxAgeMs, now: () => nowMs, markerName, legacyMarkerNames })
 
   const acquiredAt =
     typeof startedAt === 'number' && Number.isInteger(startedAt)
@@ -194,7 +194,7 @@ export function writeUpdateMarker(
  * `writeUpdateMarker` unconditionally overwrites the marker file. Called
  * before every hand-off with no conflict check, a user who clicks "Update"
  * again while a prior updater is still parked mid-run (e.g. "waiting for
- * Hermes to exit…") clobbers that still-running updater's claim: the
+ * Lemon AI to exit…") clobbers that still-running updater's claim: the
  * retry's pre-write now names the NEW child, so the OLD process — alive
  * and mutating the checkout — is no longer recorded as the owner. A second
  * live updater can then run over the same tree unrecorded, the exact
@@ -207,7 +207,7 @@ export function writeUpdateMarker(
  * `readLiveUpdateMarker`.
  */
 export function updateHandoffConflict(
-  hermesHome,
+  lemonHome,
   opts: {
     now?: () => number
     maxAgeMs?: number
@@ -216,7 +216,7 @@ export function updateHandoffConflict(
     legacyMarkerNames?: string[]
   } = {}
 ) {
-  const owner = readLiveUpdateMarker(hermesHome, opts)
+  const owner = readLiveUpdateMarker(lemonHome, opts)
 
   if (!owner) {
     return null

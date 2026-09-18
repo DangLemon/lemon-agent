@@ -45,7 +45,7 @@ class HonchoSession:
 
 
 class HonchoSessionManager(SessionAuthMixin, SessionPeersMixin, SessionContextMixin, SessionMigrationMixin):
-    """Conversation sessions backed by Honcho, alongside hermes' SQLite state and file memory.
+    """Conversation sessions backed by Honcho, alongside lemon' SQLite state and file memory.
     Auth retry, peer-ID resolution, recall and memory-file migration live in the mixins."""
 
     def __init__(
@@ -223,7 +223,7 @@ class HonchoSessionManager(SessionAuthMixin, SessionPeersMixin, SessionContextMi
         # identities to peerName for single-user deployments (see _resolve_user_peer_id).
         # Determine peer IDs — no lock needed (read-only, no shared state mutation). See #14984.
         user_peer_id = self._resolve_user_peer_id(key)
-        assistant_peer_id = self._sanitize_id(self._config.ai_peer if self._config else "hermes-assistant")
+        assistant_peer_id = self._sanitize_id(self._config.ai_peer if self._config else "lemon-assistant")
 
         # All expensive I/O outside the lock — Honcho's persistence is source of truth.
         honcho_session_id = self._sanitize_id(key)

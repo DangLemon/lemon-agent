@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import type { DesktopUninstallMode, DesktopUninstallSummary } from '@/global'
 import { type Translations, useI18n } from '@/i18n'
 import { TRANSLATIONS } from '@/i18n/catalog'
-import { type AppBrand, appBrandForEnv, replaceHermesBrandTerms } from '@/lib/app-brand'
+import { type AppBrand, appBrandForEnv, replaceLemonBrandTerms } from '@/lib/app-brand'
 import { AlertTriangle, Loader2, Trash2 } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
@@ -39,7 +39,7 @@ export function uninstallCopyForBrand(
   translations: Translations = brand.mode === 'internal-harness' ? TRANSLATIONS.vi : TRANSLATIONS.en
 ): UninstallCopy {
   const copy = translations.uninstall
-  const text = (value: string): string => replaceHermesBrandTerms(value, brand)
+  const text = (value: string): string => replaceLemonBrandTerms(value, brand)
 
   const option = (mode: DesktopUninstallMode, value: (typeof copy.options)[keyof typeof copy.options]): ModeOption => ({
     mode,
@@ -82,7 +82,7 @@ export function UninstallSection() {
 
   useEffect(() => {
     let alive = true
-    const bridge = window.hermesDesktop?.uninstall
+    const bridge = window.lemonDesktop?.uninstall
 
     if (!bridge) {
       setLoading(false)
@@ -111,7 +111,7 @@ export function UninstallSection() {
     }
   }, [])
 
-  const bridge = window.hermesDesktop?.uninstall
+  const bridge = window.lemonDesktop?.uninstall
   const brand = appBrandForEnv()
   const copy = uninstallCopyForBrand(brand, t)
 

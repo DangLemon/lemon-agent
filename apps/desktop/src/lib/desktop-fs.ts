@@ -1,15 +1,15 @@
-import { hermesApi } from '@/api/client'
+import { lemonApi } from '@/api/client'
 import type {
-  HermesConnection,
-  HermesReadDirResult,
-  HermesReadFileTextResult,
-  HermesSelectPathsOptions
+  LemonConnection,
+  LemonReadDirResult,
+  LemonReadFileTextResult,
+  LemonSelectPathsOptions
 } from '@/global'
-import { replaceHermesBrandTerms } from '@/lib/app-brand'
+import { replaceLemonBrandTerms } from '@/lib/app-brand'
 import { $connection } from '@/store/session'
 
 export interface DesktopFsRemotePicker {
-  selectPaths: (options?: HermesSelectPathsOptions) => Promise<string[]>
+  selectPaths: (options?: LemonSelectPathsOptions) => Promise<string[]>
 }
 
 let remotePicker: DesktopFsRemotePicker | null = null
@@ -18,7 +18,7 @@ export function setDesktopFsRemotePicker(next: DesktopFsRemotePicker | null) {
   remotePicker = next
 }
 
-function connectionCacheKey(connection: HermesConnection | null) {
+function connectionCacheKey(connection: LemonConnection | null) {
   if (!connection) {
     return 'local:'
   }
@@ -38,7 +38,7 @@ function connectionCacheKey(connection: HermesConnection | null) {
   return `${connection.mode || 'local'}:${connection.remoteKind || ''}:${connection.profile || ''}:${target}`
 }
 
-export function desktopFsCacheKey(connection: HermesConnection | null = $connection.get()) {
+export function desktopFsCacheKey(connection: LemonConnection | null = $connection.get()) {
   return connectionCacheKey(connection)
 }
 
@@ -46,19 +46,19 @@ export function isDesktopFsRemoteMode() {
   return $connection.get()?.mode === 'remote'
 }
 
-function connectionIsRemote(connection: HermesConnection | null | undefined = $connection.get()) {
+function connectionIsRemote(connection: LemonConnection | null | undefined = $connection.get()) {
   return connection?.mode === 'remote'
 }
 
 // Active profile for FS/git REST calls. Without it the Electron api bridge
 // hits the primary (local) backend even when the user switched to a remote profile.
 export function desktopFsProfile(
-  connection: HermesConnection | null | undefined = $connection.get()
+  connection: LemonConnection | null | undefined = $connection.get()
 ): string | undefined {
   return connection?.profile || undefined
 }
 
-function desktopFsScope(connection?: HermesConnection | null): { connectionId?: string | null; profile?: string } {
+function desktopFsScope(connection?: LemonConnection | null): { connectionId?: string | null; profile?: string } {
   // Legacy remotes have no stable registry id: their IPC route uses the
   // current backend. Stop a captured operation if that route has changed.
   if (
@@ -86,10 +86,10 @@ function fsPath(endpoint: string, filePath: string) {
 }
 
 function bridge() {
-  const desktop = window.hermesDesktop
+  const desktop = window.lemonDesktop
 
   if (!desktop) {
-    throw new Error(replaceHermesBrandTerms('Hermes Desktop bridge is unavailable'))
+    throw new Error(replaceLemonBrandTerms('Lemon AI bridge is unavailable'))
   }
 
   return desktop
@@ -98,30 +98,30 @@ function bridge() {
 function remoteFsApi<T>(
   path: string,
   body?: Record<string, unknown>,
-  connection?: HermesConnection | null
+  connection?: LemonConnection | null
 ): Promise<T> {
-  return hermesApi<T>(
+  return lemonApi<T>(
     body ? { body, method: 'POST', path, ...desktopFsScope(connection) } : { path, ...desktopFsScope(connection) }
   )
 }
 
-export async function readDesktopDir(path: string): Promise<HermesReadDirResult> {
+export async function readDesktopDir(path: string): Promise<LemonReadDirResult> {
   if (!isDesktopFsRemoteMode()) {
     return bridge().readDir(path)
   }
 
-  return remoteFsApi<HermesReadDirResult>(fsPath('list', path))
+  return remoteFsApi<LemonReadDirResult>(fsPath('list', path))
 }
 
 export async function readDesktopFileText(
   path: string,
-  connection?: HermesConnection | null
-): Promise<HermesReadFileTextResult> {
+  connection?: LemonConnection | null
+): Promise<LemonReadFileTextResult> {
   if (!connectionIsRemote(connection)) {
     return bridge().readFileText(path)
   }
 
-  return remoteFsApi<HermesReadFileTextResult>(fsPath('read-text', path), undefined, connection)
+  return remoteFsApi<LemonReadFileTextResult>(fsPath('read-text', path), undefined, connection)
 }
 
 // Save UTF-8 text back to a file. Local writes go through the hardened Electron
@@ -131,7 +131,7 @@ export async function readDesktopFileText(
 export async function writeDesktopFileText(
   path: string,
   content: string,
-  connection?: HermesConnection | null
+  connection?: LemonConnection | null
 ): Promise<{ path: string }> {
   const desktop = bridge()
 
@@ -165,7 +165,7 @@ export async function readDesktopFileDataUrl(path: string): Promise<string> {
  */
 export async function readDesktopFileDataUrlLocalFirst(path: string): Promise<string> {
   try {
-    const local = await window.hermesDesktop?.readFileDataUrl?.(path)
+    const local = await window.lemonDesktop?.readFileDataUrl?.(path)
 
     if (local) {
       return local
@@ -248,7 +248,7 @@ export async function desktopFileDiff(repoRoot: string, filePath: string): Promi
   return git?.fileDiff ? git.fileDiff(repoRoot, filePath) : ''
 }
 
-export async function selectDesktopPaths(options?: HermesSelectPathsOptions): Promise<string[]> {
+export async function selectDesktopPaths(options?: LemonSelectPathsOptions): Promise<string[]> {
   const desktop = bridge()
   const profile = desktopFsProfile()
   const localOptions = profile ? { ...options, profile } : options

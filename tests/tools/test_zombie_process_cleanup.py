@@ -365,10 +365,10 @@ class TestDelegationCleanup:
     def test_run_single_child_calls_close(self, monkeypatch, tmp_path):
         """_run_single_child finally block should call close() on child."""
         from unittest.mock import MagicMock
-        from hermes_constants import (
-            get_hermes_home,
-            reset_hermes_home_override,
-            set_hermes_home_override,
+        from lemon_constants import (
+            get_lemon_home,
+            reset_lemon_home_override,
+            set_lemon_home_override,
         )
         from agent import relay_runtime
         from tools.delegate_tool import _run_single_child
@@ -383,7 +383,7 @@ class TestDelegationCleanup:
         observed = {}
 
         def run_conversation(**_kwargs):
-            observed["hermes_home"] = get_hermes_home()
+            observed["lemon_home"] = get_lemon_home()
             raise RuntimeError("test abort")
 
         child.run_conversation.side_effect = run_conversation
@@ -393,7 +393,7 @@ class TestDelegationCleanup:
         parent._active_children.append(child)
 
         profile_home = tmp_path / "profile-a"
-        token = set_hermes_home_override(profile_home)
+        token = set_lemon_home_override(profile_home)
         try:
             result = _run_single_child(
                 task_index=0,
@@ -402,10 +402,10 @@ class TestDelegationCleanup:
                 parent_agent=parent,
             )
         finally:
-            reset_hermes_home_override(token)
+            reset_lemon_home_override(token)
 
         child.close.assert_called_once()
-        assert observed["hermes_home"] == profile_home
+        assert observed["lemon_home"] == profile_home
         relay_host.unregister_subagent.assert_called_once_with(
             {"child_session_id": "child-session"}
         )
@@ -450,15 +450,15 @@ class TestDelegationCleanup:
         from unittest.mock import MagicMock
 
         from agent import relay_runtime
-        from hermes_constants import (
-            reset_hermes_home_override,
-            set_hermes_home_override,
+        from lemon_constants import (
+            reset_lemon_home_override,
+            set_lemon_home_override,
         )
         from tools.delegate_tool import _run_single_child
 
         relay_runtime._reset_for_tests()
         profile_home = tmp_path / "profile-timeout"
-        profile_token = set_hermes_home_override(profile_home)
+        profile_token = set_lemon_home_override(profile_home)
         child_started = threading.Event()
         release_child = threading.Event()
         child_finished = threading.Event()
@@ -528,5 +528,5 @@ class TestDelegationCleanup:
             )
         finally:
             release_child.set()
-            reset_hermes_home_override(profile_token)
+            reset_lemon_home_override(profile_token)
             relay_runtime._reset_for_tests()

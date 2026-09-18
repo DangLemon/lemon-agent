@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router'
 import { NEW_CHAT_ROUTE } from '@/app/routes'
 import { Button } from '@/components/ui/button'
 import { Tip } from '@/components/ui/tooltip'
+import { useI18n } from '@/i18n'
 import {
   activateLocalModel,
   deleteLocalModel,
@@ -22,8 +23,7 @@ import {
   searchHFModels,
   setLocalServer,
   sideloadLocalModel
-} from '@/hermes'
-import { useI18n } from '@/i18n'
+} from '@/lemon'
 import {
   Check,
   CheckCircle2,
@@ -47,7 +47,7 @@ import {
   watchLocalRuntimeJobs
 } from '@/store/local-runtime-jobs'
 import { notify, notifyError } from '@/store/notifications'
-import type { LocalCatalogModel, LocalHardware, LocalModelsStatus } from '@/types/hermes'
+import type { LocalCatalogModel, LocalHardware, LocalModelsStatus } from '@/types/lemon'
 
 import { ListRow, Pill, SettingsContent, SettingsSection, SettingsSkeleton } from './primitives'
 
@@ -951,7 +951,7 @@ function BrowseSection({ onChanged }: { onChanged: () => void }) {
   )
 
   const sideload = useCallback(() => {
-    window.hermesDesktop
+    window.lemonDesktop
       .selectPaths({ filters: [{ extensions: ['gguf'], name: 'GGUF models' }], title: copy.sideloadTitle })
       .then(paths => {
         if (!paths.length) {
