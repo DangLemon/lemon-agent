@@ -1665,6 +1665,76 @@ class TestBackgroundNotificationsConciseMigration:
         assert DEFAULT_CONFIG["display"]["background_process_notifications"] == "concise"
 
 
+class TestHermesToolsetCutoverMigration:
+    """v40 → v41: remap persisted hermes-* composite names to lemon-*."""
+
+    def _write(self, tmp_path, body):
+        (tmp_path / "config.yaml").write_text(body, encoding="utf-8")
+
+    def test_rewrites_platform_and_known_builtin_toolsets(self, tmp_path):
+        with patch.dict(os.environ, {"LEMON_HOME": str(tmp_path)}):
+            self._write(
+                tmp_path,
+                "_config_version: 40\n"
+                "platform_toolsets:\n"
+                "  cli:\n"
+                "    - hermes-cli\n"
+                "  telegram:\n"
+                "    - hermes-telegram\n"
+                "  discord:\n"
+                "    - hermes-discord\n"
+                "known_builtin_toolsets:\n"
+                "  cli:\n"
+                "    - hermes-cli\n"
+                "    - lemon-cli\n"
+                "toolsets:\n"
+                "  - hermes-cli\n"
+                "agent:\n"
+                "  disabled_toolsets:\n"
+                "    - hermes-cli\n",
+            )
+            migrate_config(interactive=False, quiet=True)
+            raw = yaml.safe_load((tmp_path / "config.yaml").read_text())
+        assert raw["_config_version"] == DEFAULT_CONFIG["_config_version"]
+        assert raw["platform_toolsets"]["cli"] == ["lemon-cli"]
+        assert raw["platform_toolsets"]["telegram"] == ["lemon-telegram"]
+        assert raw["platform_toolsets"]["discord"] == ["lemon-discord"]
+        assert raw["known_builtin_toolsets"]["cli"] == ["lemon-cli"]
+        # toolsets=["lemon-cli"] equals the schema default, so the write invariant
+        # may strip the key; either form means the Hermes name is gone.
+        assert raw.get("toolsets", ["lemon-cli"]) == ["lemon-cli"]
+        assert "hermes-cli" not in str(raw)
+        # Leftover hermes-cli in disabled_toolsets was a no-op; do not persist lemon-cli.
+        assert raw.get("agent", {}).get("disabled_toolsets", []) == []
+
+    def test_noop_when_already_lemon_names(self, tmp_path):
+        with patch.dict(os.environ, {"LEMON_HOME": str(tmp_path)}):
+            self._write(
+                tmp_path,
+                "_config_version: 40\n"
+                "platform_toolsets:\n"
+                "  cli:\n"
+                "    - lemon-cli\n"
+                "model:\n"
+                "  provider: openrouter\n",
+            )
+            before = (tmp_path / "config.yaml").read_text()
+            migrate_config(interactive=False, quiet=True)
+            raw = yaml.safe_load((tmp_path / "config.yaml").read_text())
+        assert raw["platform_toolsets"]["cli"] == ["lemon-cli"]
+        assert "hermes-" not in (tmp_path / "config.yaml").read_text()
+        # Version bump is expected; the toolset list itself must stay put.
+        assert raw["_config_version"] == DEFAULT_CONFIG["_config_version"]
+        assert yaml.safe_load(before)["platform_toolsets"] == raw["platform_toolsets"]
+
+    def test_does_not_materialize_missing_platform_toolsets(self, tmp_path):
+        with patch.dict(os.environ, {"LEMON_HOME": str(tmp_path)}):
+            self._write(tmp_path, "_config_version: 40\nmodel:\n  provider: openrouter\n")
+            migrate_config(interactive=False, quiet=True)
+            raw = yaml.safe_load((tmp_path / "config.yaml").read_text())
+        assert "platform_toolsets" not in raw
+
+
 class TestConfigNormalizationDoesNotOverwriteUserValues:
     """Regression tests for #27354."""
 

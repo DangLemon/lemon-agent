@@ -518,6 +518,74 @@ def _migrate_to_39(results: Dict[str, Any], quiet: bool) -> None:
             "Video Generation (Nous Subscription or FAL).")
 
 
+def _rewrite_hermes_toolset_list(values: Any) -> Tuple[Any, bool]:
+    """Remap ``hermes-*`` composite names to ``lemon-*``, preserving order and dropping dupes."""
+    if not isinstance(values, list):
+        return values, False
+    from toolsets import canonical_toolset_name
+
+    seen: set = set()
+    out: List[Any] = []
+    changed = False
+    for item in values:
+        new = canonical_toolset_name(item) if isinstance(item, str) else item
+        if new != item:
+            changed = True
+        if isinstance(new, str):
+            if new in seen:
+                changed = True
+                continue
+            seen.add(new)
+        out.append(new)
+    return out, changed
+
+
+def _migrate_to_41(results: Dict[str, Any], quiet: bool) -> None:
+    # 40 → 41: remap persisted Hermes composite names (hermes-cli → lemon-cli). A home
+    # copied through the brand cutover otherwise resolves zero native tools (#38798 class).
+    config = read_raw_config()
+    changed = False
+    for section in ("platform_toolsets", "known_builtin_toolsets"):
+        mapping = config.get(section)
+        if not isinstance(mapping, dict):
+            continue
+        section_changed = False
+        for platform, toolsets in list(mapping.items()):
+            rewritten, did = _rewrite_hermes_toolset_list(toolsets)
+            if did:
+                mapping[platform] = rewritten
+                section_changed = True
+        if section_changed:
+            config[section] = mapping
+            changed = True
+
+    rewritten, did = _rewrite_hermes_toolset_list(config.get("toolsets"))
+    if did:
+        config["toolsets"] = rewritten
+        changed = True
+
+    agent = config.get("agent")
+    if isinstance(agent, dict):
+        # Pre-cutover hermes-cli in disabled_toolsets was an unknown no-op.
+        # Remapping it to lemon-cli would newly disable the native bundle.
+        disabled = agent.get("disabled_toolsets")
+        if isinstance(disabled, list):
+            from toolsets import is_hermes_cutover_alias
+            kept = [item for item in disabled if not (isinstance(item, str) and is_hermes_cutover_alias(item))]
+            if kept != disabled:
+                agent["disabled_toolsets"] = kept
+                config["agent"] = agent
+                changed = True
+
+    if changed:
+        _commit(
+            config, results, quiet,
+            "renamed hermes-* toolsets to lemon-*",
+            "  ✓ Renamed saved Hermes toolset names (hermes-cli → lemon-cli). "
+            "Pre-cutover names were unknown and silently disabled native tools "
+            "including read_file.")
+
+
 #: Registry of (target_version, step), strictly ascending; simple default-flip steps are
 #: declared inline via _rewrite_stale_default / _rewrite_key partials. Later steps observe
 #: earlier steps' writes via read_raw_config() (filesystem state). v12 is the support floor:
@@ -602,6 +670,7 @@ MIGRATIONS: Tuple[Tuple[int, Callable[[Dict[str, Any], bool], None]], ...] = (
         added="model_catalog.ttl_hours 1 → ttl_minutes 20 (default)",
         message="  ✓ Model catalog now refreshes every 20 minutes (model_catalog.ttl_minutes)",
         extra_guard=lambda raw: "ttl_minutes" not in raw)),
+    (41, _migrate_to_41),
 )
 
 

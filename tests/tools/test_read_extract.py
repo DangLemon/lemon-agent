@@ -74,14 +74,17 @@ class TestIsExtractable(unittest.TestCase):
         self.assertFalse(is_extractable_document("a.mp4"))
 
     def test_anydoc_extensions_track_availability(self):
-        """PDF (and the other anydoc formats) are extractable exactly when
-        the optional `anydoc` converter is importable."""
+        """Legacy Office/ODF/EPUB are extractable exactly when anydoc is
+        importable. PDFs also stay extractable via pdftotext/tesseract."""
         from tools import read_extract
 
         available = read_extract._anydoc() is not None
-        self.assertEqual(is_extractable_document("a.pdf"), available)
         self.assertEqual(is_extractable_document("a.odt"), available)
         self.assertEqual(is_extractable_document("a.epub"), available)
+        if available or read_extract._pdf_local_extract_available():
+            self.assertTrue(is_extractable_document("a.pdf"))
+        else:
+            self.assertFalse(is_extractable_document("a.pdf"))
 
 
 # ---------------------------------------------------------------------------
@@ -210,8 +213,12 @@ class TestAnydocAbsent(unittest.TestCase):
 
         read_extract._anydoc_module = self._saved
 
-    def test_pdf_not_extractable_without_anydoc(self):
-        self.assertFalse(is_extractable_document("a.pdf"))
+    def test_pdf_not_extractable_without_anydoc_or_local_tools(self):
+        from unittest.mock import patch
+        from tools import read_extract
+
+        with patch.object(read_extract, "_pdf_local_extract_available", return_value=False):
+            self.assertFalse(is_extractable_document("a.pdf"))
         self.assertFalse(is_extractable_document("a.rtf"))
 
     def test_extract_raises_unsupported_without_anydoc(self):
@@ -647,15 +654,16 @@ class TestReadFileToolIntegration(unittest.TestCase):
         saved_module = rex._anydoc_module
         saved_failed_at = rex._anydoc_failed_at
         # Simulate "converter unavailable and in cooldown": _anydoc() returns
-        # None, the .pdf is not treated as extractable, and read_file keeps
-        # its historical raw-read fallthrough (no extraction error surfaced).
+        # None. Without local poppler/tesseract the .pdf is not extractable,
+        # and read_file keeps its historical raw-read fallthrough.
         rex._anydoc_module = None
         rex._anydoc_failed_at = time.monotonic()
         try:
             p = os.path.join(self.tmp, "doc.pdf")
             with open(p, "wb") as fh:
                 fh.write(b"%PDF-1.4 fake")
-            res = json.loads(read_file_tool(p))
+            with mock.patch.object(rex, "_pdf_local_extract_available", return_value=False):
+                res = json.loads(read_file_tool(p))
             self.assertNotIn("error", res)
             self.assertIn("%PDF-1.4 fake", res.get("content", ""))
         finally:
@@ -723,6 +731,150 @@ class TestReadFileToolIntegration(unittest.TestCase):
 # Scanned-PDF coverage warning
 # ---------------------------------------------------------------------------
 
+class TestLocalPdfRecovery(unittest.TestCase):
+    """pdftotext / tesseract fallbacks when anydoc is absent or reports NeedsOcr."""
+
+    def test_pdf_extractable_via_pdftotext_without_anydoc(self):
+        from tools import read_extract
+
+        saved = read_extract._anydoc_module
+        read_extract._anydoc_module = None
+        try:
+            with mock.patch.object(read_extract, "_pdftotext_available", return_value=True), \
+                 mock.patch.object(read_extract, "_local_ocr_available", return_value=False):
+                self.assertTrue(is_extractable_document("a.pdf"))
+        finally:
+            read_extract._anydoc_module = saved
+
+    def test_ocr_scanned_pdf_uses_local_tesseract_when_hosted_off(self):
+        from tools import read_extract
+
+        class _Exc(Exception):
+            pages = [1, 2]
+
+        with mock.patch.object(read_extract, "_hosted_ocr_config", return_value=(False, None, None)), \
+             mock.patch.object(read_extract, "_local_ocr_pdf", return_value="Scanned line\n"):
+            text = read_extract._ocr_scanned_pdf(object(), "/x/doc.pdf", _Exc())
+        self.assertIn("Scanned line", text)
+        self.assertNotIn("NEEDS OCR", text)
+
+    def test_ocr_scanned_pdf_renders_pages_when_ocr_missing(self):
+        from tools import read_extract
+
+        class _Exc(Exception):
+            pages = [3]
+
+        with mock.patch.object(read_extract, "_hosted_ocr_config", return_value=(False, None, None)), \
+             mock.patch.object(read_extract, "_local_ocr_pdf", return_value=None), \
+             mock.patch.object(read_extract, "_render_pdf_pages",
+                               return_value=["/tmp/page-3.png"]):
+            text = read_extract._ocr_scanned_pdf(object(), "/x/doc.pdf", _Exc())
+        self.assertIn("NEEDS OCR", text)
+        self.assertIn("/tmp/page-3.png", text)
+        self.assertIn("vision_analyze", text)
+
+    def test_extract_pdf_local_joins_pdftotext_pages(self):
+        from tools import read_extract
+
+        with mock.patch.object(read_extract, "_pdf_page_texts",
+                               return_value=["Hello page with enough characters",
+                                             "Second page also long enough xx"]), \
+             mock.patch.object(read_extract, "_fill_empty_pages_with_ocr",
+                               side_effect=lambda _path, texts: texts), \
+             mock.patch.object(read_extract, "_pdf_coverage_note", return_value=""):
+            text = read_extract._extract_pdf_local("/x/doc.pdf")
+        self.assertIn("Hello page", text)
+        self.assertIn("Second page", text)
+
+    def test_extract_anydoc_bytes_ocr_fallback(self):
+        from tools import read_extract
+
+        class NeedsOcrError(Exception):
+            pages = [1]
+
+        class Mod:
+            def to_markdown(self, _path):
+                raise NeedsOcrError("needs ocr")
+
+        mod = Mod()
+        mod.NeedsOcrError = NeedsOcrError
+
+        with mock.patch.object(read_extract, "_anydoc", return_value=mod), \
+             mock.patch.object(read_extract.os.path, "getsize", return_value=10), \
+             mock.patch.object(read_extract, "_ocr_scanned_pdf",
+                               return_value="OCR from scan\n") as ocr:
+            text = read_extract._extract_anydoc_bytes(
+                b"%PDF-1.4 x", "/workspace/scan.pdf"
+            )
+        self.assertIn("OCR from scan", text)
+        ocr.assert_called_once()
+
+    def test_pngs_by_page_number_maps_sparse_filenames(self):
+        from pathlib import Path as P
+        from tools import read_extract
+
+        by_num = read_extract._pngs_by_page_number([
+            P("/tmp/page-1.png"), P("/tmp/page-5.png"), P("/tmp/page-09.png"),
+        ])
+        self.assertEqual(by_num[1], "/tmp/page-1.png")
+        self.assertEqual(by_num[5], "/tmp/page-5.png")
+        self.assertEqual(by_num[9], "/tmp/page-09.png")
+
+    def test_wanted_pdf_pages_caps_and_dedupes(self):
+        from tools import read_extract
+
+        self.assertEqual(read_extract._wanted_pdf_pages([1, 1, 5, 9, 2]), [1, 5, 9, 2])
+        self.assertEqual(read_extract._wanted_pdf_pages(None), list(range(1, 11)))
+
+    def test_ocr_empty_pages_block_lists_recovered_pages(self):
+        from tools import read_extract
+
+        texts = ["enough text on page one xx", "", "also enough on page three xx"]
+        filled = ["enough text on page one xx", "scanned line", "also enough on page three xx"]
+        with mock.patch.object(read_extract, "_pdf_page_texts", return_value=texts), \
+             mock.patch.object(read_extract, "_local_ocr_available", return_value=True), \
+             mock.patch.object(read_extract, "_fill_empty_pages_with_ocr", return_value=filled):
+            block, recovered = read_extract._ocr_empty_pages_block("/x/doc.pdf")
+        self.assertIn("OCR page 2", block)
+        self.assertIn("scanned line", block)
+        self.assertNotIn("OCR page 1", block)
+        self.assertEqual(recovered, {2})
+
+    def test_fill_empty_pages_maps_by_page_number_not_zip_order(self):
+        from tools import read_extract
+
+        texts = ["enough text on page one xx", "", "", "enough on four xxxxx"]
+        with mock.patch.object(read_extract, "_local_ocr_available", return_value=True), \
+             mock.patch.object(read_extract, "_render_pdf_pages",
+                               return_value=["/tmp/page-3.png"]), \
+             mock.patch.object(read_extract.subprocess, "run") as run:
+            run.return_value = mock.Mock(returncode=0, stdout=b"from page three")
+            filled = read_extract._fill_empty_pages_with_ocr("/x/doc.pdf", texts)
+        self.assertEqual(filled[1], "")          # missing render must not steal page 3
+        self.assertEqual(filled[2], "from page three")
+
+    def test_render_pdf_pages_empty_wanted_does_not_crash(self):
+        from tools import read_extract
+
+        with mock.patch.object(read_extract, "_which", return_value="/usr/bin/pdftoppm"), \
+             mock.patch.object(read_extract, "_wanted_pdf_pages", return_value=[]):
+            self.assertEqual(read_extract._render_pdf_pages("/x/doc.pdf", [0]), [])
+
+    def test_coverage_note_skips_ocr_recovered_pages(self):
+        from tools import read_extract
+
+        texts = ["Section One with enough text", "", "", ""]
+        with mock.patch.object(read_extract, "_pdf_page_texts", return_value=texts), \
+             mock.patch.object(read_extract, "_render_pdf_pages",
+                               return_value=["/tmp/page-3.png"]) as render:
+            note = read_extract._pdf_coverage_note("/x/doc.pdf", recovered_pages={2})
+        self.assertIn("pages 3-4", note)
+        gap = note.split("Unreadable gaps", 1)[-1]
+        self.assertNotIn("page 2", gap)
+        render.assert_called_once()
+        self.assertEqual(render.call_args.args[1], [3, 4])
+
+
 class TestPdfCoverageNote(unittest.TestCase):
     """The coverage footer flags PDFs whose pages yielded no text."""
 
@@ -732,12 +884,16 @@ class TestPdfCoverageNote(unittest.TestCase):
         from tools import read_extract
         texts = None if counts is None else ["x" * n for n in counts]
         with mock.patch.object(read_extract, "_pdf_page_texts",
-                               return_value=texts):
+                               return_value=texts), \
+             mock.patch.object(read_extract, "_render_pdf_pages",
+                               return_value=[]):
             return read_extract._pdf_coverage_note("/x/doc.pdf")
 
     def test_mostly_scanned_pdf_warns_with_page_ranges(self):
         # 3 text pages then 6 empty ones (scanned) — well past the ratio.
-        note = self._note_with_counts([900, 800, 700, 0, 0, 3, 0, 0, 0])
+        from tools import read_extract
+        with mock.patch.object(read_extract, "_render_pdf_pages", return_value=[]):
+            note = self._note_with_counts([900, 800, 700, 0, 0, 3, 0, 0, 0])
         self.assertIn("EXTRACTION COVERAGE WARNING", note)
         self.assertIn("6 of 9 pages", note)
         self.assertIn("pages 4-9", note)        # contiguous empty gap
@@ -745,6 +901,17 @@ class TestPdfCoverageNote(unittest.TestCase):
         self.assertIn("vision_analyze", note)   # recovery path is named
         self.assertIn("ocr-and-documents", note)
         self.assertIn("do NOT OCR or render everything", note)
+
+    def test_coverage_note_lists_rendered_page_images(self):
+        from tools import read_extract
+        texts = ["Section One with enough text", "", "", ""]
+        with mock.patch.object(read_extract, "_pdf_page_texts", return_value=texts), \
+             mock.patch.object(read_extract, "_render_pdf_pages",
+                               return_value=["/tmp/page-2.png", "/tmp/page-3.png"]):
+            note = read_extract._pdf_coverage_note("/x/doc.pdf")
+        self.assertIn("/tmp/page-2.png", note)
+        self.assertIn("vision_analyze", note)
+        self.assertIn("auxiliary vision model", note)
 
     def test_gap_labels_carry_preceding_section_text(self):
         """Each gap is labeled with the last text page before it (usually
@@ -755,7 +922,8 @@ class TestPdfCoverageNote(unittest.TestCase):
             + ["Section Two: Budget details here"] + [""] * 4
         )
         with mock.patch.object(read_extract, "_pdf_page_texts",
-                               return_value=texts):
+                               return_value=texts), \
+             mock.patch.object(read_extract, "_render_pdf_pages", return_value=[]):
             note = read_extract._pdf_coverage_note("/x/doc.pdf")
         self.assertIn(
             'pages 2-6 (5 pages) — after "Section One: Bylaws of the Corporation" (p1)',
@@ -774,7 +942,8 @@ class TestPdfCoverageNote(unittest.TestCase):
         for i in range(60):  # 60 gaps of 1 page each
             texts.extend([f"Divider page number {i} with enough text", ""])
         with mock.patch.object(read_extract, "_pdf_page_texts",
-                               return_value=texts):
+                               return_value=texts), \
+             mock.patch.object(read_extract, "_render_pdf_pages", return_value=[]):
             note = read_extract._pdf_coverage_note("/x/doc.pdf")
         gap_lines = [ln for ln in note.splitlines() if ln.startswith("  ")]
         self.assertEqual(
@@ -866,16 +1035,18 @@ class TestPdfCoverageNote(unittest.TestCase):
         temp file the scan ran against."""
         from tools import read_extract
         fake_mod = mock.Mock()
-        fake_mod.to_markdown_bytes.return_value = "# Title\n\nBody"
+        fake_mod.to_markdown.return_value = "# Title\n\nBody"
         seen = {}
 
-        def fake_note(path, display_path=None):
+        def fake_note(path, display_path=None, recovered_pages=None):
             seen["scan_path"] = path
             seen["display_path"] = display_path
             return f"[EXTRACTION COVERAGE WARNING: test '{display_path}']\n"
 
         with mock.patch.object(read_extract, "_anydoc",
                                return_value=fake_mod), \
+             mock.patch.object(read_extract, "_ocr_empty_pages_block",
+                               return_value=("", set())), \
              mock.patch.object(read_extract, "_pdf_coverage_note",
                                side_effect=fake_note):
             text = read_extract._extract_anydoc_bytes(

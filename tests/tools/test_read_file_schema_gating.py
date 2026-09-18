@@ -42,12 +42,12 @@ class TestReadFileSchemaStatic(unittest.TestCase):
         upgrade (Parse proxy live-probed broken 2026-08-28)."""
         import tools.file_tools as ft
 
-        with patch("tools.read_extract.hosted_ocr_available",
+        with patch("tools.read_extract.scanned_pdf_ocr_available",
                    return_value=True):
             d = ft._read_file_schema_overrides()["description"]
         self.assertIn("PDF (scanned or text)", d)
         self.assertNotIn("PDF (text layer)", d)
-        with patch("tools.read_extract.hosted_ocr_available",
+        with patch("tools.read_extract.scanned_pdf_ocr_available",
                    return_value=False):
             o = ft._read_file_schema_overrides()
         self.assertEqual(o, {})  # base wording stands
@@ -78,6 +78,19 @@ class TestReadFileSchemaStatic(unittest.TestCase):
                    return_value={}):
             rx.os.environ.pop("FIRECRAWL_API_KEY", None)
             self.assertFalse(rx.hosted_ocr_available())
+
+    def test_scanned_pdf_ocr_available_or_local_tesseract(self):
+        import tools.read_extract as rx
+
+        with patch.object(rx, "hosted_ocr_available", return_value=False), \
+             patch.object(rx, "_local_ocr_available", return_value=True):
+            self.assertTrue(rx.scanned_pdf_ocr_available())
+        with patch.object(rx, "hosted_ocr_available", return_value=True), \
+             patch.object(rx, "_local_ocr_available", return_value=False):
+            self.assertTrue(rx.scanned_pdf_ocr_available())
+        with patch.object(rx, "hosted_ocr_available", return_value=False), \
+             patch.object(rx, "_local_ocr_available", return_value=False):
+            self.assertFalse(rx.scanned_pdf_ocr_available())
 
     def test_runtime_route_is_direct_key_only(self):
         """_hosted_ocr_config never resolves the Nous gateway: api_url is
@@ -164,8 +177,10 @@ class TestNeedsOcrPath(unittest.TestCase):
         from tools import read_extract as rx
 
         mod, calls = self._fake_mod(hosted_result="OCR TEXT")
-        with patch.object(rx, "_anydoc", return_value=mod),              patch.object(rx, "_hosted_ocr_config",
-                          return_value=(True, "key", None)),              patch.object(rx.os.path, "getsize", return_value=10):
+        with patch.object(rx, "_anydoc", return_value=mod), \
+             patch.object(rx, "_hosted_ocr_config",
+                          return_value=(True, "key", None)), \
+             patch.object(rx.os.path, "getsize", return_value=10):
             out = rx._extract_anydoc("scan.pdf")
         self.assertEqual(out, "OCR TEXT\n")
         self.assertEqual(calls[1].get("ocr"), "hosted")
@@ -174,8 +189,12 @@ class TestNeedsOcrPath(unittest.TestCase):
         from tools import read_extract as rx
 
         mod, _ = self._fake_mod(hosted_exc=RuntimeError("HTTP 500"))
-        with patch.object(rx, "_anydoc", return_value=mod),              patch.object(rx, "_hosted_ocr_config",
-                          return_value=(True, "key", "https://gw")),              patch.object(rx.os.path, "getsize", return_value=10):
+        with patch.object(rx, "_anydoc", return_value=mod), \
+             patch.object(rx, "_hosted_ocr_config",
+                          return_value=(True, "key", "https://gw")), \
+             patch.object(rx.os.path, "getsize", return_value=10), \
+             patch.object(rx, "_local_ocr_pdf", return_value=None), \
+             patch.object(rx, "_render_pdf_pages", return_value=[]):
             out = rx._extract_anydoc("scan.pdf")
         self.assertIn("[NEEDS OCR", out)
         self.assertIn("pages 2, 3", out)
@@ -192,8 +211,12 @@ class TestNeedsOcrPath(unittest.TestCase):
         from tools import read_extract as rx
 
         mod, calls = self._fake_mod()
-        with patch.object(rx, "_anydoc", return_value=mod),              patch.object(rx, "_hosted_ocr_config",
-                          return_value=(False, None, None)),              patch.object(rx.os.path, "getsize", return_value=10):
+        with patch.object(rx, "_anydoc", return_value=mod), \
+             patch.object(rx, "_hosted_ocr_config",
+                          return_value=(False, None, None)), \
+             patch.object(rx.os.path, "getsize", return_value=10), \
+             patch.object(rx, "_local_ocr_pdf", return_value=None), \
+             patch.object(rx, "_render_pdf_pages", return_value=[]):
             out = rx._extract_anydoc("scan.pdf")
         self.assertIn("[NEEDS OCR", out)
         self.assertEqual(len(calls), 1)  # no hosted attempt

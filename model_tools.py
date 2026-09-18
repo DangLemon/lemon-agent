@@ -279,9 +279,14 @@ def _tool_defs_cache_key(
 
 def _apply_toolset_selection(tools: set, names: List[str], quiet_mode: bool, *, disable: bool) -> None:
     """Add (or subtract) every toolset in *names* to/from *tools*, printing the selection unless quiet."""
-    from toolsets import bundle_non_core_tools, get_toolset
+    from toolsets import bundle_non_core_tools, get_toolset, is_hermes_cutover_alias
     verb, icon = ("Disabled", "🚫") if disable else ("Enabled", "✅")
     for name in names:
+        # Leftover hermes-cli in disabled_toolsets was an unknown no-op. The
+        # enable alias must not strip every native tool on the disable path
+        # (name does not start with lemon-, so the bundle-preserving branch is skipped).
+        if disable and is_hermes_cutover_alias(name):
+            continue
         if validate_toolset(name):
             label = f"{verb} toolset"
             if disable and (name.startswith("lemon-") or (get_toolset(name) or {}).get("posture")):

@@ -281,6 +281,45 @@ async def test_canonical_guard_fails_closed_when_lookup_raises(tmp_path: Path, m
     )
 
 
+def test_pdf_attachment_is_inlined_as_extracted_text(tmp_path: Path, monkeypatch):
+    """@file: PDF must not stay a binary stub when extraction succeeds."""
+    from agent.context_references import preprocess_context_references
+
+    pdf = tmp_path / "brief.pdf"
+    pdf.write_bytes(b"%PDF-1.4 unused")
+    monkeypatch.setattr(
+        "agent.context_references._inline_extractable_document",
+        lambda _path: "Account Name  À Ơi Concept\nKỳ dữ liệu  Q2/2026\n",
+    )
+    result = preprocess_context_references(
+        f"read @file:{pdf}",
+        cwd=tmp_path,
+        context_length=100_000,
+        allowed_root=tmp_path,
+    )
+    assert result.expanded
+    assert "À Ơi Concept" in result.message
+    assert "binary file, not inlined" not in result.message
+
+
+def test_pdf_attachment_keeps_needs_ocr_error(tmp_path: Path, monkeypatch):
+    from agent.context_references import _inline_extractable_document
+    from tools.read_extract import ExtractionError
+
+    pdf = tmp_path / "scan.pdf"
+    pdf.write_bytes(b"%PDF-1.4 unused")
+
+    def _boom(_path):
+        raise ExtractionError("[NEEDS OCR: pages 1. Rendered to: `/tmp/page-1.png`.]")
+
+    monkeypatch.setattr("tools.read_extract.extract_document_text", _boom)
+    monkeypatch.setattr("tools.read_extract.is_extractable_document", lambda _p: True)
+    text = _inline_extractable_document(pdf)
+    assert text is not None
+    assert "NEEDS OCR" in text
+    assert "/tmp/page-1.png" in text
+
+
 @pytest.mark.parametrize(
     "value",
     [
