@@ -274,6 +274,12 @@ def _expand_path_reference(ref: ContextReference, cwd: Path, *, allowed_root: Pa
         listing = _build_folder_listing(path, cwd)
         return None, f"📁 {ref.raw} ({estimate_tokens_rough(listing)} tokens)\n{listing}"
     if _is_binary_file(path):
+        extracted = _inline_extractable_document(path)
+        if extracted:
+            return None, (
+                f"📄 {ref.raw} ({estimate_tokens_rough(extracted)} tokens)\n"
+                f"```\n{extracted}\n```"
+            )
         # A bare "not supported" warning was a dead end (the model gave up); the file IS
         # on disk where the agent's tools run, so hand it an actionable block instead.
         return None, _binary_reference_block(ref, path)
@@ -423,6 +429,23 @@ def _iter_visible_entries(path: Path, cwd: Path, limit: int) -> list[Path]:
             if len(output) >= limit:
                 return output
     return output
+
+
+def _inline_extractable_document(path: Path) -> str | None:
+    """Render PDF/Office attachments as text so @file: is not a binary dead-end."""
+    try:
+        from tools.read_extract import extract_document_text, is_extractable_document
+    except Exception:
+        return None
+    if not is_extractable_document(str(path)):
+        return None
+    try:
+        text = extract_document_text(str(path))
+    except Exception:
+        return None
+    if not isinstance(text, str) or not text.strip():
+        return None
+    return text
 
 
 def _binary_reference_block(ref: ContextReference, path: Path) -> str:

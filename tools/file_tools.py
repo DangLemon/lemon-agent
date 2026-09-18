@@ -969,8 +969,8 @@ READ_FILE_SCHEMA = {
     # core dependency (bundled), so its absence is a broken install, not a
     # configuration — the teaching error in read_extract handles that rare
     # case with the pip-install fix. The ONE dynamic word: "PDF (text
-    # layer)" upgrades to "PDF (scanned or text)" when hosted OCR has a
-    # route we trust (_read_file_schema_overrides). Scanned-page coverage
+    # layer)" upgrades to "PDF (scanned or text)" when hosted OCR or local
+    # tesseract+pdftoppm is available (_read_file_schema_overrides). Coverage
     # teaching lives in the response-time NEEDS-OCR warning
     # (read_extract.py); the schema doesn't pre-teach it.
     "description": "Read a text file with line numbers and pagination. Use this instead of cat/head/tail in terminal. Output format: 'LINE_NUM|CONTENT'. Suggests similar filenames if not found. Use offset and limit for large files. Reads exceeding ~100K characters are truncated on a line boundary and return a next_offset; continue with offset to read the rest. Documents auto-extract to readable text: .ipynb, Office (.docx/.xlsx/.pptx and legacy .doc/.ppt/.xls), PDF (text layer), OpenDocument, RTF, EPUB. Cannot read images/binary — use vision_analyze for images.",
@@ -1178,15 +1178,15 @@ def _handle_search_files(args, **kw):
 
 def _read_file_schema_overrides():
     """One-word capability upgrade: "PDF (text layer)" → "PDF (scanned or
-    text)" when hosted OCR has a trusted route (see
-    read_extract.hosted_ocr_available). Config/env probe only — no
+    text)" when hosted OCR or local tesseract is available (see
+    read_extract.scanned_pdf_ocr_available). Config/env probe only — no
     network at schema-build time. Compaction's tool refresh (#97073)
     picks up a key added mid-session.
     """
     try:
-        from tools.read_extract import hosted_ocr_available
+        from tools.read_extract import scanned_pdf_ocr_available
 
-        if hosted_ocr_available():
+        if scanned_pdf_ocr_available():
             return {
                 "description": READ_FILE_SCHEMA["description"].replace(
                     "PDF (text layer)", "PDF (scanned or text)"

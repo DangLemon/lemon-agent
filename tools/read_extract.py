@@ -24,7 +24,8 @@ from typing import Any, Callable, Iterator, Optional
 from xml.etree import ElementTree as ET
 
 __all__ = ["EXTRACTABLE_EXTENSIONS", "ExtractionError", "extract_document_bytes",
-           "extract_document_text", "is_extractable_document"]
+           "extract_document_text", "hosted_ocr_available", "is_extractable_document",
+           "scanned_pdf_ocr_available"]
 
 EXTRACTABLE_EXTENSIONS = frozenset({".ipynb", ".docx", ".xlsx"})
 ANYDOC_EXTENSIONS = frozenset({
@@ -46,10 +47,39 @@ class ExtractionError(Exception):
     """Raised when a supported-looking document cannot be rendered as text."""
 
 
+LOCAL_OCR_MAX_PAGES = 10
+LOCAL_OCR_DPI = 150
+TESSERACT_TIMEOUT = 30.0
+PDFTOPPM_TIMEOUT = 60.0
+
+
+def _which(name: str) -> Optional[str]:
+    return shutil.which(name)
+
+
+def _pdftotext_available() -> bool:
+    return _which("pdftotext") is not None
+
+
+def _local_ocr_available() -> bool:
+    """Local scan recovery: rasterize with pdftoppm, then tesseract."""
+    return _which("pdftoppm") is not None and _which("tesseract") is not None
+
+
+def _pdf_local_extract_available() -> bool:
+    return _pdftotext_available() or _local_ocr_available()
+
+
 def _extension(path: str) -> str:
     ext = Path(path).suffix.lower()
-    known = ext in EXTRACTABLE_EXTENSIONS or (ext in ANYDOC_EXTENSIONS and _anydoc() is not None)
-    return ext if known else ""
+    if ext in EXTRACTABLE_EXTENSIONS:
+        return ext
+    if ext in ANYDOC_EXTENSIONS and _anydoc() is not None:
+        return ext
+    # PDFs stay readable without anydoc when poppler and/or tesseract are on PATH.
+    if ext == ".pdf" and _pdf_local_extract_available():
+        return ext
+    return ""
 
 
 _ANYDOC_UNSET = object()
@@ -109,6 +139,8 @@ def extract_document_text(path: str) -> str:
     ext = _extension(path)
     if ext in _STDLIB_EXTRACTORS:
         return _STDLIB_EXTRACTORS[ext](path)
+    if ext == ".pdf":
+        return _extract_pdf(path)
     if ext in ANYDOC_EXTENSIONS:
         return _extract_anydoc(path)
     raise ExtractionError(f"Unsupported document type: {path!r}")
@@ -162,18 +194,37 @@ def hosted_ocr_available() -> bool:
     return _hosted_ocr_config()[0]
 
 
-def _needs_ocr_warning(path: str, pages, hosted_error: str = "") -> str:
-    """NeedsOcrError result when hosted OCR is off/failed; hints at CHECKING for an OCR skill
-    (never names one) and never advertises the hosted_ocr knob."""
+def scanned_pdf_ocr_available() -> bool:
+    """True when scanned PDFs can be recovered as text (hosted Firecrawl OCR or local tesseract)."""
+    return hosted_ocr_available() or _local_ocr_available()
+
+
+def _needs_ocr_warning(
+    path: str, pages, hosted_error: str = "", rendered_paths: Optional[list[str]] = None,
+) -> str:
+    """NeedsOcrError result when hosted/local OCR is off/failed; hints at vision_analyze.
+    Never advertises the hosted_ocr knob. Codex/text mains cannot see screenshots natively —
+    vision_analyze routes those images through the auxiliary vision model."""
     page_list = ", ".join(str(p) for p in pages) if pages else "unknown"
     hosted = f"Hosted OCR was attempted and failed ({hosted_error}). " if hosted_error else ""
+    if rendered_paths:
+        shown = ", ".join(f"`{p}`" for p in rendered_paths[:LOCAL_OCR_MAX_PAGES])
+        recover = (
+            f"Pages were rendered to: {shown}. Inspect each with vision_analyze "
+            "(uses the auxiliary vision model when the chat model cannot see images), "
+            "or check whether an OCR skill is available (skills_list)."
+        )
+    else:
+        recover = (
+            "If the missing pages matter: render just those pages with "
+            f"`pdftoppm -jpeg -r 150 -f <first> -l <last> '{path}' /tmp/page` "
+            "and inspect via vision_analyze, or check whether an OCR skill is "
+            "available (skills_list)."
+        )
     return (
         f"[NEEDS OCR: pages {page_list} of this PDF are scanned images "
         f"with no text layer — their content is MISSING below. {hosted}"
-        "If the missing pages matter: render just those pages with "
-        f"`pdftoppm -jpeg -r 150 -f <first> -l <last> '{path}' /tmp/page` "
-        "and inspect via vision_analyze, or check whether an OCR skill is "
-        "available (skills_list).]\n")
+        f"{recover}]\n")
 
 
 def _finalize_anydoc_text(text: Any, path: str, pdf_note: Callable[[], str]) -> str:
@@ -184,9 +235,10 @@ def _finalize_anydoc_text(text: Any, path: str, pdf_note: Callable[[], str]) -> 
     return (pdf_note() if Path(path).suffix.lower() == ".pdf" else "") + text.rstrip("\n") + "\n"
 
 
-def _ocr_scanned_pdf(mod: Any, path: str, exc: BaseException) -> str:
-    """anydoc >= 0.2 scanned-pages signal: hosted OCR when a route exists, else teach recovery."""
+def _ocr_scanned_pdf(mod: Any, path: str, exc: BaseException, display_path: Optional[str] = None) -> str:
+    """anydoc >= 0.2 scanned-pages signal: hosted OCR, then local tesseract, else render + teach."""
     pages = list(getattr(exc, "pages", []) or [])
+    shown = display_path or path
     enabled, api_key, api_url = _hosted_ocr_config()
     hosted_error = ""
     if enabled:
@@ -195,10 +247,56 @@ def _ocr_scanned_pdf(mod: Any, path: str, exc: BaseException) -> str:
             return mod.to_markdown(path, ocr="hosted", **extra).rstrip("\n") + "\n"
         except Exception as hosted_exc:  # noqa: BLE001
             hosted_error = f"{type(hosted_exc).__name__}: {hosted_exc}"
-    return _needs_ocr_warning(path, pages, hosted_error)  # whole doc is scans: the warning IS it
+    local = _local_ocr_pdf(path, pages or None)
+    if local:
+        prefix = f"[Hosted OCR failed ({hosted_error}); used local tesseract.]\n" if hosted_error else ""
+        return prefix + local
+    rendered = _render_pdf_pages(path, pages or None)
+    return _needs_ocr_warning(shown, pages, hosted_error, rendered_paths=rendered)
+
+
+def _extract_pdf(path: str, display_path: Optional[str] = None) -> str:
+    """Text-layer extract (anydoc or pdftotext), then local OCR / page render for scans."""
+    shown = display_path or path
+    mod = _anydoc()
+    if mod is not None:
+        try:
+            _check_size(os.path.getsize(path), MAX_ANYDOC_BYTES)
+            text = mod.to_markdown(path)
+        except ExtractionError:
+            raise
+        except OSError as exc:
+            raise ExtractionError(str(exc)) from exc
+        except Exception as exc:
+            needs_ocr = getattr(mod, "NeedsOcrError", None)
+            if needs_ocr is not None and isinstance(exc, needs_ocr):
+                return _ocr_scanned_pdf(mod, path, exc, display_path=shown)
+            raise ExtractionError(f"{type(exc).__name__}: {exc}") from exc
+        body = _finalize_anydoc_text(
+            text, shown, lambda: _pdf_coverage_note(path, display_path=shown))
+        extra = _ocr_empty_pages_block(path)
+        return extra + body if extra else body
+    return _extract_pdf_local(path, display_path=shown)
+
+
+def _extract_pdf_local(path: str, display_path: Optional[str] = None) -> str:
+    shown = display_path or path
+    texts = _pdf_page_texts(path)
+    if texts and any(len(page.strip()) >= PDF_EMPTY_PAGE_CHARS for page in texts):
+        filled = _fill_empty_pages_with_ocr(path, texts)
+        return _finalize_anydoc_text(
+            "\n\n".join(filled), shown, lambda: _pdf_coverage_note(path, display_path=shown))
+    local = _local_ocr_pdf(path)
+    if local:
+        return local
+    rendered = _render_pdf_pages(path)
+    raise ExtractionError(
+        _needs_ocr_warning(shown, None, rendered_paths=rendered).strip())
 
 
 def _extract_anydoc(path: str) -> str:
+    if Path(path).suffix.lower() == ".pdf":
+        return _extract_pdf(path)
     mod = _anydoc()
     if mod is None:
         raise ExtractionError(_anydoc_missing_error(path))
@@ -210,22 +308,26 @@ def _extract_anydoc(path: str) -> str:
     except OSError as exc:
         raise ExtractionError(str(exc)) from exc
     except Exception as exc:
-        needs_ocr = getattr(mod, "NeedsOcrError", None)
-        if needs_ocr is not None and isinstance(exc, needs_ocr):
-            return _ocr_scanned_pdf(mod, path, exc)
-        # Any ConvertError subclass (Unsupported/Malformed/Encrypted/...) = "no meaningful text".
         raise ExtractionError(f"{type(exc).__name__}: {exc}") from exc
-    return _finalize_anydoc_text(text, path, lambda: _pdf_coverage_note(path))
+    return _finalize_anydoc_text(text, path, lambda: "")
 
 
 def _extract_anydoc_bytes(data: bytes, path: str) -> str:
+    is_pdf = Path(path).suffix.lower() == ".pdf"
     mod = _anydoc()
     if mod is None:
+        if is_pdf and _pdf_local_extract_available():
+            with _temp_copy(data, ".pdf") as temp_path:
+                return _extract_pdf_local(temp_path, display_path=path)
         raise ExtractionError(_anydoc_missing_error(path))
     _check_size(len(data), MAX_ANYDOC_BYTES)
     try:
         text = mod.to_markdown_bytes(data)
     except Exception as exc:
+        needs_ocr = getattr(mod, "NeedsOcrError", None)
+        if is_pdf and needs_ocr is not None and isinstance(exc, needs_ocr):
+            with _temp_copy(data, ".pdf") as temp_path:
+                return _ocr_scanned_pdf(mod, temp_path, exc, display_path=path)
         raise ExtractionError(f"{type(exc).__name__}: {exc}") from exc
     return _finalize_anydoc_text(text, path, lambda: _pdf_coverage_note_from_bytes(data, path))
 
@@ -238,6 +340,157 @@ PDF_COVERAGE_MIN_EMPTY, PDF_COVERAGE_MIN_RATIO, PDF_COVERAGE_ABSOLUTE_EMPTY = 2,
 PDF_PAGE_SCAN_TIMEOUT = 20.0
 PDF_GAP_MAP_MAX_ENTRIES = 20  # cap so alternating text/scan pages can't balloon the warning
 _GAP_CONTEXT_CHARS = 60
+
+
+def _tesseract_langs() -> str:
+    """eng, plus vie when the traineddata is installed (this install often has Vietnamese PDFs)."""
+    try:
+        proc = subprocess.run(
+            ["tesseract", "--list-langs"], capture_output=True, text=True, timeout=5,
+            stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError):
+        return "eng"
+    langs = {line.strip() for line in (proc.stdout or "").splitlines()}
+    picked = [name for name in ("eng", "vie") if name in langs]
+    return "+".join(picked) or "eng"
+
+
+def _wanted_pdf_pages(pages: Optional[list[int]]) -> list[int]:
+    """First LOCAL_OCR_MAX_PAGES of ``pages``, de-duplicated, or 1..cap when omitted."""
+    if pages:
+        return list(dict.fromkeys(int(p) for p in pages if int(p) >= 1))[:LOCAL_OCR_MAX_PAGES]
+    return list(range(1, LOCAL_OCR_MAX_PAGES + 1))
+
+
+def _pdftoppm_pngs(path: str, out_dir: Path, first: int, last: int) -> list[Path]:
+    prefix = out_dir / "page"
+    argv = [
+        "pdftoppm", "-png", "-r", str(LOCAL_OCR_DPI),
+        "-f", str(first), "-l", str(last), path, str(prefix),
+    ]
+    try:
+        proc = subprocess.run(
+            argv, capture_output=True, timeout=PDFTOPPM_TIMEOUT, stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if proc.returncode != 0:
+        return []
+    return list(out_dir.glob("page*.png"))
+
+
+def _pngs_by_page_number(files: list[Path]) -> dict[int, str]:
+    by_num: dict[int, str] = {}
+    for item in files:
+        match = re.search(r"(\d+)\.png$", item.name)
+        if match:
+            by_num[int(match.group(1))] = str(item)
+    return by_num
+
+
+def _render_pdf_pages(path: str, pages: Optional[list[int]] = None) -> list[str]:
+    """Rasterize requested PDF pages to PNG, preserving page order.
+
+    Sparse lists such as ``[1, 5, 9]`` must not zip against a contiguous
+    pdftoppm range (that would OCR page 2 as if it were page 5).
+    """
+    if _which("pdftoppm") is None:
+        return []
+    try:
+        from lemon_cli.config import get_lemon_home
+        dest = Path(get_lemon_home()) / "cache" / "pdf-pages"
+    except Exception:
+        dest = Path(tempfile.gettempdir()) / "lemon-pdf-pages"
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "_", Path(path).stem)[:80] or "page"
+    out_dir = dest / f"{stem}-{os.getpid()}"
+    try:
+        out_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return []
+    wanted = _wanted_pdf_pages(pages)
+    first, last = wanted[0], wanted[-1]
+    contiguous = wanted == list(range(first, last + 1))
+    files: list[Path] = []
+    if contiguous:
+        files = _pdftoppm_pngs(path, out_dir, first, last)
+    else:
+        for page_no in wanted:
+            files.extend(_pdftoppm_pngs(path, out_dir, page_no, page_no))
+    by_num = _pngs_by_page_number(files)
+    return [by_num[n] for n in wanted if n in by_num]
+
+
+def _local_ocr_pdf(path: str, pages: Optional[list[int]] = None) -> Optional[str]:
+    """OCR rasterized pages with tesseract. None when tools are missing or every page is empty."""
+    if not _local_ocr_available():
+        return None
+    images = _render_pdf_pages(path, pages)
+    if not images:
+        return None
+    langs = _tesseract_langs()
+    chunks: list[str] = []
+    for image in images:
+        try:
+            proc = subprocess.run(
+                ["tesseract", image, "stdout", "-l", langs],
+                capture_output=True, timeout=TESSERACT_TIMEOUT, stdin=subprocess.DEVNULL)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if proc.returncode != 0:
+            continue
+        text = (proc.stdout or b"").decode("utf-8", errors="replace").strip()
+        if text:
+            chunks.append(text)
+    if not chunks:
+        return None
+    return "\n\n".join(chunks).rstrip("\n") + "\n"
+
+
+def _ocr_empty_pages_block(path: str) -> str:
+    """Appendix of local tesseract text for pages whose text layer is empty."""
+    texts = _pdf_page_texts(path)
+    if not texts or not _local_ocr_available():
+        return ""
+    filled = _fill_empty_pages_with_ocr(path, texts)
+    chunks: list[str] = []
+    for index, (original, recovered) in enumerate(zip(texts, filled)):
+        if len(original.strip()) >= PDF_EMPTY_PAGE_CHARS:
+            continue
+        recovered = recovered.strip()
+        if recovered:
+            chunks.append(f"--- OCR page {index + 1} ---\n{recovered}")
+    if not chunks:
+        return ""
+    return (
+        "[Local tesseract OCR of pages with no text layer]\n"
+        + "\n\n".join(chunks)
+        + "\n\n"
+    )
+
+
+def _fill_empty_pages_with_ocr(path: str, texts: list[str]) -> list[str]:
+    """OCR pages whose text layer is empty, capped at LOCAL_OCR_MAX_PAGES."""
+    empty = [i + 1 for i, page in enumerate(texts) if len(page.strip()) < PDF_EMPTY_PAGE_CHARS]
+    if not empty or not _local_ocr_available():
+        return list(texts)
+    target = empty[:LOCAL_OCR_MAX_PAGES]
+    images = _render_pdf_pages(path, target)
+    if not images:
+        return list(texts)
+    langs = _tesseract_langs()
+    filled = list(texts)
+    for page_no, image in zip(target, images):
+        try:
+            proc = subprocess.run(
+                ["tesseract", image, "stdout", "-l", langs],
+                capture_output=True, timeout=TESSERACT_TIMEOUT, stdin=subprocess.DEVNULL)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if proc.returncode != 0:
+            continue
+        text = (proc.stdout or b"").decode("utf-8", errors="replace").strip()
+        if text:
+            filled[page_no - 1] = text
+    return filled
 
 
 def _pdf_page_texts(path: str) -> Optional[list[str]]:
@@ -292,6 +545,25 @@ def _pdf_coverage_note(path: str, display_path: Optional[str] = None) -> str:
     if n_empty < PDF_COVERAGE_MIN_EMPTY or not enough:
         return ""
     shown = display_path or path
+    rendered = _render_pdf_pages(path, empty[:LOCAL_OCR_MAX_PAGES])
+    if rendered:
+        shown_imgs = ", ".join(f"`{p}`" for p in rendered)
+        recover = (
+            f"Rendered unreadable pages to: {shown_imgs}. Inspect those with "
+            "vision_analyze (uses the auxiliary vision model when the chat "
+            "model cannot see images). Decide which remaining gaps you "
+            "actually need — do NOT OCR or render everything. For bulk OCR "
+            "of large ranges, use the ocr-and-documents skill (marker-pdf)."
+        )
+    else:
+        recover = (
+            "Decide which gaps you actually need — do NOT OCR or render "
+            "everything. For the gaps that matter, render just that range with "
+            f"`pdftoppm -jpeg -r 150 -f <first> -l <last> '{shown}' /tmp/page` "
+            "and inspect each image with the vision_analyze tool, or use the "
+            "ocr-and-documents skill (marker-pdf) for bulk OCR of large "
+            "ranges."
+        )
     return (
         "[EXTRACTION COVERAGE WARNING: "
         f"{len(empty)} of {total} pages in this PDF yielded no text. "
@@ -300,12 +572,7 @@ def _pdf_coverage_note(path: str, display_path: Optional[str] = None) -> str:
         "headers appear with empty bodies. Unreadable gaps, each labeled "
         "with the last text extracted before it:\n"
         f"{_gap_map(counts, texts, empty)}\n"
-        "Decide which gaps you actually need — do NOT OCR or render "
-        "everything. For the gaps that matter, render just that range with "
-        f"`pdftoppm -jpeg -r 150 -f <first> -l <last> '{shown}' /tmp/page` "
-        "and inspect each image with the vision_analyze tool, or use the "
-        "ocr-and-documents skill (marker-pdf) for bulk OCR of large "
-        "ranges.]\n")
+        f"{recover}]\n")
 
 
 def _pdf_coverage_note_from_bytes(data: bytes, display_path: str) -> str:

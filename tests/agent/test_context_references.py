@@ -281,6 +281,27 @@ async def test_canonical_guard_fails_closed_when_lookup_raises(tmp_path: Path, m
     )
 
 
+def test_pdf_attachment_is_inlined_as_extracted_text(tmp_path: Path, monkeypatch):
+    """@file: PDF must not stay a binary stub when extraction succeeds."""
+    from agent.context_references import preprocess_context_references
+
+    pdf = tmp_path / "brief.pdf"
+    pdf.write_bytes(b"%PDF-1.4 unused")
+    monkeypatch.setattr(
+        "agent.context_references._inline_extractable_document",
+        lambda _path: "Account Name  À Ơi Concept\nKỳ dữ liệu  Q2/2026\n",
+    )
+    result = preprocess_context_references(
+        f"read @file:{pdf}",
+        cwd=tmp_path,
+        context_length=100_000,
+        allowed_root=tmp_path,
+    )
+    assert result.expanded
+    assert "À Ơi Concept" in result.message
+    assert "binary file, not inlined" not in result.message
+
+
 @pytest.mark.parametrize(
     "value",
     [
