@@ -125,10 +125,16 @@ def test_install_ps1_validity_requires_initial_commit() -> None:
         r"if \(\$revParseOk -and \$statusOk -and \$hasCommit\) \{",
         text,
     ), "repo validity must be gated on $hasCommit, not just rev-parse + status"
-    # Cleanup must be non-destructive: move the broken checkout aside, never
+    # Cleanup must be non-destructive: park the broken checkout under a
+    # `.broken-*` sibling via the retrying move helper, never
     # `Remove-Item -Recurse -Force` it (review feedback on #40998).
-    assert "Move-Item -LiteralPath $InstallDir" in text, (
+    # Direct `Move-Item -LiteralPath $InstallDir` is the first-run Retry
+    # brick on Windows, so the script uses Move-DirectoryWithRetry instead.
+    assert "Move-DirectoryWithRetry -Source $InstallDir" in text, (
         "install.ps1 must move an invalid checkout aside, not delete it"
+    )
+    assert "$InstallDir.broken-" in text, (
+        "invalid checkouts must be parked under a .broken-* sibling"
     )
     assert "Remove-Item -Recurse -Force $InstallDir -ErrorAction Stop" not in text, (
         "the destructive wipe of an existing install dir must be gone "

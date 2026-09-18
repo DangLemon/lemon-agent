@@ -37,13 +37,18 @@ def _assert_relaxed_call(text: str, command_pattern: str) -> None:
 def test_repository_stage_relieves_eap_for_ssh_and_https_git_clone() -> None:
     text = _install_ps1()
     assert "function Invoke-NativeWithRelaxedErrorAction" in text
+    # Fresh clone goes through a sibling-path loop ($cloneUrl / $candidate)
+    # so a locked $InstallDir cannot poison Retry. Both SSH and HTTPS feed
+    # that one git clone line; wrapping it covers both transports.
     _assert_relaxed_call(
         text,
-        r"git -c windows\.appendAtomically=false clone --depth 1 --branch \$Branch \$RepoUrlSsh \$InstallDir",
+        r"git -c windows\.appendAtomically=false clone --depth 1 --branch \$Branch \$cloneUrl \$candidate",
     )
-    _assert_relaxed_call(
-        text,
-        r"git -c windows\.appendAtomically=false clone --depth 1 --branch \$Branch \$RepoUrlHttps \$InstallDir",
+    assert re.search(r"Url = \$RepoUrlSsh; Label = \"SSH\"", text), (
+        "clone attempts must still include the SSH transport"
+    )
+    assert re.search(r"Url = \$RepoUrlHttps; Label = \"HTTPS\"", text), (
+        "clone attempts must still include the HTTPS transport"
     )
 
 
