@@ -313,25 +313,58 @@ def _strip_code_fences(text: str) -> str:
     return match.group(1).strip() if match else text.strip()
 
 
+def _json_candidates(text: str) -> list[str]:
+    """Whole stripped message first, then each fenced body.
+
+    A complete JSON document wins over a prose fence that happens to appear
+    earlier. First-``{``-to-last-``}`` slicing is not a candidate: trailing
+    junk must fail, not parse a prefix object.
+    """
+    stripped = (text or "").strip()
+    if not stripped:
+        return []
+    bodies = [stripped]
+    bodies.extend(m.group(1).strip() for m in _FENCE_RE.finditer(stripped) if m.group(1).strip())
+    return bodies
+
+
+def _validate_json_schema(parsed: Any, json_schema: Optional[Any]) -> None:
+    """Validate one parsed candidate, preserving the existing fail-closed contract."""
+    if json_schema is None:
+        return
+    try:
+        import jsonschema  # type: ignore[import-untyped]
+        jsonschema.validate(parsed, json_schema)
+    except ImportError:
+        logger.debug("jsonschema unavailable; skipping schema validation")
+    except jsonschema.ValidationError as exc:  # type: ignore[attr-defined]
+        raise ValueError(f"Plugin LLM structured output did not match schema: {exc.message}") from exc
+
+
 def _parse_structured_text(*, text: str, json_mode: bool, json_schema: Optional[Any]) -> tuple[Optional[Any], str]:
     """``(parsed, content_type)``: ``"json"`` when parsing (and schema validation, if
     given) succeeded, ``"text"`` otherwise. Schema violations raise ``ValueError``;
     a missing ``jsonschema`` package skips validation with a debug log."""
     if not (json_mode or json_schema is not None) or not text:
         return None, "text"
-    try:
-        parsed = json.loads(_strip_code_fences(text))
-    except (json.JSONDecodeError, ValueError):
-        return None, "text"
-    if json_schema is not None:
+    first_schema_error: Optional[ValueError] = None
+    for candidate in _json_candidates(text):
         try:
-            import jsonschema  # type: ignore[import-untyped]
-            jsonschema.validate(parsed, json_schema)
-        except ImportError:
-            logger.debug("jsonschema unavailable; skipping schema validation")
-        except jsonschema.ValidationError as exc:  # type: ignore[attr-defined]
-            raise ValueError(f"Plugin LLM structured output did not match schema: {exc.message}") from exc
-    return parsed, "json"
+            parsed = json.loads(candidate)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        try:
+            _validate_json_schema(parsed, json_schema)
+        except ValueError as exc:
+            if json_schema is None:
+                raise
+            if first_schema_error is None:
+                first_schema_error = exc
+            continue
+        return parsed, "json"
+    if first_schema_error is not None:
+        raise first_schema_error
+    return None, "text"
 
 
 def _extract_usage(response: Any) -> PluginLlmUsage:

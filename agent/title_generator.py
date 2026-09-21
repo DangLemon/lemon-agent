@@ -176,8 +176,50 @@ def _first_line(text: str) -> str:
     return next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
 
 
+def _json_title_candidates(text: str) -> list[dict[str, Any]]:
+    """Decode complete JSON objects embedded in model text, preserving order."""
+    decoder = json.JSONDecoder()
+    candidates: list[dict[str, Any]] = []
+    idx = 0
+    while idx < len(text):
+        if text[idx] != "{":
+            idx += 1
+            continue
+        try:
+            value, end = decoder.raw_decode(text, idx)
+        except json.JSONDecodeError:
+            idx += 1
+            continue
+        if isinstance(value, dict):
+            candidates.append(value)
+        idx = end
+    return candidates
+
+def _strip_json_objects(text: str) -> str:
+    """Remove complete embedded JSON objects from prose fallback text."""
+    decoder = json.JSONDecoder()
+    parts: list[str] = []
+    cursor = 0
+    idx = 0
+    while idx < len(text):
+        if text[idx] != "{":
+            idx += 1
+            continue
+        try:
+            value, end = decoder.raw_decode(text, idx)
+        except json.JSONDecodeError:
+            idx += 1
+            continue
+        if isinstance(value, dict):
+            parts.append(text[cursor:idx])
+            cursor = end
+        idx = end
+    parts.append(text[cursor:])
+    return "".join(parts)
+
+
 def _extract_title_text(content: str) -> str:
-    """Strict JSON, then a loose JSON scan, then first-line prose (a provider ignoring ``response_format`` still titles)."""
+    """Strict JSON, then one unambiguous embedded JSON object, then prose."""
     if not content:
         return ""
     raw = content.strip()
@@ -190,11 +232,11 @@ def _extract_title_text(content: str) -> str:
             return parsed["title"].strip()
     except (ValueError, TypeError):
         pass
-    match = re.search(r'"title\"\s*:\s*"((?:[^"\\]|\\.)*)"', raw)
-    if match:
-        with suppress(ValueError):
-            return json.loads(f'"{match.group(1)}"').strip()
-        return match.group(1).strip()
+    candidates = [candidate for candidate in _json_title_candidates(raw) if isinstance(candidate.get("title"), str)]
+    if len(candidates) == 1:
+        return candidates[0]["title"].strip()
+    if len(candidates) > 1:
+        raw = _strip_json_objects(raw).strip()
     # Prose fallback: scrub <think> blocks so reasoning can't leak into a title.
     try:
         from agent.agent_runtime_helpers import strip_think_blocks
@@ -202,6 +244,8 @@ def _extract_title_text(content: str) -> str:
     except Exception:
         logger.debug("strip_think_blocks unavailable for title output", exc_info=True)
     return _strip_title_prefix(_first_line(raw)).strip("\"'").strip()
+
+
 
 
 def _clean_title(text: str) -> Optional[str]:

@@ -62,6 +62,18 @@ def _patch_aux_client(content: str, *, model: str = "test-model"):
 # ---------------------------------------------------------------------------
 
 
+def test_extract_json_blob_accepts_one_fenced_object_after_prose():
+    raw = 'Here is the result:\n```json\n{"title": "good", "body": "real"}\n```'
+    assert spec._extract_json_blob(raw) == {"title": "good", "body": "real"}
+
+
+def test_extract_json_blob_rejects_ambiguous_multiple_objects():
+    raw = (
+        'Example: {"title": "bad", "body": "example"}\n'
+        'Actual: {"title": "good", "body": "real"}'
+    )
+    assert spec._extract_json_blob(raw) is None
+
 
 
 

@@ -108,14 +108,15 @@ def test_non_string_arguments_are_json_encoded_and_missing_ids_synthesised():
 
 def test_bare_json_is_a_fallback_only_when_no_block_matched():
     bare = '{"id": "c9", "type": "function", "function": {"name": "memory", "arguments": "{}"}}'
-    calls, cleaned = extract_tool_calls_from_text(f"before {bare} after")
+    calls, cleaned = extract_tool_calls_from_text(bare)
     assert [c.id for c in calls] == ["c9"]
-    assert cleaned == "before\nafter"
+    assert cleaned == ""
 
     # With a real block present the bare-JSON scan must not double-count.
     both = f'<tool_call>{bare}</tool_call> and {bare}'
-    calls, _ = extract_tool_calls_from_text(both)
+    calls, cleaned = extract_tool_calls_from_text(both)
     assert len(calls) == 1
+    assert bare in cleaned
 
 
 def test_malformed_and_empty_input_never_raises():
@@ -128,6 +129,98 @@ def test_malformed_and_empty_input_never_raises():
     calls, cleaned = extract_tool_calls_from_text('<tool_call>{"function": 5}</tool_call>hi')
     assert calls == []
     assert cleaned == "hi"
+
+
+def test_nested_object_arguments_are_decoded_not_truncated():
+    """Non-greedy ``{.*?}`` stops at the first inner brace; the scanner must not."""
+    nested = {
+        "path": "x.json",
+        "content": {"a": 1, "note": "uses } in a string"},
+    }
+    payload = json.dumps({
+        "id": "c1",
+        "type": "function",
+        "function": {"name": "write_file", "arguments": nested},
+    }, separators=(",", ":"))
+    calls, cleaned = extract_tool_calls_from_text(f"<tool_call>{payload}</tool_call>ok")
+    assert [c.function.name for c in calls] == ["write_file"]
+    assert json.loads(calls[0].function.arguments) == nested
+    assert cleaned == "ok"
+
+    calls, cleaned = extract_tool_calls_from_text(payload)
+    assert [c.id for c in calls] == ["c1"]
+    assert json.loads(calls[0].function.arguments) == nested
+    assert cleaned == ""
+
+    calls, cleaned = extract_tool_calls_from_text(f"before {payload} after")
+    assert calls == []
+    assert payload in cleaned
+
+
+def test_bare_json_accepts_shuffled_key_order():
+    """The legacy regex pinned id-then-type-then-function; JSON objects do not."""
+    payload = '{"type": "function", "function": {"name": "memory", "arguments": "{}"}, "id": "c9"}'
+    calls, cleaned = extract_tool_calls_from_text(payload)
+    assert [c.id for c in calls] == ["c9"]
+    assert [c.function.name for c in calls] == ["memory"]
+    assert cleaned == ""
+
+
+def test_unclosed_brace_does_not_raise_or_swallow_the_rest():
+    calls, cleaned = extract_tool_calls_from_text('intro {"id": "c1", "type": "function", "function": {"name": "todo" leftover')
+    assert calls == []
+    assert "intro" in cleaned
+    assert "leftover" in cleaned
+
+
+def test_non_tool_call_json_objects_stay_in_the_text():
+    calls, cleaned = extract_tool_calls_from_text('score={"function": {"name": "print"}} done')
+    assert calls == []
+    assert cleaned == 'score={"function": {"name": "print"}} done'
+
+
+def test_json_object_inside_tool_call_after_prose_still_parses():
+    payload = '{"id": "c1", "type": "function", "function": {"name": "todo", "arguments": "{}"}}'
+    calls, cleaned = extract_tool_calls_from_text(f"<tool_call>calling now {payload}</tool_call>hi")
+    assert [c.id for c in calls] == ["c1"]
+    assert cleaned == "hi"
+
+
+def test_bare_json_in_prose_is_not_a_call():
+    """Well-formed example JSON still parses; leftover prose is the gate, not keywords."""
+    payload = json.dumps({
+        "id": "demo",
+        "type": "function",
+        "function": {"name": "execute", "arguments": json.dumps({"cmd": "rm -rf /"})},
+    }, separators=(",", ":"))
+    text = f"Here is the OpenAI format, do not run it:\n{payload}\nExplaining only."
+    calls, cleaned = extract_tool_calls_from_text(text)
+    assert calls == []
+    assert payload in cleaned
+    assert "Explaining only." in cleaned
+
+
+def test_whitespace_padded_bare_json_is_still_a_call():
+    payload = '{"id": "c9", "type": "function", "function": {"name": "memory", "arguments": "{}"}}'
+    calls, cleaned = extract_tool_calls_from_text(f"  \n{payload}\n  ")
+    assert [c.id for c in calls] == ["c9"]
+    assert cleaned == ""
+
+
+def test_adjacent_bare_json_objects_are_all_calls():
+    a = '{"id": "c1", "type": "function", "function": {"name": "memory", "arguments": "{}"}}'
+    b = '{"id": "c2", "type": "function", "function": {"name": "todo", "arguments": "{}"}}'
+    calls, cleaned = extract_tool_calls_from_text(f"{a}\n{b}")
+    assert [c.id for c in calls] == ["c1", "c2"]
+    assert cleaned == ""
+
+
+def test_malformed_wrapper_then_covering_bare_json_still_falls_back():
+    """A stripped ``<tool_call>`` that isn't a call does not poison a whole-message object."""
+    bare = '{"id": "c9", "type": "function", "function": {"name": "memory", "arguments": "{}"}}'
+    calls, cleaned = extract_tool_calls_from_text(f"<tool_call>{{not json}}</tool_call>\n{bare}")
+    assert [c.id for c in calls] == ["c9"]
+    assert cleaned == ""
 
 
 # ── streaming shape ──────────────────────────────────────────────────────────

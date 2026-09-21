@@ -90,6 +90,27 @@ class TestGenerateTitle:
             assert len(title) == 80
             assert title.endswith("...")
 
+    def test_embedded_json_title_is_recovered_without_loose_regex(self):
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = (
+            'Here is the result:\n{"title": "Fix ACP parser"}\n'
+        )
+
+        with patch("agent.title_generator.call_llm", return_value=mock_response):
+            assert generate_title("fix the ACP parser", "...") == "Fix ACP parser"
+
+    def test_ambiguous_embedded_json_titles_fall_back_to_prose(self):
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock()]
+        mock_response.choices[0].message.content = (
+            'Example: {"title": "Wrong example"}\n'
+            'Actual: {"title": "Fix ACP parser"}'
+        )
+
+        with patch("agent.title_generator.call_llm", return_value=mock_response):
+            assert generate_title("fix the ACP parser", "...") == "Example"
+
     def test_rejects_answer_shaped_output(self):
         """A model that ignores the titling task and answers the user's
         message returns a full sentence; without a word bound the whole
