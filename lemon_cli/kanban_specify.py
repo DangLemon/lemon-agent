@@ -87,23 +87,64 @@ def _truncate(text: str, limit: int) -> str:
 
 
 _FENCE_RE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.IGNORECASE)
+_JSON_FENCE_RE = re.compile(
+    r"```(?P<language>[A-Za-z0-9_-]*)[ \t]*(?:\n|(?=\{))(?P<body>.*?)```",
+    re.DOTALL | re.IGNORECASE,
+)
+_JSON_DECODER = json.JSONDecoder()
+
+
+def _scan_json_objects(text: str) -> list[dict]:
+    """Find complete top-level JSON objects embedded in *text*."""
+    objects: list[dict] = []
+    idx = 0
+    while idx < len(text):
+        if text[idx] != "{":
+            idx += 1
+            continue
+        try:
+            value, end = _JSON_DECODER.raw_decode(text, idx)
+        except json.JSONDecodeError:
+            idx += 1
+            continue
+        if isinstance(value, dict):
+            objects.append(value)
+        idx = end
+    return objects
+
+
+def _exact_json_object(text: str) -> Optional[dict]:
+    """Return one complete JSON object, rejecting trailing non-whitespace text."""
+    stripped = text.strip()
+    try:
+        value, end = _JSON_DECODER.raw_decode(stripped)
+    except json.JSONDecodeError:
+        return None
+    return value if isinstance(value, dict) and not stripped[end:].strip() else None
 
 
 def _extract_json_blob(raw: str, fence_re: re.Pattern = _FENCE_RE) -> Optional[dict]:
-    """Lenient JSON object extraction: strip code fences, take the first ``{``
-    to the last ``}``. None if nothing parses to a dict."""
+    """Extract one unambiguous JSON object, or None.
+
+    Complete objects are decoded with the JSON grammar instead of slicing from
+    the first ``{`` to the last ``}``. Multiple valid objects are ambiguous and
+    fail closed; callers retain their existing malformed-response fallback.
+    """
     if not raw:
         return None
-    stripped = fence_re.sub("", raw.strip())
-    first = stripped.find("{")
-    last = stripped.rfind("}")
-    if first == -1 or last == -1 or last <= first:
-        return None
-    try:
-        val = json.loads(stripped[first : last + 1])
-    except (ValueError, json.JSONDecodeError):
-        return None
-    return val if isinstance(val, dict) else None
+    stripped = raw.strip()
+    outer = fence_re.sub("", stripped).strip()
+    exact = _exact_json_object(outer)
+    if exact is not None:
+        return exact
+
+    fenced_objects: list[dict] = []
+    for match in _JSON_FENCE_RE.finditer(stripped):
+        if match.group("language").lower() not in ("", "json"):
+            continue
+        fenced_objects.extend(_scan_json_objects(match.group("body")))
+    objects = fenced_objects or _scan_json_objects(stripped)
+    return objects[0] if len(objects) == 1 else None
 
 
 def _nonblank(v) -> Optional[str]:

@@ -234,9 +234,6 @@ class TestJsonParsing:
     def test_strip_code_fences_with_json_label(self):
         assert _strip_code_fences('```json\n{"a":1}\n```') == '{"a":1}'
 
-
-
-
     def test_parse_valid_json_with_json_mode(self):
         parsed, ct = _parse_structured_text(
             text='{"language": "French", "is_question": true}',
@@ -245,9 +242,6 @@ class TestJsonParsing:
         )
         assert parsed == {"language": "French", "is_question": True}
         assert ct == "json"
-
-
-
 
     def test_schema_validation_accepts_match(self):
         pytest.importorskip("jsonschema")
@@ -263,6 +257,80 @@ class TestJsonParsing:
         )
         assert parsed == {"language": "French"}
         assert ct == "json"
+    def test_later_fenced_json_is_used_when_first_candidate_fails_schema(self):
+        pytest.importorskip("jsonschema")
+        schema = {
+            "type": "object",
+            "properties": {"language": {"type": "string"}},
+            "required": ["language"],
+        }
+        parsed, ct = _parse_structured_text(
+            text=(
+                "Example:\n```json\n{\"wrong\": 1}\n```\n"
+                "Actual:\n```json\n{\"language\": \"French\"}\n```"
+            ),
+            json_mode=True,
+            json_schema=schema,
+        )
+        assert parsed == {"language": "French"}
+        assert ct == "json"
+
+    def test_schema_failure_remains_an_error_when_no_candidate_matches(self):
+        pytest.importorskip("jsonschema")
+        schema = {
+            "type": "object",
+            "properties": {"language": {"type": "string"}},
+            "required": ["language"],
+        }
+        with pytest.raises(ValueError, match="required property"):
+            _parse_structured_text(
+                text='```json\n{"wrong": 1}\n```',
+                json_mode=True,
+                json_schema=schema,
+            )
+
+    def test_fenced_json_is_parsed_when_the_whole_message_is_not_json(self):
+        parsed, ct = _parse_structured_text(
+            text='Here you go:\n```json\n{"a": 1}\n```\n',
+            json_mode=True,
+            json_schema=None,
+        )
+        assert parsed == {"a": 1}
+        assert ct == "json"
+
+    def test_whole_json_document_wins_over_a_fence_inside_a_string(self):
+        """A complete JSON document is tried first; the first markdown fence must not steal it."""
+        text = '{"note": "```json\\n{\\"stolen\\": true}\\n```", "ok": true}'
+        parsed, ct = _parse_structured_text(text=text, json_mode=True, json_schema=None)
+        assert parsed == {"note": '```json\n{"stolen": true}\n```', "ok": True}
+        assert ct == "json"
+
+    def test_non_json_first_fence_is_skipped_for_a_later_json_fence(self):
+        text = (
+            "example:\n```\nnot json\n```\n"
+            "payload:\n```json\n{\"a\": 1}\n```\n"
+        )
+        parsed, ct = _parse_structured_text(text=text, json_mode=True, json_schema=None)
+        assert parsed == {"a": 1}
+        assert ct == "json"
+
+    def test_trailing_junk_after_an_object_is_not_sliced_into_json(self):
+        parsed, ct = _parse_structured_text(
+            text='{"a": 1} trailing junk',
+            json_mode=True,
+            json_schema=None,
+        )
+        assert parsed is None
+        assert ct == "text"
+
+    def test_unfenced_non_json_stays_text(self):
+        parsed, ct = _parse_structured_text(
+            text="just a sentence",
+            json_mode=True,
+            json_schema=None,
+        )
+        assert parsed is None
+        assert ct == "text"
 
 
 # ---------------------------------------------------------------------------
