@@ -66,6 +66,7 @@ describe('appBrandForEnv', () => {
     )
   })
 
+
   it('does not double-brand already-Lemon copy', () => {
     const source = 'Lemon AI checks for updates and restarts the Lemon AI.'
 

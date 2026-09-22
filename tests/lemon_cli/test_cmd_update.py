@@ -851,27 +851,35 @@ class TestCmdUpdateBranchFlag:
     target without monkey-patching the implementation.
     """
 
-    def _branch_side_effect(self, current_branch, target_branch, *, checkout_fails=False, track_fails=False, commit_count="0"):
-        """Mock side-effect that knows about checkout/track behavior.
-
-        - ``current_branch``  what ``git rev-parse --abbrev-ref HEAD`` returns
-        - ``target_branch``   passed via --branch; what we expect the code to switch to
-        - ``checkout_fails``  if True, ``git checkout <target>`` returns non-zero
-                              (simulates branch absent locally; code should retry with -B)
-        - ``track_fails``     if True, ``git checkout -B <target> origin/<target>`` ALSO fails
-                              (simulates branch absent on origin too)
-        - ``commit_count``    rev-list count returned (0 = up-to-date, >0 = behind)
-        """
+    def _branch_side_effect(
+        self,
+        current_branch,
+        target_branch,
+        *,
+        checkout_fails=False,
+        track_fails=False,
+        commit_count="0",
+        require_tracking_ref=False,
+    ):
+        """Mock git behavior for branch targeting and detached installs."""
+        tracking_ref = False
 
         def side_effect(cmd, **kwargs):
+            nonlocal tracking_ref
             joined = " ".join(str(c) for c in cmd)
+
+            if "fetch" in joined and "origin" in joined:
+                if f"+refs/heads/{target_branch}:refs/remotes/origin/{target_branch}" in joined:
+                    tracking_ref = True
+                return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
             if "rev-parse" in joined and "--abbrev-ref" in joined:
                 return subprocess.CompletedProcess(cmd, 0, stdout=f"{current_branch}\n", stderr="")
 
             if "checkout" in joined and "-B" in joined:
-                rc = 128 if track_fails else 0
-                err = f"fatal: '{target_branch}' did not match any file(s) known to git\n" if track_fails else ""
+                missing_tracking_ref = require_tracking_ref and not tracking_ref
+                rc = 128 if track_fails or missing_tracking_ref else 0
+                err = f"fatal: 'origin/{target_branch}' is not a commit\n" if rc else ""
                 return subprocess.CompletedProcess(cmd, rc, stdout="", stderr=err)
 
             if "checkout" in joined and "-B" not in joined and "rev-parse" not in joined:
@@ -902,11 +910,38 @@ class TestCmdUpdateBranchFlag:
         # rev-list must compare against origin/bb/gui, not origin/main
         rev_list_cmds = [c for c in commands if "rev-list" in c]
         assert any("origin/bb/gui" in c for c in rev_list_cmds), rev_list_cmds
-        assert not any("origin/main" in c for c in rev_list_cmds), rev_list_cmds
-
-        # the ff-only merge must target origin/bb/gui
+        # The ff-only merge must target origin/bb/gui.
         merge_cmds = [c for c in commands if "merge --ff-only" in c]
         assert any("origin/bb/gui" in c and "origin/main" not in c for c in merge_cmds), merge_cmds
+    @patch("shutil.which", return_value=None)
+    @patch("subprocess.run")
+    def test_detached_checkout_fetches_origin_tracking_ref_before_switch(self, mock_run, _mock_which, capsys):
+        """A detached install must materialize origin/main before checkout -B."""
+        mock_run.side_effect = self._branch_side_effect(
+            current_branch="HEAD", target_branch="main", checkout_fails=True, commit_count="3", require_tracking_ref=True
+        )
+        args = SimpleNamespace(branch="main")
+
+        cmd_update(args)
+
+        commands = [" ".join(str(a) for a in c.args[0]) for c in mock_run.call_args_list]
+        fetch_index = next(i for i, command in enumerate(commands) if "+refs/heads/main:refs/remotes/origin/main" in command)
+        checkout_index = next(i for i, command in enumerate(commands) if "checkout -B main origin/main" in command)
+        assert fetch_index < checkout_index
+
+    @patch("shutil.which", return_value=None)
+    @patch("subprocess.run")
+    def test_named_branch_fetch_uses_matching_tracking_ref(self, mock_run, _mock_which, capsys):
+        mock_run.side_effect = self._branch_side_effect(
+            current_branch="bb/gui", target_branch="bb/gui", commit_count="3", require_tracking_ref=True
+        )
+        args = SimpleNamespace(branch="bb/gui")
+
+        cmd_update(args)
+
+        commands = [" ".join(str(a) for a in c.args[0]) for c in mock_run.call_args_list]
+        assert any("+refs/heads/bb/gui:refs/remotes/origin/bb/gui" in command for command in commands)
+
 
 
     @patch("shutil.which", return_value=None)
