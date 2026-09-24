@@ -86,6 +86,7 @@ const HARNESS_ALLOWED_SETTINGS_VIEWS: readonly SettingsViewId[] = [
   'providers',
   'keybinds',
   'notifications',
+  'plugins',
   'sessions',
   'about'
 ]
@@ -101,7 +102,7 @@ function harnessAllowsSettingsNavGroup(group: OverlayNavGroup): boolean {
     return HARNESS_ALLOWED_CONFIG_SECTIONS.has(group.id.slice('config:'.length))
   }
 
-  return ['about', 'keybinds', 'notifications', 'providers', 'sessions'].includes(String(group.id))
+  return ['about', 'keybinds', 'notifications', 'plugins', 'providers', 'sessions'].includes(String(group.id))
 }
 
 export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: SettingsPageProps) {

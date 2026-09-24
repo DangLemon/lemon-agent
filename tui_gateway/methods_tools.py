@@ -1348,7 +1348,20 @@ def _plugins_install(rid, params):
     return _ok(rid, result) if result.get("ok") else _err(rid, 5026, result.get("error") or "install failed")
 
 
-_PLUGINS_ACTIONS = {"list": _plugins_list, "toggle": _plugins_toggle, "install": _plugins_install}
+def _plugins_search(rid, params):
+    from lemon_cli.plugin_index import SECURITY_FOOTER, load_index, search_index
+
+    entries, source = load_index(refresh=bool(params.get("refresh")))
+    results = search_index(entries, str(params.get("term") or ""), capability=params.get("capability"))
+    return _ok(rid, {
+        "source": source,
+        "results": [entry.to_dict() for entry in results],
+        "note": SECURITY_FOOTER
+    })
+
+
+
+_PLUGINS_ACTIONS = {"list": _plugins_list, "toggle": _plugins_toggle, "install": _plugins_install, "search": _plugins_search}
 
 
 @_scoped_rpc("plugins.manage", 5026, catch_resolve=False)

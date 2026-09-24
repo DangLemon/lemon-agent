@@ -18,7 +18,7 @@ import { $paneHeightOverride, setPaneHeightOverride } from '@/store/panes'
 // to the parent window. We validate the origin and route the install through
 // the standard hub action pipeline (background action + tailed log + Skills
 // list invalidation), scoped to the Capabilities profile selector.
-const HUB_ORIGIN = 'https://github.com/DangLemon/lemon-agent'
+const HUB_ORIGIN = 'https://hermes-agent.nousresearch.com'
 const HUB_PICKER_URL = `${HUB_ORIGIN}/docs/skills?embed=picker`
 
 // Hub viewport height: persisted through the shared pane store (same one the
@@ -81,6 +81,7 @@ export const EmbeddedHubPicker = memo(function EmbeddedHubPicker({
   const open = height > HUB_COLLAPSED_PX
   const [dragging, setDragging] = useState(false)
   const sectionRef = useRef<HTMLElement>(null)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
 
   // Top-edge sash: dragging UP grows the hub (shrinking the skills list above,
   // which is the flex-1 sibling). Same gesture as DetailPane / the shell's
@@ -128,7 +129,7 @@ export const EmbeddedHubPicker = memo(function EmbeddedHubPicker({
     }
 
     const onMessage = (event: MessageEvent) => {
-      if (event.origin !== HUB_ORIGIN) {
+      if (event.origin !== HUB_ORIGIN || event.source !== iframeRef.current?.contentWindow) {
         return
       }
 
@@ -225,6 +226,7 @@ export const EmbeddedHubPicker = memo(function EmbeddedHubPicker({
             }}
           >
             <iframe
+              ref={iframeRef}
               sandbox="allow-scripts allow-same-origin"
               src={HUB_PICKER_URL}
               style={{

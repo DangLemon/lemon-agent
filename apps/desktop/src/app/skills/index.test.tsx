@@ -152,7 +152,7 @@ afterEach(() => {
 // (2× in a row on PR #93612, plus a main run the same hour). Give this file
 // headroom; the tests are not slow individually.
 describe('SkillsView toolset management', { timeout: 60_000 }, () => {
-  it('hides toolset and Hub install surfaces in the internal harness while preserving personal Skills', async () => {
+  it('shows the Hub while keeping toolset and official catalog surfaces available in the internal harness', async () => {
     setInternalCompanyCapabilitiesForTest(initialInternalCompanyCapabilities(true))
     getSkills.mockResolvedValue([
       {
@@ -181,8 +181,8 @@ describe('SkillsView toolset management', { timeout: 60_000 }, () => {
     await act(async () => {
       render(
         <QueryClientProvider client={queryClient}>
-          <MemoryRouter initialEntries={['/skills?tab=toolsets']}>
-            <SkillsView />
+          <MemoryRouter initialEntries={['/skills?tab=skills']}>
+            <SkillsView embedded />
           </MemoryRouter>
         </QueryClientProvider>
       )
@@ -191,10 +191,17 @@ describe('SkillsView toolset management', { timeout: 60_000 }, () => {
     await screen.findByRole('button', { name: 'Create skill' })
     expect(screen.queryByRole('button', { name: 'New skill' })).toBeNull()
 
-    expect(screen.queryByRole('button', { name: /Tools/ })).toBeNull()
+    const toolsTab = screen.getByRole('button', { name: /Tools/ })
+    expect(toolsTab).toBeTruthy()
     expect(screen.queryByText('Official')).toBeNull()
-    expect(document.querySelector('iframe')).toBeNull()
-    expect(getOfficialSkills).not.toHaveBeenCalled()
+    expect(document.querySelector('iframe')).toBeTruthy()
+    expect(getOfficialSkills).toHaveBeenCalled()
+
+    await act(async () => {
+      fireEvent.click(toolsTab)
+    })
+    await screen.findByRole('switch', { name: 'Turn Web Search toolset off' })
+    expect(screen.queryByRole('button', { name: 'Create skill' })).toBeNull()
   })
 
   it('renders a switch for each toolset and toggles it off', async () => {
@@ -405,19 +412,20 @@ describe('SkillsView toolset management', { timeout: 60_000 }, () => {
 
     render(<EmbeddedHubPicker installedNames={new Set(['web-research'])} profile={null} />)
 
-    // The picker is expanded by default — the hub iframe is live on mount.
-    expect(document.querySelector('iframe')).toBeTruthy()
+    const iframe = document.querySelector('iframe') as HTMLIFrameElement
+    expect(iframe).toBeTruthy()
+    Object.defineProperty(iframe, 'contentWindow', { configurable: true, value: window })
 
     await act(async () => {
       window.dispatchEvent(
         new MessageEvent('message', {
           data: { type: 'lemon-skill-pick', name: 'web-research', identifier: 'web-research' },
-          origin: 'https://github.com/DangLemon/lemon-agent'
+          origin: 'https://hermes-agent.nousresearch.com',
+          source: window
         })
       )
     })
 
-    // Refused with an informational toast, no install action spawned.
     await waitFor(() =>
       expect(vi.mocked(notify)).toHaveBeenCalledWith(
         expect.objectContaining({ title: '"web-research" is already installed' })

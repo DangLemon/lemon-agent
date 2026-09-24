@@ -1231,7 +1231,7 @@ export function ContribWiring({ children }: { children: ReactNode }) {
       <GatewayConnectingOverlay />
       <BootFailureOverlay />
       <CommandPalette />
-      {internalCompany.mode === 'upstream' && <PluginInstallModal />}
+      <PluginInstallModal />
       <PetGenerateOverlay />
       <SessionSwitcher />
       <FileActionDialogs />

@@ -99,7 +99,7 @@ describe('SettingsView internal harness policy', () => {
     expect(view.container.querySelector('[data-tour="nav-gateway"]')).toBeNull()
     expect(view.container.querySelector('[data-tour="nav-keys"]')).toBeNull()
     expect(view.container.querySelector('[data-tour="nav-billing"]')).toBeNull()
-    expect(view.container.querySelector('[data-tour="nav-plugins"]')).toBeNull()
+    expect(view.container.querySelector('[data-tour="nav-plugins"]')).not.toBeNull()
     expect(view.container.querySelector('[data-tour="nav-config:model"]')).toBeNull()
     expect(view.container.querySelector('[data-tour="nav-config:advanced"]')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Export config' })).toBeNull()

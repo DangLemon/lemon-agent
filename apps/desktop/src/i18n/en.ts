@@ -485,6 +485,11 @@ export const en: Translations = {
       disable: 'Disable',
       failed: 'failed',
       empty: 'No desktop plugins installed yet.',
+      catalogTitle: 'Plugin catalog',
+      catalogDescription: 'Browse community plugins and review their source. Choose Install from Git to install one.',
+      catalogBrowse: 'Browse plugin catalog',
+      catalogHide: 'Hide plugin catalog',
+      catalogOpenExternal: 'Open plugin catalog in browser',
       kinds: { bundled: 'bundled', disk: 'on disk', runtime: 'runtime' },
       agent: {
         title: 'Agent plugins',
@@ -531,7 +536,10 @@ export const en: Translations = {
         desktopSuccess: name => `Desktop plugin ${name} installed`,
         agentFailed: 'Agent plugin install failed',
         desktopFailed: 'Desktop plugin install failed',
-        missingEnv: vars => `Missing env vars: ${vars}. Add them in Settings → Keys.`
+        missingEnv: vars => `Missing env vars: ${vars}. Add them in Settings → Keys.`,
+        restartRequiredTitle: 'Agent plugin installed',
+        restartRequiredMessage: 'Restart the gateway to activate it in new sessions.',
+        restartGateway: 'Restart gateway'
       }
     },
     notifications: {

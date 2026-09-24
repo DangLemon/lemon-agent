@@ -17,7 +17,6 @@ vi.mock('@/lemon', async importOriginal => ({
   ...(await importOriginal<Record<string, unknown>>()),
   getProfiles
 }))
-
 import { $pluginRecords } from '@/contrib/plugins-store'
 import { queryClient } from '@/lib/query-client'
 import {
@@ -229,5 +228,12 @@ describe('PluginsSettings', () => {
         profile: 'work'
       })
     )
+  })
+  it('keeps the plugin catalog browse-only in the app settings surface', () => {
+    renderSettings()
+
+    expect(screen.getByText('Plugin catalog')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Browse plugin catalog' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Install plugin' })).toBeNull()
   })
 })

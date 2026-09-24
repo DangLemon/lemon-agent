@@ -30,6 +30,7 @@ import {
 } from '@/store/plugin-install-request'
 import { $activeGatewayProfile, $profileScope } from '@/store/profile'
 import { $connection } from '@/store/session'
+import { runGatewayRestart } from '@/store/system-actions'
 
 type ProbeResult = Awaited<ReturnType<NonNullable<NonNullable<Window['lemonDesktop']>['probePluginRepo']>>>
 
@@ -46,6 +47,10 @@ export function PluginInstallModal() {
   const connection = useStore($connection)
   const activeProfile = useStore($activeGatewayProfile)
   const profileScope = useStore($profileScope)
+  const restartAndRefreshPlugins = useCallback(async () => {
+    await runGatewayRestart()
+    await loadAgentPlugins(requestGateway)
+  }, [requestGateway])
 
   const [phase, setPhase] = useState<ProbePhase>('idle')
   const [probe, setProbe] = useState<ProbeResult | null>(null)
@@ -220,8 +225,17 @@ export function PluginInstallModal() {
           }
         }
       }
-
       await loadAgentPlugins(requestGateway)
+
+      if (installAgent && probe.agent && errors.length === 0) {
+        notify({
+          durationMs: 0,
+          kind: 'info',
+          title: m.restartRequiredTitle,
+          message: m.restartRequiredMessage,
+          action: { label: m.restartGateway, onClick: () => void restartAndRefreshPlugins() }
+        })
+      }
 
       if (errors.length === 0) {
         for (const message of successes) {

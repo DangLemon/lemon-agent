@@ -363,6 +363,11 @@ export const ar = defineLocale({
       disable: 'تعطيل',
       failed: 'فشل',
       empty: 'لا توجد إضافات سطح مكتب مثبتة بعد.',
+      catalogTitle: 'كتالوج الإضافات',
+      catalogDescription: 'تصفح إضافات المجتمع وراجع مصدرها. استخدم التثبيت من Git عند اختيار إضافة.',
+      catalogBrowse: 'تصفح كتالوج الإضافات',
+      catalogHide: 'إخفاء كتالوج الإضافات',
+      catalogOpenExternal: 'فتح الكتالوج في المتصفح',
       kinds: { bundled: 'مضمّنة', disk: 'على القرص', runtime: 'وقت التشغيل' }
     },
     notifications: {
