@@ -427,6 +427,11 @@ export interface Translations {
       disable: string
       failed: string
       empty: string
+      catalogTitle: string
+      catalogDescription: string
+      catalogBrowse: string
+      catalogHide: string
+      catalogOpenExternal: string
       kinds: { bundled: string; disk: string; runtime: string }
       agent: {
         title: string
@@ -472,6 +477,9 @@ export interface Translations {
         agentFailed: string
         desktopFailed: string
         missingEnv: (vars: string) => string
+        restartRequiredTitle: string
+        restartRequiredMessage: string
+        restartGateway: string
       }
     }
     notifications: {

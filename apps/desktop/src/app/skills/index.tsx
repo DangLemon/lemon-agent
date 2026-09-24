@@ -80,7 +80,7 @@ import { $skillsSortDesc, $toolsetsSortDesc } from './store'
 // Skills tab now (EmbeddedHubPicker below the installed list). Legacy
 // `?tab=hub` links fall back to 'skills' via useRouteEnumParam.
 const SKILLS_MODES = ['skills', 'toolsets', 'mcp'] as const
-const HARNESS_SKILLS_MODES = ['skills', 'mcp'] as const
+const HARNESS_SKILLS_MODES = SKILLS_MODES
 
 // Skills + toolsets live in the RQ cache so switching tabs/pages paints the
 // cached lists instantly (no reload flash) and mount only fires a deduped
@@ -262,7 +262,7 @@ export function SkillsView({
   const localTab = useState<(typeof SKILLS_MODES)[number]>('skills')
   const [mode, setMode] = embedded ? localTab : routeTab
   const availableTabs = harnessMode ? HARNESS_SKILLS_MODES : SKILLS_MODES
-  const effectiveMode = harnessMode && mode === 'toolsets' ? 'skills' : mode
+  const effectiveMode = mode
   // $gateway only feeds the MCP tab — gate the subscription so Skills/Toolsets
   // tabs don't re-render on connect/disconnect/reconnect.
   const gateway = useStoreSelector($gateway, g => (effectiveMode === 'mcp' ? g : null))
@@ -374,7 +374,7 @@ export function SkillsView({
   const { data: officialData } = useQuery({
     queryKey: [...OFFICIAL_SKILLS_KEY, scopeKey],
     queryFn: () => getOfficialSkills(scopeProfile),
-    enabled: !harnessMode,
+    enabled: true,
     staleTime: 60_000,
     retry: false
   })
@@ -435,7 +435,7 @@ export function SkillsView({
   // the first time Toolsets is shown, never on Skills or MCP, so it can't
   // starve the MCP tab's config load. Absent → toolsets sort A–Z until it lands.
   useEffect(() => {
-    if (harnessMode || effectiveMode !== 'toolsets' || toolCalls !== null) {
+    if (effectiveMode !== 'toolsets' || toolCalls !== null) {
       return
     }
 
@@ -451,7 +451,7 @@ export function SkillsView({
       .catch(() => live() && setToolCalls({}))
 
     return () => void (cancelled = true)
-  }, [effectiveMode, harnessMode, scopeKey, scopeProfile, toolCalls])
+  }, [effectiveMode, scopeKey, scopeProfile, toolCalls])
 
   // On an app-wide profile switch the analytics cache is scope-keyed, but our
   // local toolCalls state isn't — leaving it non-null would keep the lazy
@@ -480,14 +480,10 @@ export function SkillsView({
   // installed AND entries whose name already appears in the installed list
   // (covers installs from before the lock existed, or by hand).
   const visibleOfficial = useMemo(() => {
-    if (harnessMode) {
-      return []
-    }
-
     const catalog = (officialData?.skills ?? []).filter(s => !s.installed && !installedSkillNames.has(s.name))
 
     return filteredOfficial(catalog, query)
-  }, [harnessMode, installedSkillNames, officialData, query])
+  }, [installedSkillNames, officialData, query])
 
   // Identifiers with a hub install currently running — selected as a joined
   // string so $hubActions' per-log-line churn doesn't re-render the list.
@@ -1169,15 +1165,11 @@ export function SkillsView({
           label: harnessMode ? t.internalWorkspace.skills.skillsTab : t.skills.tabSkills,
           meta: skills?.length ?? null
         },
-        ...(harnessMode
-          ? []
-          : [
-              {
-                id: 'toolsets',
-                label: t.skills.tabToolsets,
-                meta: toolsets ? visibleToolsetCount(toolsets) : null
-              }
-            ]),
+        {
+          id: 'toolsets',
+          label: t.skills.tabToolsets,
+          meta: toolsets ? visibleToolsetCount(toolsets) : null
+        },
         { id: 'mcp', label: harnessMode ? t.internalWorkspace.skills.connectionsTab : t.skills.tabMcp }
       ]}
     >
@@ -1388,7 +1380,7 @@ export function SkillsView({
               on purpose — the picker fetches nothing; scope rides the
               `profile` prop into each install call, and remounting on scope
               change would reload the whole site for no data benefit. */}
-          {!harnessMode && hubMounted && (
+          {hubMounted && (
             <EmbeddedHubPicker
               hidden={effectiveMode !== 'skills'}
               installedNames={installedSkillNames}

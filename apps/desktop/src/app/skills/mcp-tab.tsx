@@ -448,7 +448,7 @@ export function McpTab({
   const catalogQuery = useQuery({
     queryKey: [...MCP_CATALOG_KEY, scopeProfileKey],
     queryFn: () => getMcpCatalog(profile ?? undefined),
-    enabled: !readOnly,
+    enabled: true,
     staleTime: 5 * 60_000
   })
 
@@ -460,8 +460,8 @@ export function McpTab({
   // entry under the same name (covers a just-saved doc the catalog refetch
   // hasn't caught up with yet).
   const availableCatalog = useMemo(
-    () => (readOnly ? [] : catalog.filter((entry: McpCatalogEntry) => !entry.installed && !(entry.name in servers))),
-    [catalog, readOnly, servers]
+    () => catalog.filter((entry: McpCatalogEntry) => !entry.installed && !(entry.name in servers)),
+    [catalog, servers]
   )
 
   const descriptionFor = (serverName: string, server: Record<string, unknown>): null | string => {
@@ -1163,16 +1163,17 @@ export function McpTab({
                   {!readOnly && <PanelAddButton label={m.newServer} onClick={addServer} />}
                 </>
               )}
-              {!readOnly && (catalogQuery.isLoading || availableCatalog.length > 0) && (
+              {(catalogQuery.isLoading || availableCatalog.length > 0) && (
                 <>
                   <div className="mb-1 mt-3 flex h-6 shrink-0 items-center border-t border-(--ui-stroke-quaternary) pl-2 pr-1 pt-2">
-                    <span className="text-[0.72rem] font-medium text-(--ui-text-tertiary)">{m.tabCatalog}</span>
+                    <span className="text-[0.72rem] text-(--ui-text-tertiary)">{m.tabCatalog}</span>
                   </div>
                   <McpCatalog
                     entries={availableCatalog}
                     loading={catalogQuery.isLoading}
                     onInstalled={onCatalogInstalled}
                     profile={profile}
+                    readOnly={readOnly}
                   />
                 </>
               )}
@@ -1586,12 +1587,14 @@ function McpCatalog({
   entries,
   loading,
   onInstalled,
-  profile
+  profile,
+  readOnly = false
 }: {
   entries: McpCatalogEntry[]
   loading: boolean
   onInstalled: () => void
   profile?: ProfileScope
+  readOnly?: boolean
 }) {
   const { t } = useI18n()
   const m = t.settings.mcp
@@ -1600,6 +1603,10 @@ function McpCatalog({
   const [envOpenFor, setEnvOpenFor] = useState<null | string>(null)
 
   const install = async (entry: McpCatalogEntry) => {
+    if (readOnly) {
+      return
+    }
+
     const required = entry.required_env.filter(env => env.required)
     const draft = envDrafts[entry.name] ?? {}
 
@@ -1690,7 +1697,7 @@ function McpCatalog({
                   )}
                 </div>
                 <p className="mt-0.5 line-clamp-2 text-[0.68rem] text-muted-foreground/70">{entry.description}</p>
-                {envOpenFor === entry.name && entry.required_env.length > 0 && (
+                {!readOnly && envOpenFor === entry.name && entry.required_env.length > 0 && (
                   <div className="mt-2 grid gap-2">
                     {entry.required_env.map(env => (
                       <label className="grid gap-1" key={env.name}>
@@ -1714,19 +1721,21 @@ function McpCatalog({
                   </div>
                 )}
               </div>
-              <Button
-                className="mt-0.5 shrink-0"
-                disabled={entry.installed || installing !== null}
-                onClick={() => void install(entry)}
-                size="xs"
-                variant="text"
-              >
-                {installing === entry.name
-                  ? m.catalogInstalling
-                  : entry.installed
-                    ? m.catalogInstalled
-                    : m.catalogInstall}
-              </Button>
+              {!readOnly && (
+                <Button
+                  className="mt-0.5 shrink-0"
+                  disabled={entry.installed || installing !== null}
+                  onClick={() => void install(entry)}
+                  size="xs"
+                  variant="text"
+                >
+                  {installing === entry.name
+                    ? m.catalogInstalling
+                    : entry.installed
+                      ? m.catalogInstalled
+                      : m.catalogInstall}
+                </Button>
+              )}
             </div>
           </div>
         )

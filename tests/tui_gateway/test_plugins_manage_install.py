@@ -71,3 +71,19 @@ def test_plugins_manage_install_failure():
 
     assert "error" in resp
     assert "Git clone failed" in resp["error"]["message"]
+
+def test_plugins_manage_search_returns_catalog_entries():
+    class Entry:
+        def to_dict(self):
+            return {"name": "demo-plugin", "repo": "owner/demo-plugin"}
+
+    with patch("lemon_cli.plugin_index.load_index", return_value=([Entry()], "seed")), \
+         patch("lemon_cli.plugin_index.search_index", return_value=[Entry()]):
+        resp = server.handle_request({
+            "id": "1",
+            "method": "plugins.manage",
+            "params": {"action": "search", "term": "demo"}
+        })
+
+    assert resp["result"]["source"] == "seed"
+    assert resp["result"]["results"] == [{"name": "demo-plugin", "repo": "owner/demo-plugin"}]

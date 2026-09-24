@@ -13,6 +13,7 @@ import { discoverRuntimePlugins } from '@/contrib/runtime-loader'
 import { useI18n } from '@/i18n'
 import { getProfiles } from '@/lemon'
 import { appBrand } from '@/lib/app-brand'
+import { openExternalLink } from '@/lib/external-link'
 import { triggerHaptic } from '@/lib/haptics'
 import { FolderOpen, Monitor, Package, RefreshCw } from '@/lib/icons'
 import { normalize } from '@/lib/text'
@@ -356,19 +357,43 @@ function PluginRow({ record }: { record: PluginRecord }) {
   )
 }
 
+function PluginCatalogSection() {
+  const { t } = useI18n()
+  const p = t.settings.plugins
+  const catalogUrl = 'https://hermes-agent.nousresearch.com/docs/plugins'
+  const [open, setOpen] = useState(false)
+
+  return (
+    <SettingsSection icon={Package} title={p.catalogTitle}>
+      <p className="mb-2 text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
+        {p.catalogDescription}
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button onClick={() => setOpen(value => !value)} size="sm" variant="textStrong">
+          {open ? p.catalogHide : p.catalogBrowse}
+        </Button>
+        <Button onClick={() => openExternalLink(catalogUrl)} size="sm" type="button" variant="textStrong">
+          {p.catalogOpenExternal}
+        </Button>
+      </div>
+      {open && (
+        <iframe
+          className="mt-2 h-[28rem] w-full rounded-lg border border-(--ui-stroke-secondary)"
+          sandbox="allow-scripts allow-same-origin"
+          src={catalogUrl}
+          title={p.catalogTitle}
+        />
+      )}
+    </SettingsSection>
+  )
+}
+
 export function PluginsSettings() {
   const { t } = useI18n()
   const p = t.settings.plugins
   const records = useStore($pluginRecords)
 
-  // Deep-link from settings search (?plugin=<id or key>): rows render as soon
-  // as their store hydrates, so "ready" is simply target-present; the polling
-  // in the hook rides out the async list loads (agent rows arrive via RPC).
-  useDeepLinkHighlight({
-    param: 'plugin',
-    ready: () => true,
-    elementId: pluginElementId
-  })
+  useDeepLinkHighlight({ param: 'plugin', ready: () => true, elementId: pluginElementId })
 
   const rows = Object.values(records).sort(
     (a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.name.localeCompare(b.name)
@@ -378,38 +403,20 @@ export function PluginsSettings() {
     <SettingsContent>
       <SettingsSection icon={Monitor} meta={p.count(rows.length)} title={p.title}>
         <p className="mb-2 text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">{p.blurb}</p>
-
         <div className="mb-2 flex items-center gap-3">
           <Button onClick={() => void revealPluginsDir()} size="sm" type="button" variant="textStrong">
             <FolderOpen className="size-3.5" />
             <span>{p.openFolder}</span>
           </Button>
-          <Button
-            onClick={() => {
-              triggerHaptic('selection')
-              void discoverRuntimePlugins()
-            }}
-            size="sm"
-            type="button"
-            variant="textStrong"
-          >
+          <Button onClick={() => void discoverRuntimePlugins()} size="sm" type="button" variant="textStrong">
             <RefreshCw className="size-3.5" />
             <span>{p.rescan}</span>
           </Button>
         </div>
-
-        {rows.length === 0 ? (
-          <EmptyState title={p.empty} />
-        ) : (
-          <div>
-            {rows.map(record => (
-              <PluginRow key={record.id} record={record} />
-            ))}
-          </div>
-        )}
+        {rows.length === 0 ? <EmptyState title={p.empty} /> : <div>{rows.map(record => <PluginRow key={record.id} record={record} />)}</div>}
       </SettingsSection>
-
       <AgentPluginsSection />
+      <PluginCatalogSection />
     </SettingsContent>
   )
 }

@@ -402,6 +402,11 @@ export const ru = defineLocale({
       disable: 'Отключить',
       failed: 'ошибка',
       empty: 'Плагины приложения пока не установлены.',
+      catalogTitle: 'Каталог плагинов',
+      catalogDescription: 'Просматривайте плагины сообщества и их исходный код. Для установки выберите установку из Git.',
+      catalogBrowse: 'Открыть каталог плагинов',
+      catalogHide: 'Скрыть каталог плагинов',
+      catalogOpenExternal: 'Открыть каталог в браузере',
       kinds: { bundled: 'встроенный', disk: 'на диске', runtime: 'runtime' },
       agent: {
         title: 'Плагины агента',

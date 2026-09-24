@@ -406,6 +406,11 @@ export const zh = defineLocale({
       disable: '禁用',
       failed: '失败',
       empty: '尚未安装桌面插件。',
+      catalogTitle: '插件目录',
+      catalogDescription: '浏览社区插件并查看源代码。选择从 Git 安装来安装插件。',
+      catalogBrowse: '浏览插件目录',
+      catalogHide: '隐藏插件目录',
+      catalogOpenExternal: '在浏览器中打开插件目录',
       kinds: { bundled: '内置', disk: '磁盘', runtime: '运行时' },
       agent: {
         title: '智能体插件',
