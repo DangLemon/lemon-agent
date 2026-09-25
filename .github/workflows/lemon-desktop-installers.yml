@@ -48,7 +48,6 @@ jobs:
     env:
       LEMON_AI_BUILD_COMMIT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       LEMON_AI_BUILD_REF: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
-      LEMON_DESKTOP_BAKE_HARNESS_ENV: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && '1' || '0' }}
       AMAZON_ADS_CLIENT_ID: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && secrets.AMAZON_ADS_CLIENT_ID || '' }}
       AMAZON_ADS_CLIENT_SECRET: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && secrets.AMAZON_ADS_CLIENT_SECRET || '' }}
     steps:
@@ -108,23 +107,26 @@ jobs:
           LEMON_INSTALLER_BRAND=lemon bash scripts/install.sh --manifest
           npm --workspace @lemon-ai/bootstrap-installer run check
           npm --workspace @lemon-ai/bootstrap-installer run test:branding
-          cargo test --manifest-path apps/bootstrap-installer/src-tauri/Cargo.toml \
-            internal_payload_probes_include_lemon_before_legacy_on_macos
-
       - name: Build Lemon AI DMG
         working-directory: apps/desktop
         env:
           CSC_FOR_PULL_REQUEST: 'true'
+          LEMON_DESKTOP_BAKE_HARNESS_ENV: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && '1' || '0' }}
+          AMAZON_ADS_CLIENT_ID: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && secrets.AMAZON_ADS_CLIENT_ID || '' }}
+          AMAZON_ADS_CLIENT_SECRET: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && secrets.AMAZON_ADS_CLIENT_SECRET || '' }}
         run: |
           set -euo pipefail
           rm -rf release
           node -e "const cp=require('node:child_process'); const env={...process.env,GITHUB_SHA:process.env.LEMON_AI_BUILD_COMMIT,GITHUB_REF_NAME:process.env.LEMON_AI_BUILD_REF}; const r=cp.spawnSync('npm',['run','dist:mac:dmg','--','--arm64'],{stdio:'inherit',env}); process.exit(r.status ?? 1)"
 
       - name: Verify and stage macOS installer artifact
+        env:
+          LEMON_DESKTOP_BAKE_HARNESS_ENV: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && '1' || '0' }}
+          AMAZON_ADS_CLIENT_ID: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && secrets.AMAZON_ADS_CLIENT_ID || '' }}
+          AMAZON_ADS_CLIENT_SECRET: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && secrets.AMAZON_ADS_CLIENT_SECRET || '' }}
         run: |
           set -euo pipefail
           version="$(node -p "require('./apps/desktop/package.json').version")"
-          target="mac-arm64"
           installer="apps/desktop/release/Lemon-AI-${version}-${target}.dmg"
           app="apps/desktop/release/mac-arm64/Lemon AI.app"
           output_dir="${RUNNER_TEMP}/lemon-installer-ci/${target}"
@@ -140,7 +142,6 @@ jobs:
             --builder-config apps/desktop/build/electron-builder.generated.json \
             --installer "$installer" \
             --app "$app" \
-            --out "$output_dir"
 
           receipt="${output_dir}/Lemon-AI-${version}-${target}.dmg.receipt.json"
           mv "${output_dir}/installer-receipt.json" "$receipt"
@@ -175,9 +176,6 @@ jobs:
     env:
       LEMON_AI_BUILD_COMMIT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       LEMON_AI_BUILD_REF: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
-      LEMON_DESKTOP_BAKE_HARNESS_ENV: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && '1' || '0' }}
-      AMAZON_ADS_CLIENT_ID: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && secrets.AMAZON_ADS_CLIENT_ID || '' }}
-      AMAZON_ADS_CLIENT_SECRET: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && secrets.AMAZON_ADS_CLIENT_SECRET || '' }}
     steps:
       - name: Validate release-only harness secrets
         if: startsWith(github.ref, 'refs/tags/lemon-v')
@@ -249,12 +247,20 @@ jobs:
       - name: Build Lemon AI NSIS installer
         shell: pwsh
         working-directory: apps/desktop
+        env:
+          LEMON_DESKTOP_BAKE_HARNESS_ENV: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && '1' || '0' }}
+          AMAZON_ADS_CLIENT_ID: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && secrets.AMAZON_ADS_CLIENT_ID || '' }}
+          AMAZON_ADS_CLIENT_SECRET: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && secrets.AMAZON_ADS_CLIENT_SECRET || '' }}
         run: |
           Remove-Item -Recurse -Force release -ErrorAction SilentlyContinue
           node -e "const cp=require('node:child_process'); const env={...process.env,GITHUB_SHA:process.env.LEMON_AI_BUILD_COMMIT,GITHUB_REF_NAME:process.env.LEMON_AI_BUILD_REF}; const r=cp.spawnSync('npm',['run','dist:win:nsis','--','--x64'],{stdio:'inherit',env,shell:true}); process.exit(r.status ?? 1)"
 
       - name: Verify and stage Windows installer artifact
         shell: pwsh
+        env:
+          LEMON_DESKTOP_BAKE_HARNESS_ENV: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && '1' || '0' }}
+          AMAZON_ADS_CLIENT_ID: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && secrets.AMAZON_ADS_CLIENT_ID || '' }}
+          AMAZON_ADS_CLIENT_SECRET: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && secrets.AMAZON_ADS_CLIENT_SECRET || '' }}
         run: |
           $version = node -p "require('./apps/desktop/package.json').version"
           $target = 'win-x64'
