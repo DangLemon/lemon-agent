@@ -48,7 +48,16 @@ jobs:
     env:
       LEMON_AI_BUILD_COMMIT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       LEMON_AI_BUILD_REF: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+      LEMON_DESKTOP_BAKE_HARNESS_ENV: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && '1' || '0' }}
+      AMAZON_ADS_CLIENT_ID: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && secrets.AMAZON_ADS_CLIENT_ID || '' }}
+      AMAZON_ADS_CLIENT_SECRET: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && secrets.AMAZON_ADS_CLIENT_SECRET || '' }}
     steps:
+      - name: Validate release-only harness secrets
+        if: startsWith(github.ref, 'refs/tags/lemon-v')
+        run: |
+          set -euo pipefail
+          test -n "${AMAZON_ADS_CLIENT_ID}" || { echo 'Missing GitHub secret AMAZON_ADS_CLIENT_ID' >&2; exit 1; }
+          test -n "${AMAZON_ADS_CLIENT_SECRET}" || { echo 'Missing GitHub secret AMAZON_ADS_CLIENT_SECRET' >&2; exit 1; }
       - name: Checkout exact source commit
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -166,7 +175,16 @@ jobs:
     env:
       LEMON_AI_BUILD_COMMIT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       LEMON_AI_BUILD_REF: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+      LEMON_DESKTOP_BAKE_HARNESS_ENV: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && '1' || '0' }}
+      AMAZON_ADS_CLIENT_ID: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && secrets.AMAZON_ADS_CLIENT_ID || '' }}
+      AMAZON_ADS_CLIENT_SECRET: ${{ startsWith(github.ref, 'refs/tags/lemon-v') && secrets.AMAZON_ADS_CLIENT_SECRET || '' }}
     steps:
+      - name: Validate release-only harness secrets
+        if: startsWith(github.ref, 'refs/tags/lemon-v')
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:AMAZON_ADS_CLIENT_ID)) { throw 'Missing GitHub secret AMAZON_ADS_CLIENT_ID' }
+          if ([string]::IsNullOrWhiteSpace($env:AMAZON_ADS_CLIENT_SECRET)) { throw 'Missing GitHub secret AMAZON_ADS_CLIENT_SECRET' }
       - name: Checkout exact source commit
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:

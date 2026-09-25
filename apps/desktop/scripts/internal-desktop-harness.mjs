@@ -118,32 +118,39 @@ function validateCredentialRequirementNode(value, trail) {
   }
 }
 
-function scanNonSecret(value, trail = []) {
+function scanNonSecret(value, trail = [], allowBakedSecrets = false) {
   if (Array.isArray(value)) {
-    value.forEach((item, index) => scanNonSecret(item, [...trail, String(index)]))
+    value.forEach((item, index) => scanNonSecret(item, [...trail, String(index)], allowBakedSecrets))
     return
   }
   if (isPlainObject(value)) {
     for (const [key, child] of Object.entries(value)) {
-      if (trail[0] !== 'credentialRequirements' && SECRET_KEY_RE.test(key) && !isEnvironmentReference(child)) {
-        fail(`secret-shaped field at ${[...trail, key].join('.')}`)
+      const secretField = SECRET_KEY_RE.test(key)
+      if (trail[0] !== 'credentialRequirements' && secretField && !isEnvironmentReference(child)) {
+        if (!(allowBakedSecrets && typeof child === 'string' && child.length > 0)) {
+          fail(`secret-shaped field at ${[...trail, key].join('.')}`)
+        }
       }
-
-      if (trail[0] !== 'credentialRequirements' && AUTH_LIKE_KEY_RE.test(key) && typeof child === 'string' && !isEnvironmentReference(child) && OPAQUE_SECRET_VALUE_RE.test(child)) {
+      if (
+        trail[0] !== 'credentialRequirements' &&
+        AUTH_LIKE_KEY_RE.test(key) &&
+        typeof child === 'string' &&
+        !isEnvironmentReference(child) &&
+        OPAQUE_SECRET_VALUE_RE.test(child) &&
+        !allowBakedSecrets
+      ) {
         fail(`secret-shaped value at ${[...trail, key].join('.')}`)
       }
-      scanNonSecret(child, [...trail, key])
+      scanNonSecret(child, [...trail, key], allowBakedSecrets)
     }
     return
   }
-  if (typeof value === 'string') {
-    if (SECRET_VALUE_RE.test(value)) {
-      fail(`secret-shaped value at ${trail.join('.') || '<root>'}`)
-    }
+  if (typeof value === 'string' && SECRET_VALUE_RE.test(value) && !allowBakedSecrets) {
+    fail(`secret-shaped value at ${trail.join('.') || '<root>'}`)
   }
 }
 
-export function validateHarnessResource(input) {
+export function validateHarnessResource(input, { allowBakedSecrets = false } = {}) {
   if (!isPlainObject(input)) fail('resource must be a JSON object')
   if (input.schemaVersion !== HARNESS_SCHEMA_VERSION) fail(`schemaVersion must be ${HARNESS_SCHEMA_VERSION}`)
   if (input.profile !== 'internal') fail('profile must be "internal"')
@@ -156,14 +163,9 @@ export function validateHarnessResource(input) {
     if (!UI_KEYS.includes(key)) fail(`ui.${key} is not part of the frozen schema`)
   }
   if ('managedConfig' in input && !isPlainObject(input.managedConfig)) fail('managedConfig must be an object when present')
-  if ('initialProvider' in input) {
-    validateInitialProvider(input.initialProvider)
-  }
-  if ('credentialRequirements' in input) {
-    validateCredentialRequirements(input.credentialRequirements)
-  }
-  scanNonSecret(input)
-
+  if ('initialProvider' in input) validateInitialProvider(input.initialProvider)
+  if ('credentialRequirements' in input) validateCredentialRequirements(input.credentialRequirements)
+  scanNonSecret(input, [], allowBakedSecrets)
   if (input.managedConfig) {
     for (const key of Object.keys(input.managedConfig)) {
       if (!['mcp_servers'].includes(key)) fail(`managedConfig.${key} is not allowed`)
@@ -171,6 +173,12 @@ export function validateHarnessResource(input) {
   }
   return input
 }
+
+/*
+ * Public harness input is secret-free. Packaged internal artifacts may opt into
+ * baked credentials during release builds; the runtime loader uses the same
+ * explicit packaged-resource boundary.
+ */
 
 export function selectedHarnessConfigInputPath(env = process.env) {
   return String(env.LEMON_DESKTOP_HARNESS_CONFIG || '').trim()
@@ -184,6 +192,27 @@ export function loadHarnessConfigInput(env = process.env) {
   return validateHarnessResource(parsed)
 }
 
+function resolveEnvironmentReferences(value, env = process.env, { required = false } = {}) {
+  if (typeof value === 'string') {
+    return value.replace(/\$\{([A-Z_][A-Z0-9_]*)\}/g, (raw, name) => {
+      const resolved = String(env[name] ?? '')
+      if (required && !resolved) {
+        throw new Error(`missing required build environment variable ${name} for harness secret baking`)
+      }
+      return resolved || raw
+    })
+  }
+  if (Array.isArray(value)) return value.map(item => resolveEnvironmentReferences(item, env, { required }))
+  if (isPlainObject(value)) {
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [
+      key,
+      resolveEnvironmentReferences(child, env, { required })
+    ]))
+  }
+  return value
+}
+
+export { resolveEnvironmentReferences }
 export function generateInternalDesktopHarnessResource({ env = process.env, buildDir = DEFAULT_BUILD_DIR } = {}) {
   const outPath = path.join(buildDir, HARNESS_RESOURCE_FILENAME)
   const seedOutPath = path.join(buildDir, HARNESS_SEED_FILENAME)
@@ -210,9 +239,13 @@ export function generateInternalDesktopHarnessResource({ env = process.env, buil
   }
 
   fs.mkdirSync(buildDir, { recursive: true })
-  fs.writeFileSync(outPath, `${JSON.stringify(resource, null, 2)}\n`, 'utf8')
+  const bakeSecrets = env.LEMON_DESKTOP_BAKE_HARNESS_ENV === '1'
+  const generatedResource = bakeSecrets
+    ? resolveEnvironmentReferences(resource, env, { required: true })
+    : resource
+  fs.writeFileSync(outPath, `${JSON.stringify(generatedResource, null, 2)}\n`, 'utf8')
   fs.copyFileSync(path.join(APP_ROOT, 'electron', HARNESS_SEED_SOURCE_FILENAME), path.join(buildDir, HARNESS_SEED_FILENAME))
-  return { resourcePath: outPath, resource }
+  return { resourcePath: outPath, resource: generatedResource }
 }
 
 export function resolveHarnessViteDefines(env = process.env) {

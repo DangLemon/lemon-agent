@@ -220,6 +220,57 @@ test('generateInternalDesktopHarnessResource writes selected input and removes s
     fs.rmSync(tempRoot, { recursive: true, force: true })
   }
 })
+test('generateInternalDesktopHarnessResource bakes environment references only when explicitly enabled', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-harness-bake-'))
+  try {
+    const buildDir = path.join(tempRoot, 'build')
+    const input = path.join(tempRoot, 'input.json')
+    const resource = {
+      ...validResource,
+      managedConfig: {
+        mcp_servers: {
+          amazon: { oauth: { client_id: '${AMAZON_ADS_CLIENT_ID}', client_secret: '${AMAZON_ADS_CLIENT_SECRET}' } }
+        }
+      }
+    }
+    fs.writeFileSync(input, JSON.stringify(resource), 'utf8')
+
+    const generated = generateInternalDesktopHarnessResource({
+      env: {
+        LEMON_DESKTOP_HARNESS_CONFIG: input,
+        LEMON_DESKTOP_BAKE_HARNESS_ENV: '1',
+        AMAZON_ADS_CLIENT_ID: 'client-id-for-test',
+        AMAZON_ADS_CLIENT_SECRET: 'client-secret-for-test'
+      },
+      buildDir
+    })
+    const output = JSON.parse(fs.readFileSync(generated.resourcePath, 'utf8'))
+    assert.equal(output.managedConfig.mcp_servers.amazon.oauth.client_id, 'client-id-for-test')
+    assert.equal(output.managedConfig.mcp_servers.amazon.oauth.client_secret, 'client-secret-for-test')
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true })
+  }
+})
+
+test('generateInternalDesktopHarnessResource fails closed when release baking lacks a referenced variable', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-harness-bake-missing-'))
+  try {
+    const input = path.join(tempRoot, 'input.json')
+    fs.writeFileSync(input, JSON.stringify({
+      ...validResource,
+      managedConfig: { mcp_servers: { amazon: { oauth: { client_id: '${AMAZON_ADS_CLIENT_ID}' } } } }
+    }), 'utf8')
+    assert.throws(
+      () => generateInternalDesktopHarnessResource({
+        env: { LEMON_DESKTOP_HARNESS_CONFIG: input, LEMON_DESKTOP_BAKE_HARNESS_ENV: '1' },
+        buildDir: path.join(tempRoot, 'build')
+      }),
+      /AMAZON_ADS_CLIENT_ID/
+    )
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true })
+  }
+})
 
 test('resolveHarnessViteDefines emits internal flags only for a valid selected input', () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-harness-vite-'))

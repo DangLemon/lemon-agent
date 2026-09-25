@@ -177,38 +177,43 @@ function validateCredentialRequirementNode(value: unknown, trail: string[]): voi
   }
 }
 
-function scanNonSecret(value: unknown, trail: string[] = []): void {
+function scanNonSecret(value: unknown, trail: string[] = [], allowBakedSecrets = false): void {
   if (Array.isArray(value)) {
-    value.forEach((item, index) => scanNonSecret(item, [...trail, String(index)]))
+    value.forEach((item, index) => scanNonSecret(item, [...trail, String(index)], allowBakedSecrets))
 
     return
   }
-
   if (isPlainObject(value)) {
     for (const [key, child] of Object.entries(value)) {
       if (trail[0] !== 'credentialRequirements' && SECRET_KEY_RE.test(key) && !isEnvironmentReference(child)) {
-        fail(`secret-shaped field at ${[...trail, key].join('.')}`)
+        if (!(allowBakedSecrets && typeof child === 'string' && child.length > 0)) {
+          fail(`secret-shaped field at ${[...trail, key].join('.')}`)
+        }
       }
 
-      if (trail[0] !== 'credentialRequirements' && AUTH_LIKE_KEY_RE.test(key) && typeof child === 'string' && !isEnvironmentReference(child) && OPAQUE_SECRET_VALUE_RE.test(child)) {
+      if (
+        trail[0] !== 'credentialRequirements' &&
+        AUTH_LIKE_KEY_RE.test(key) &&
+        typeof child === 'string' &&
+        !isEnvironmentReference(child) &&
+        OPAQUE_SECRET_VALUE_RE.test(child) &&
+        !allowBakedSecrets
+      ) {
         fail(`secret-shaped value at ${[...trail, key].join('.')}`)
       }
 
-
-      scanNonSecret(child, [...trail, key])
+      scanNonSecret(child, [...trail, key], allowBakedSecrets)
     }
 
     return
   }
 
-  if (typeof value === 'string') {
-    if (SECRET_VALUE_RE.test(value)) {
-      fail(`secret-shaped value at ${trail.join('.') || '<root>'}`)
-    }
+  if (typeof value === 'string' && SECRET_VALUE_RE.test(value) && !allowBakedSecrets) {
+    fail(`secret-shaped value at ${trail.join('.') || '<root>'}`)
   }
 }
 
-export function validateInternalDesktopHarnessResource(input: unknown): InternalDesktopHarnessResource {
+export function validateInternalDesktopHarnessResource(input: unknown, { allowBakedSecrets = false }: { allowBakedSecrets?: boolean } = {}): InternalDesktopHarnessResource {
   if (!isPlainObject(input)) {fail('resource must be a JSON object')}
 
   if (input.schemaVersion !== HARNESS_SCHEMA_VERSION) {fail(`schemaVersion must be ${HARNESS_SCHEMA_VERSION}`)}
@@ -237,7 +242,7 @@ export function validateInternalDesktopHarnessResource(input: unknown): Internal
     validateCredentialRequirements(input.credentialRequirements)
   }
 
-  scanNonSecret(input)
+  scanNonSecret(input, [], allowBakedSecrets)
 
   if (isPlainObject(input.managedConfig)) {
     for (const key of Object.keys(input.managedConfig)) {
@@ -269,7 +274,8 @@ export function loadInternalDesktopHarnessResource({
 
     try {
       const parsed = JSON.parse(fs.readFileSync(candidate, 'utf8'))
-      const resource = validateInternalDesktopHarnessResource(parsed)
+      const packagedResource = resourcesPath !== null && path.dirname(candidate) === path.resolve(resourcesPath)
+      const resource = validateInternalDesktopHarnessResource(parsed, { allowBakedSecrets: packagedResource })
 
       return { active: true, diagnostic: null, path: candidate, resource }
     } catch (error) {
