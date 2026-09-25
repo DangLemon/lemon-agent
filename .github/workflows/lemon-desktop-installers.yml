@@ -142,7 +142,7 @@ jobs:
             --builder-config apps/desktop/build/electron-builder.generated.json \
             --installer "$installer" \
             --app "$app" \
-
+            --out "$output_dir"
           receipt="${output_dir}/Lemon-AI-${version}-${target}.dmg.receipt.json"
           mv "${output_dir}/installer-receipt.json" "$receipt"
           test -f "${output_dir}/Lemon-AI-${version}-${target}.dmg"
