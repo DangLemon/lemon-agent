@@ -2,7 +2,7 @@
   "name": "lemon-ai",
   "productName": "Lemon AI",
   "private": true,
-  "version": "0.17.10",
+  "version": "0.17.11",
   "description": "Native desktop shell for Lemon AI.",
   "author": "Lemon Digital",
   "repository": {
