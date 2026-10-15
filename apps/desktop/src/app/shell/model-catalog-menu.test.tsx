@@ -83,6 +83,20 @@ function renderMenu({ onlyCurrentProvider = false, provider = '' } = {}) {
   return select
 }
 
+const DOWNLOAD_JOB: LocalRuntimeJob = {
+  job_id: 'dl1',
+  kind: 'model-download',
+  target: 'Qwen3.8 Flash Next (UD-Q4_K_XL)',
+  model_id: 'qwen3.8-flash-next',
+  status: 'running',
+  phase: 'downloading',
+  detail: '',
+  total_bytes: 100,
+  done_bytes: 41,
+  percent: 41,
+  error: null
+}
+
 // Curation is ONE global preference, so it belongs to the catalog rather than
 // to whichever surface mounted it. If a host had to opt in, the composer and
 // the kanban board would end up disagreeing about what "my models" means —
@@ -141,23 +155,37 @@ describe('current-provider scope', () => {
     await screen.findByText(/GPT-5\.5/i)
     expect(screen.queryByText(/Gemini 3\.1 Pro/i)).toBeNull()
   })
+
+  it('uses the backend current marker for managed local sessions', async () => {
+    getGlobalModelOptions.mockResolvedValue({
+      providers: [
+        {
+          is_current: true,
+          models: ['Qwen3.6-27B-UD-Q4_K_XL'],
+          name: 'Local',
+          slug: 'llamacpp'
+        },
+        {
+          is_current: false,
+          models: ['stale-custom-model'],
+          name: 'Custom endpoint',
+          slug: 'custom'
+        },
+        { models: ['gemini-3.1-pro'], name: 'Google', slug: 'google' }
+      ]
+    })
+    $localRuntimeJobs.set([DOWNLOAD_JOB])
+
+    renderMenu({ onlyCurrentProvider: true, provider: 'custom' })
+
+    await screen.findByText(/Qwen3\.6 27B/i)
+    expect(screen.getByText('Qwen3.8 Flash Next (UD-Q4_K_XL)')).toBeTruthy()
+    expect(screen.queryByText(/Stale Custom Model/i)).toBeNull()
+    expect(screen.queryByText(/Gemini 3\.1 Pro/i)).toBeNull()
+  })
 })
 
 describe('in-flight local downloads', () => {
-  const DOWNLOAD_JOB: LocalRuntimeJob = {
-    job_id: 'dl1',
-    kind: 'model-download',
-    target: 'Qwen3.8 Flash Next (UD-Q4_K_XL)',
-    model_id: 'qwen3.8-flash-next',
-    status: 'running',
-    phase: 'downloading',
-    detail: '',
-    total_bytes: 100,
-    done_bytes: 41,
-    percent: 41,
-    error: null
-  }
-
   it('shows a downloading model as a disabled progress row in its own Local group', async () => {
     // No llamacpp provider in the catalog (first-ever download).
     $localRuntimeJobs.set([DOWNLOAD_JOB])
