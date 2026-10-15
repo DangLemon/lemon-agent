@@ -37,6 +37,7 @@ export interface ModelSelection {
 
 interface ModelMenuPanelProps {
   gateway?: LemonGateway
+  onlyCurrentProvider?: boolean
   ownerConnectionId?: string
   onSelectModel: (selection: ModelSelection) => Promise<boolean> | void
   profile?: string
@@ -51,6 +52,7 @@ interface ModelMenuPanelProps {
  */
 export function ModelMenuPanel({
   gateway,
+  onlyCurrentProvider = false,
   onSelectModel,
   ownerConnectionId,
   profile = 'default',
@@ -260,6 +262,7 @@ export function ModelMenuPanel({
       }
       gateway={gateway}
       includeMoa
+      onlyCurrentProvider={onlyCurrentProvider}
       ownerConnectionId={ownerConnectionId}
       profile={profile}
       request={requestGateway}

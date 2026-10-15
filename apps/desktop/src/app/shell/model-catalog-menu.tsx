@@ -103,6 +103,8 @@ interface ModelCatalogMenuProps {
   /** Render the virtual `moa` provider's presets as a selectable section.
    *  Off for override surfaces, where a MoA preset isn't a worker model. */
   includeMoa?: boolean
+  /** Keep internal workspaces on the provider already assigned to the session. */
+  onlyCurrentProvider?: boolean
   /** Registry source owning this catalog. Profile/session names are not unique
    * across sources, so this participates in the React Query cache key. */
   ownerConnectionId?: string
@@ -131,6 +133,7 @@ export function ModelCatalogMenu({
   footer,
   gateway,
   includeMoa = false,
+  onlyCurrentProvider = false,
   ownerConnectionId,
   profile = 'default',
   request,
@@ -238,34 +241,43 @@ export function ModelCatalogMenu({
     : null
 
   const providers = modelOptions.data?.providers
+  const current = controller.current
 
   // The catalog carries MoA presets as a virtual `moa` provider row. Keep it
   // out of the main groups so presets never show up twice.
-  const moaPresets = useMemo(
-    () => (includeMoa ? (providers?.find(p => p.slug.toLowerCase() === 'moa')?.models ?? []) : []),
-    [providers, includeMoa]
-  )
+  const moaPresets = useMemo(() => {
+    const provider = providers?.find(item => item.slug.toLowerCase() === 'moa')
+
+    return includeMoa && provider && (!onlyCurrentProvider || isCurrentProvider(provider, current.provider))
+      ? (provider.models ?? [])
+      : []
+  }, [providers, includeMoa, onlyCurrentProvider, current.provider])
 
   const pickerProviders = useMemo(
     () =>
       providers?.filter(
         provider =>
           provider.slug.toLowerCase() !== 'moa' &&
+          (!onlyCurrentProvider || isCurrentProvider(provider, current.provider)) &&
           // Strict --local gate: staged local models exist on disk, but
           // without the flag the GUI doesn't offer them.
           (localModelsEnabled || provider.slug !== LOCAL_PROVIDER_SLUG)
       ) ?? [],
-    [providers, localModelsEnabled]
+    [providers, localModelsEnabled, onlyCurrentProvider, current.provider]
   )
-
-  const current = controller.current
 
   const q = normalize(search)
 
   // In-flight downloads render inside the Local provider group when it
   // exists, else as their own trailing 'Local' group (first download —
   // nothing staged yet, so the catalog has no local provider row).
-  const shownDownloads = q ? downloads.filter(job => (job.target || '').toLowerCase().includes(q)) : downloads
+  const shownDownloads =
+    onlyCurrentProvider && current.provider !== LOCAL_PROVIDER_SLUG
+      ? []
+      : q
+        ? downloads.filter(job => (job.target || '').toLowerCase().includes(q))
+        : downloads
+
   const hasLocalGroup = pickerProviders.some(provider => provider.slug === LOCAL_PROVIDER_SLUG)
 
   // Resolve visibility HERE, against the catalog we actually fetched: an empty

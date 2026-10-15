@@ -140,13 +140,14 @@ export const ChatRoutesSurface = memo(function ChatRoutesSurface({
       gatewayState === 'open' ? (
         <ModelMenuPanel
           gateway={gateway || undefined}
+          onlyCurrentProvider={internalCompany.mode === 'harness'}
           onSelectModel={actions.selectModel}
           ownerConnectionId={activeConnectionId || undefined}
           profile={activeGatewayProfile}
           requestGateway={actions.requestGateway}
         />
       ) : null,
-    [actions, activeConnectionId, activeGatewayProfile, gateway, gatewayState]
+    [actions, activeConnectionId, activeGatewayProfile, gateway, gatewayState, internalCompany.mode]
   )
 
   const chatActions = useMemo(() => latestChatActions(actions), [actions])

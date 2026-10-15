@@ -57,12 +57,12 @@ afterEach(() => {
 
 // A minimal controller — these tests are about the CATALOG's own behaviour
 // (what it lists, what it offers), not about what any host does with a pick.
-function renderMenu() {
+function renderMenu({ onlyCurrentProvider = false, provider = '' } = {}) {
   const select = vi.fn()
 
   const controller: ModelMenuController = {
     applyPreset: vi.fn(),
-    current: { effort: '', fast: false, model: '', provider: '' },
+    current: { effort: '', fast: false, model: '', provider },
     presetFor: () => ({}),
     select,
     setOptions: vi.fn()
@@ -74,7 +74,7 @@ function renderMenu() {
     <QueryClientProvider client={client}>
       <DropdownMenu open>
         <DropdownMenuContent>
-          <ModelCatalogMenu controller={controller} />
+          <ModelCatalogMenu controller={controller} onlyCurrentProvider={onlyCurrentProvider} />
         </DropdownMenuContent>
       </DropdownMenu>
     </QueryClientProvider>
@@ -119,6 +119,27 @@ describe('the catalog owns model curation', () => {
     fireEvent.click(screen.getByText('Edit models…'))
 
     expect($modelVisibilityOpen.get()).toBe(true)
+  })
+})
+
+describe('current-provider scope', () => {
+  it('hides models from other providers while preserving custom-provider aliases', async () => {
+    getGlobalModelOptions.mockResolvedValue({
+      providers: [
+        {
+          aliases: ['custom:dfsadfasdf'],
+          models: ['gpt-5.5'],
+          name: 'Custom Agent',
+          slug: 'dfsadfasdf'
+        },
+        { models: ['gemini-3.1-pro'], name: 'Google', slug: 'google' }
+      ]
+    })
+
+    renderMenu({ onlyCurrentProvider: true, provider: 'custom:dfsadfasdf' })
+
+    await screen.findByText(/GPT-5\.5/i)
+    expect(screen.queryByText(/Gemini 3\.1 Pro/i)).toBeNull()
   })
 })
 

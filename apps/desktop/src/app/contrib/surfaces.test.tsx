@@ -54,7 +54,11 @@ vi.mock('../routes', () => ({
 }))
 vi.mock('./latest-actions', () => ({ latestChatActions: () => ({}), latestSidebarActions: () => ({}) }))
 vi.mock('./panes', () => ({ setStatusbarItemGroup: vi.fn(), useStatusbarContributions: () => [] }))
-vi.mock('../shell/model-menu-panel', () => ({ ModelMenuPanel: () => <div data-testid="model-menu" /> }))
+vi.mock('../shell/model-menu-panel', () => ({
+  ModelMenuPanel: ({ onlyCurrentProvider }: { onlyCurrentProvider?: boolean }) => (
+    <div data-only-current-provider={String(!!onlyCurrentProvider)} data-testid="model-menu" />
+  )
+}))
 
 afterEach(() => {
   cleanup()
@@ -97,6 +101,6 @@ describe('ChatRoutesSurface', () => {
       </MemoryRouter>
     )
 
-    expect(screen.getByTestId('model-menu')).toBeTruthy()
+    expect(screen.getByTestId('model-menu').getAttribute('data-only-current-provider')).toBe('true')
   })
 })
