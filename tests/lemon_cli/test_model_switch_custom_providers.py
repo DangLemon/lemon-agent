@@ -648,7 +648,86 @@ def test_custom_provider_model_metadata_dict_still_probes(monkeypatch):
             {"timeout": 5.0, "api_mode": None, "headers": None},
         )
     ]
-    assert row["models"] == ["unexpected-live-model"]
+    assert row["models"] == ["llama3", "unexpected-live-model"]
+
+
+def test_user_provider_manual_model_metadata_extends_discovered_catalog(monkeypatch):
+    """Settings-managed model metadata stays selectable when discovery is partial."""
+    monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
+    monkeypatch.setattr(providers_mod, "LEMON_OVERLAYS", {})
+    monkeypatch.setattr(
+        "lemon_cli.models.fetch_api_models",
+        lambda *args, **kwargs: ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-image-2.5"],
+    )
+    monkeypatch.setattr(
+        "lemon_cli.model_switch_providers._save_discovered_models_to_config",
+        lambda *args, **kwargs: None,
+    )
+
+    providers = list_authenticated_providers(
+        current_provider="dfsadfasdf",
+        current_base_url="https://agent.example/v1",
+        current_model="gpt-5.6-terra",
+        user_providers={
+            "dfsadfasdf": {
+                "name": "Custom Agent",
+                "base_url": "https://agent.example/v1",
+                "api_key": "test-key",
+                "model": "gpt-5.6-terra",
+                "discover_models": True,
+                "models": {
+                    "gpt-5.6-luna": {"kind": "chat"},
+                    "gpt-5.6-terra": {"kind": "chat"},
+                    "gpt-5.5": {"kind": "chat"},
+                    "gpt-5": {"kind": "chat"},
+                },
+            }
+        },
+        custom_providers=[],
+    )
+
+    row = next(p for p in providers if p["slug"] == "dfsadfasdf")
+    assert row["models"] == [
+        "gpt-5.6-terra",
+        "gpt-5.6-luna",
+        "gpt-5.5",
+        "gpt-5",
+        "gpt-image-2.5",
+    ]
+
+
+def test_grouped_manual_metadata_drops_stale_discovered_models(monkeypatch):
+    """Manual IDs survive discovery without retaining another entry's stale auto catalog."""
+    monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
+    monkeypatch.setattr(providers_mod, "LEMON_OVERLAYS", {})
+    monkeypatch.setattr("lemon_cli.models.fetch_api_models", lambda *args, **kwargs: ["live"])
+    monkeypatch.setattr(
+        "lemon_cli.model_switch_providers._save_discovered_models_to_config",
+        lambda *args, **kwargs: None,
+    )
+
+    providers = list_authenticated_providers(
+        current_provider="custom:mixed-catalog",
+        user_providers={},
+        custom_providers=[
+            {
+                "name": "Mixed Catalog",
+                "base_url": "https://mixed.example/v1",
+                "model": "manual",
+                "models": {"manual": {"kind": "chat"}},
+            },
+            {
+                "name": "Mixed Catalog",
+                "base_url": "https://mixed.example/v1",
+                "model": "stale",
+                "models_discovered": True,
+                "models": {"stale": {"kind": "chat"}},
+            },
+        ],
+    )
+
+    row = next(p for p in providers if p["slug"] == "custom:mixed-catalog")
+    assert row["models"] == ["manual", "live"]
 
 
 def test_custom_provider_group_explicit_duplicate_skips_probe(monkeypatch):
@@ -1447,7 +1526,8 @@ def test_discovered_models_auto_saved_to_cache(monkeypatch):
     has a populated cache on the next read (#65652).
 
     When a successful probe returns live models, ``_save_discovered_models_to_config``
-    must be called with the provider's base_url and the discovered model list.
+    must be called with the provider's base_url and the discovered model list, while
+    the picker keeps user-owned model metadata that the endpoint omits.
     """
     monkeypatch.setattr("agent.models_dev.fetch_models_dev", lambda: {})
     monkeypatch.setattr("lemon_cli.providers.LEMON_OVERLAYS", {})
@@ -1493,7 +1573,12 @@ def test_discovered_models_auto_saved_to_cache(monkeypatch):
         None,
     )
     assert gateway_prov is not None
-    assert gateway_prov["models"] == ["discovered-a", "discovered-b", "discovered-c"]
+    assert gateway_prov["models"] == [
+        "only-model",
+        "discovered-a",
+        "discovered-b",
+        "discovered-c",
+    ]
 
 
 

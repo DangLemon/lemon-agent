@@ -137,7 +137,7 @@ export const ChatRoutesSurface = memo(function ChatRoutesSurface({
 
   const modelMenuContent = useMemo(
     () =>
-      gatewayState === 'open' && internalCompany.mode === 'upstream' ? (
+      gatewayState === 'open' ? (
         <ModelMenuPanel
           gateway={gateway || undefined}
           onSelectModel={actions.selectModel}
@@ -146,7 +146,7 @@ export const ChatRoutesSurface = memo(function ChatRoutesSurface({
           requestGateway={actions.requestGateway}
         />
       ) : null,
-    [actions, activeConnectionId, activeGatewayProfile, gateway, gatewayState, internalCompany.mode]
+    [actions, activeConnectionId, activeGatewayProfile, gateway, gatewayState]
   )
 
   const chatActions = useMemo(() => latestChatActions(actions), [actions])

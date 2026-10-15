@@ -111,17 +111,20 @@ export function ComposerControls({
     return (
       <div className="ml-auto flex min-w-0 shrink items-center gap-2">
         {minimal ? null : (
-          <VoiceMenu
-            autoSpeak={autoSpeak}
-            disabled={disabled}
-            label={internalVoiceLabel}
-            onDictate={onDictate}
-            onStartConversation={conversation.onStart}
-            onToggleAutoSpeak={onToggleAutoSpeak}
-            showLabel
-            state={state}
-            voiceStatus={voiceStatus}
-          />
+          <>
+            <ModelPill compact={compactModelPill} disabled={disabled} model={state.model} />
+            <VoiceMenu
+              autoSpeak={autoSpeak}
+              disabled={disabled}
+              label={internalVoiceLabel}
+              onDictate={onDictate}
+              onStartConversation={conversation.onStart}
+              onToggleAutoSpeak={onToggleAutoSpeak}
+              showLabel
+              state={state}
+              voiceStatus={voiceStatus}
+            />
+          </>
         )}
         {showQueueButton ? (
           <Tip label={<TipKeybindLabel actionId="composer.queue" text={c.queueMessage} />}>

@@ -520,13 +520,20 @@ def _absorb_entry_models(grp: dict, entry: dict, active_model: Any) -> None:
     """Fold one config entry's models into its group: the active selection first, then the declared
     ``models:`` ids. The active selection alone never suppresses discovery, and a dict-shaped
     ``models:`` is metadata rather than an allowlist (see ``_models_config_is_allowlist``), so only
-    list/string shapes pin the row."""
+    list/string shapes pin the row. User-owned metadata remains additive to partial discovery."""
     from lemon_cli.model_switch import _declared_model_ids, _entry_models_discovered, _models_config_is_allowlist
     _extend_unique(grp["models"], [active_model])
     models_field = entry.get("models")
-    if _models_config_is_allowlist(models_field, _entry_models_discovered(entry)):
+    declared_models = _declared_model_ids(models_field)
+    models_discovered = _entry_models_discovered(entry)
+    if _models_config_is_allowlist(models_field, models_discovered):
         grp["has_explicit_models"] = True
-    _extend_unique(grp["models"], _declared_model_ids(models_field))
+    if isinstance(models_field, dict) and declared_models and not models_discovered:
+        manual_models = grp.setdefault("manual_models", [])
+        if active_model in declared_models:
+            _extend_unique(manual_models, [active_model])
+        _extend_unique(manual_models, declared_models)
+    _extend_unique(grp["models"], declared_models)
 
 
 def _extend_unique(target: list, items) -> None:
@@ -760,10 +767,10 @@ class _PickerBuild:
         headers: dict | None, api_mode: str | None, discovery_allowed: bool, is_current: bool,
     ) -> tuple[list | None, bool, bool, dict[str, dict[str, Any]]]:
         """Probe policy shared by sections 3 and 4 (returns ``(models, native_empty, probed)``):
-        with an api_key live /models is the source of truth (replaces the partial ``models:``
-        subset); without one, an allowlist-shaped ``models:`` narrows a public endpoint and skips
-        the probe. A dict-shaped ``models:`` is metadata, so still probe; pin with
-        ``discover_models: false``."""
+        with an api_key live /models refreshes the catalog; row builders retain user-owned dict
+        metadata while adding live IDs. Without a key, an allowlist-shaped ``models:`` narrows a
+        public endpoint and skips the probe. A dict-shaped ``models:`` is metadata, so still probe;
+        pin with ``discover_models: false``."""
         probe_live = (
             discovery_allowed and (bool(api_key) or not has_explicit_models)
             and self.can_probe_custom(row_is_current=is_current))
@@ -955,7 +962,8 @@ def _lap_user_provider_rows(b: _PickerBuild, user_providers: dict) -> None:
             grp["has_explicit_models"], headers=grp["headers"] or None, api_mode=grp["api_mode"],
             discovery_allowed=grp["discovery_allowed"], is_current=is_current)
         if discovered is not None:
-            models_list = discovered
+            manual_models = grp.get("manual_models") or []
+            models_list = list(dict.fromkeys([*manual_models, *discovered])) if manual_models else discovered
             if probe_live:
                 try:
                     _save_discovered_models_to_config(
@@ -1069,7 +1077,8 @@ def _lap_custom_provider_rows(b: _PickerBuild, custom_providers: list) -> None:
             api_mode=grp.get("api_mode"), discovery_allowed=bool(api_url) and grp.get("discover_models", True),
             is_current=is_current)
         if discovered is not None:
-            grp["models"] = discovered
+            manual_models = grp.get("manual_models") or []
+            grp["models"] = list(dict.fromkeys([*manual_models, *discovered])) if manual_models else discovered
             if probe_live:  # a successful live probe persists the catalog for no-probe surfaces
                 try:
                     _save_discovered_models_to_config(
