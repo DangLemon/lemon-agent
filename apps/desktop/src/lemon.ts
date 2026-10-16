@@ -48,6 +48,7 @@ export type {
   BackendUpdateCheckResponse,
   ComputerUseCheck,
   ComputerUsePermissionSource,
+  ComputerUseHistory,
   ComputerUsePrivilege,
   ComputerUsePrivilegeMode,
   ComputerUseStatus,

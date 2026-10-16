@@ -1,5 +1,6 @@
 import type {
   ActionResponse,
+  ComputerUseHistory,
   ComputerUsePrivilege,
   ComputerUsePrivilegeMode,
   ComputerUseStatus,
@@ -156,6 +157,26 @@ export function putComputerUsePrivilege(body: {
   return lemonApi<ComputerUsePrivilege>({
     ...profileScoped(),
     path: '/api/tools/computer-use/privilege',
+    method: 'PUT',
+    body
+  })
+}
+
+export function getComputerUseHistory(): Promise<ComputerUseHistory> {
+  return lemonApi<ComputerUseHistory>({
+    ...profileScoped(),
+    path: '/api/tools/computer-use/history'
+  })
+}
+
+export function putComputerUseHistory(body: {
+  history_enabled?: boolean
+  history_max_events?: number
+  history_persist?: boolean
+}): Promise<ComputerUseHistory> {
+  return lemonApi<ComputerUseHistory>({
+    ...profileScoped(),
+    path: '/api/tools/computer-use/history',
     method: 'PUT',
     body
   })

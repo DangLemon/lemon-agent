@@ -3,16 +3,23 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   getActionStatus,
+  getComputerUseHistory,
   getComputerUsePrivilege,
   getComputerUseStatus,
   grantComputerUsePermissions,
+  putComputerUseHistory,
   putComputerUsePrivilege
 } from '@/lemon'
 import { appBrand, replaceLemonBrandTerms } from '@/lib/app-brand'
 import { AlertTriangle, Check, ExternalLink, Loader2, RefreshCw, X } from '@/lib/icons'
 import { upsertDesktopActionTask } from '@/store/activity'
 import { notify, notifyError } from '@/store/notifications'
-import type { ComputerUsePrivilege, ComputerUsePrivilegeMode, ComputerUseStatus } from '@/types/lemon'
+import type {
+  ComputerUseHistory,
+  ComputerUsePrivilege,
+  ComputerUsePrivilegeMode,
+  ComputerUseStatus
+} from '@/types/lemon'
 
 import { Pill } from './primitives'
 
@@ -81,26 +88,33 @@ function PermissionRow({ granted, label, hint }: { granted: boolean | null; labe
  *
  * Block A — OS permissions (macOS TCC / driver health).
  * Block B — What Lemon may do (privilege_mode + trusted apps), Codex-like.
+ * Block C — Session history (opt-in; privacy default OFF).
  */
 export function ComputerUsePanel({ onConfiguredChange }: ComputerUsePanelProps) {
   const brand = appBrand()
   const [status, setStatus] = useState<ComputerUseStatus | null>(null)
   const [privilege, setPrivilege] = useState<ComputerUsePrivilege | null>(null)
+  const [history, setHistory] = useState<ComputerUseHistory | null>(null)
   const [loading, setLoading] = useState(true)
   const [granting, setGranting] = useState(false)
   const [savingPrivilege, setSavingPrivilege] = useState(false)
+  const [savingHistory, setSavingHistory] = useState(false)
   const [draftApp, setDraftApp] = useState('')
   const activeRef = useRef(false)
 
   const refresh = useCallback(async () => {
     try {
-      const [nextStatus, nextPrivilege] = await Promise.all([
+      const [nextStatus, nextPrivilege, nextHistory] = await Promise.all([
         getComputerUseStatus(),
-        getComputerUsePrivilege().catch(() => null)
+        getComputerUsePrivilege().catch(() => null),
+        getComputerUseHistory().catch(() => null)
       ])
       setStatus(nextStatus)
       if (nextPrivilege) {
         setPrivilege(nextPrivilege)
+      }
+      if (nextHistory) {
+        setHistory(nextHistory)
       }
     } catch (err) {
       notifyError(err, 'Could not read Computer Use status')
@@ -224,6 +238,25 @@ export function ComputerUsePanel({ onConfiguredChange }: ComputerUsePanelProps) 
     },
     [privilege]
   )
+
+  const handleHistoryEnabled = useCallback(async (enabled: boolean) => {
+    setSavingHistory(true)
+    try {
+      const next = await putComputerUseHistory({ history_enabled: enabled })
+      setHistory(next)
+      notify({
+        kind: 'info',
+        title: 'Session history',
+        message: enabled
+          ? 'Computer Use will log actions in this profile (opt-in).'
+          : 'Computer Use history is off (privacy default).'
+      })
+    } catch (err) {
+      notifyError(err, 'Could not update history setting')
+    } finally {
+      setSavingHistory(false)
+    }
+  }, [])
 
   if (loading) {
     return (
@@ -417,6 +450,34 @@ export function ComputerUsePanel({ onConfiguredChange }: ComputerUsePanelProps) 
             </div>
           </div>
         )}
+      </div>
+
+      {/* Block C — opt-in session history (privacy default OFF). */}
+      <div className="grid gap-2 border-t border-border/40 pt-3">
+        <div className="px-1">
+          <p className="text-[0.72rem] font-medium text-foreground/90">Session history</p>
+          <p className="mt-0.5 text-[0.68rem] text-muted-foreground">
+            Optional timeline of Computer Use actions in this profile. Off by default — not continuous
+            background recording.
+          </p>
+        </div>
+        <label className="flex cursor-pointer items-start gap-2.5 rounded-lg bg-background/55 px-2.5 py-2">
+          <input
+            type="checkbox"
+            className="mt-0.5 size-3.5 accent-primary"
+            checked={Boolean(history?.history_enabled)}
+            disabled={savingHistory || history == null}
+            aria-label="Enable Computer Use session history"
+            onChange={event => void handleHistoryEnabled(event.target.checked)}
+          />
+          <span className="min-w-0">
+            <span className="text-sm font-medium">Log Computer Use actions</span>
+            <p className="mt-0.5 text-[0.68rem] text-muted-foreground">
+              Agent can call <code className="text-[0.65rem]">action=history</code> for “what did I just
+              do”. Text/values are truncated in the log.
+            </p>
+          </span>
+        </label>
       </div>
     </div>
   )

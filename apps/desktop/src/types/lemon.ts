@@ -1230,6 +1230,18 @@ export interface ComputerUsePrivilege {
   modes: ComputerUsePrivilegeMode[]
 }
 
+/** Shape of `GET/PUT /api/tools/computer-use/history` (opt-in session timeline). */
+export interface ComputerUseHistory {
+  history_enabled: boolean
+  history_max_events: number
+  history_persist: boolean
+  privacy_default: string
+  enabled?: boolean
+  events?: unknown[]
+  count?: number
+  summary?: string
+}
+
 export interface SessionSearchResult {
   /** Lineage root of the matched conversation. Stable across compression and
    *  used as the durable pin id; falls back to session_id when absent. */
