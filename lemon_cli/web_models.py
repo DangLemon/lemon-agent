@@ -489,6 +489,13 @@ class ComputerUsePrivilegeUpdate(BaseModel):
     trusted_apps: Optional[List[str]] = None
     profile: Optional[str] = None
 
+class ComputerUseHistoryUpdate(BaseModel):
+    """Opt-in Computer Use session history toggles (privacy default OFF)."""
+    history_enabled: Optional[bool] = None
+    history_max_events: Optional[int] = None
+    history_persist: Optional[bool] = None
+    profile: Optional[str] = None
+
 class RawConfigUpdate(BaseModel):
     yaml_text: str
     profile: Optional[str] = None

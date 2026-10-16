@@ -32,12 +32,14 @@ _PROPERTIES: Dict[str, Any] = {
             "list_apps",
             "list_windows",
             "focus_app",
+            "history",
         ],
         "description": (
             "Which action to perform. `capture` is free (no side effects). All other actions "
             "require approval unless auto-approved. Use `set_value` for select/popup elements and "
             "sliders — it selects the matching option directly without opening the native menu (no "
-            "focus steal)."
+            "focus steal). `history` returns this session's opt-in Computer Use timeline "
+            "(privacy default OFF — enable computer_use.history_enabled)."
         ),
     },
     "mode": {
@@ -181,6 +183,12 @@ _PROPERTIES: Dict[str, Any] = {
         "description": (
             "If true, take a follow-up capture after the action and include it in the response. "
             "Saves a round-trip when you need to verify an action's effect."
+        ),
+    },
+    "history_limit": {
+        "type": "integer",
+        "description": (
+            "Optional. With action='history', max events to return (default 50). Ignored otherwise."
         ),
     },
 }

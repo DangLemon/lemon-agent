@@ -30,6 +30,7 @@ from tools.computer_use.ax_diff import (
     format_tree_diff,
 )
 from tools.computer_use.backend import ActionResult, CaptureResult, ComputerUseBackend, UIElement, image_dimensions_from_bytes
+from tools.computer_use.history import clear_all_history, clear_session_history, record_event, summarize_history
 from tools.computer_use.privilege import (
     fresh_capture_required,
     get_capture_ttl_seconds,
@@ -212,6 +213,7 @@ def release_computer_use_session(session_id: str) -> bool:
     with _ax_tree_cache_lock:
         for key in [k for k in _ax_tree_cache if k.startswith(f"{sid}|") or (not sid and k.startswith("|"))]:
             _ax_tree_cache.pop(key, None)
+    clear_session_history(sid)
     if backend is None:
         return False
     _stop_backend(backend, call_lock,
@@ -241,12 +243,14 @@ def _shutdown_backend_atexit() -> None:
         _last_capture_at.clear(), _last_capture_app.clear()
     with _ax_tree_cache_lock:
         _ax_tree_cache.clear()
+    clear_all_history()
     for backend, call_lock in unique.values():
         _stop_backend(backend, call_lock, lambda e: logger.debug("cua-driver atexit teardown failed: %s", e))
 
 def reset_backend_for_tests() -> None:  # pragma: no cover — tear down the cached backend and per-session state
     _shutdown_backend_atexit()
     _AUX_VISION_ROUTE_CACHE.clear()
+    clear_all_history()
     # Legacy tests click on the empty session without an explicit capture; keep that path green.
     # Ritual/stale tests use a non-empty session_id and omit mark_capture_fresh for that sid.
     mark_capture_fresh("")
@@ -331,6 +335,16 @@ def handle_computer_use(args: Dict[str, Any], **kwargs) -> Any:
     if not action:
         return json.dumps({"error": "missing `action`"})
     session_id = str(kwargs.get("session_id") or "")  # approval-state / daemon-mode isolation key
+    # History is a privacy/timeline read — no driver, privilege, or ritual required.
+    if action == "history":
+        try:
+            limit = int(args.get("history_limit") or 50)
+        except (TypeError, ValueError):
+            limit = 50
+        payload = summarize_history(session_id, limit=limit)
+        with contextlib.suppress(Exception):
+            record_event(session_id, action, args, payload)
+        return json.dumps(payload)
     if (err := _reject_unsafe(action, args)) is not None:
         return err
     destructive = bool(action in _ACTIONS and _ACTIONS[action].destructive)
@@ -359,6 +373,9 @@ def handle_computer_use(args: Dict[str, Any], **kwargs) -> Any:
         return json.dumps({"error": f"{action} failed: {e}"})
     if action == "capture" and _capture_result_ok(result):
         mark_capture_fresh(session_id, resolve_target_app(args, backend))
+    # Phase 3: opt-in timeline (no-op when history_enabled is false / privacy default).
+    with contextlib.suppress(Exception):
+        record_event(session_id, action, args, result)
     return result
 
 def _request_approval(action: str, args: Dict[str, Any], session_id: str = "",
@@ -490,6 +507,8 @@ _ACTIONS: Dict[str, _ActionSpec] = {
     "wait": _ActionSpec(lambda backend, action, args, **_: _text_response(backend.wait(float(args.get("seconds", 1.0))))),
     "list_apps": _ActionSpec(partial(_do_listing, key="apps")),
     "list_windows": _ActionSpec(partial(_do_listing, key="windows")),
+    "history": _ActionSpec(lambda backend, action, args, session_id="", **_: json.dumps(
+        summarize_history(session_id, limit=int(args.get("history_limit") or 50)))),
 }
 # Native input actions deliver to the backend's sticky target; `app=` is NOT a targeting parameter (guard in _dispatch).
 _INPUT_ACTIONS = frozenset(a for a, s in _ACTIONS.items() if s.input)
@@ -517,7 +536,7 @@ def _dispatch(backend: ComputerUseBackend, action: str, args: Dict[str, Any],
     # delivery_mode / bring_to_front thread through every input action (background → foreground ladder).
     handler_kwargs: Dict[str, Any] = dict(
         delivery_mode=args.get("delivery_mode"), bring_to_front=bool(args.get("bring_to_front")))
-    if action == "capture":
+    if action in {"capture", "history"}:
         handler_kwargs["session_id"] = session_id
     res = spec.handler(backend, action, args, **handler_kwargs)
     return res if isinstance(res, (str, dict)) else _maybe_follow_capture(
