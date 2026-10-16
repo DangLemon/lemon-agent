@@ -238,6 +238,25 @@ describe('useProjectTree', () => {
     expect(result.current.data[0].children?.map(node => node.name)).toEqual(['nested'])
   })
 
+  it('keeps the tree and allows a later focus refresh when reading rejects', async () => {
+    readDir.mockResolvedValueOnce(ok([{ name: 'src', path: '/p/src', isDirectory: true }]))
+    readDir.mockRejectedValueOnce(new Error('read interrupted'))
+    readDir.mockResolvedValueOnce(ok([]))
+
+    const { result } = renderHook(() => useProjectTree('/p'))
+
+    await waitFor(() => expect(result.current.data.map(node => node.name)).toEqual(['src']))
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    expect(result.current.data.map(node => node.name)).toEqual(['src'])
+
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    expect(result.current.data).toEqual([])
+  })
+
   it('reads gitignore from the real path while caching per connection', async () => {
     const readFileDataUrl = vi.fn(async () => `data:text/plain;base64,${btoa('ignored.log\n')}`)
     const gitRoot = vi.fn(async () => '/repo')

@@ -307,7 +307,13 @@ async function revalidateTree(
       return
     }
 
-    const reads = await Promise.all(targets.map(async dir => ({ dir, ...(await readProjectDir(dir, rootPath)) })))
+    const reads = await Promise.all(targets.map(async dir => {
+      try {
+        return { dir, ...(await readProjectDir(dir, rootPath)) }
+      } catch {
+        return { dir, entries: [], error: 'read-error' }
+      }
+    }))
 
     setProjectTree(latest => {
       if (
@@ -343,9 +349,17 @@ async function revalidateTree(
   // Opaque fallback: reconcile every loaded dir. Siblings read concurrently
   // (Promise.all keeps order); loaded subfolders recurse.
   const reconcile = async (dirPath: string, existing: TreeNode[]): Promise<TreeNode[]> => {
-    const { entries, error } = await readProjectDir(dirPath, rootPath)
+    let entries: ProjectTreeEntry[]
 
-    if (error) {
+    try {
+      const result = await readProjectDir(dirPath, rootPath)
+
+      if (result.error) {
+        return existing
+      }
+
+      entries = result.entries
+    } catch {
       return existing
     }
 
