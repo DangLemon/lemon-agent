@@ -9,7 +9,7 @@ export const HARNESS_SCHEMA_VERSION = 1
 export const HARNESS_CONFIG_ENV_KEYS = ['LEMON_DESKTOP_HARNESS_CONFIG']
 const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DEFAULT_BUILD_DIR = path.join(APP_ROOT, 'build')
-const UI_KEYS = ['agents', 'cron', 'messaging', 'terminal', 'webhooks']
+const UI_KEYS = ['agents', 'bots', 'cron', 'messaging', 'terminal', 'webhooks']
 const SOURCE_REPOSITORY_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?\/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?$/
 const SECRET_KEY_RE = /(^|[_-])(api[_-]?key|authorization|bearer|client[_-]?secret|password|secret|token)([_-]|$)|^(api[_-]?key|authorization|bearer|client[_-]?secret|password|secret|token)$/i
 const SECRET_VALUE_RE = /\b(?:bearer\s+(?!\$\{)[a-z0-9._~+/=-]{12,}|sk-[a-z0-9_-]{12,}|[a-z0-9_]*token[a-z0-9_]*\s*[:=]\s*[a-z0-9._~+/=-]{12,})\b/i

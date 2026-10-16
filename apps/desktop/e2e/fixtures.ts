@@ -95,6 +95,7 @@ export interface Sandbox {
   root: string
   lemonHome: string
   userDataDir: string
+  harnessConfigPath?: string
   cleanup: () => void
 }
 
@@ -105,6 +106,24 @@ export function createSandbox(prefix: string): Sandbox {
 
   fs.mkdirSync(lemonHome, { recursive: true })
   fs.mkdirSync(userDataDir, { recursive: true })
+
+  const harnessConfigPath = path.join(root, 'lemon-ai-harness.json')
+  const sourceHarnessConfigPath = path.join(DESKTOP_ROOT, 'lemon-ai-desktop.config.json')
+
+  if (fs.existsSync(sourceHarnessConfigPath)) {
+    const harnessConfig = JSON.parse(fs.readFileSync(sourceHarnessConfigPath, 'utf8')) as {
+      profile?: string
+      ui?: { bots?: boolean }
+    }
+
+    if (harnessConfig.profile === 'internal' && harnessConfig.ui) {
+      fs.writeFileSync(
+        harnessConfigPath,
+        JSON.stringify({ ...harnessConfig, ui: { ...harnessConfig.ui, bots: true } }, null, 2),
+        'utf8'
+      )
+    }
+  }
 
   // Write a fixed window-state.json so the Electron window opens at a
   // consistent size — helps with visual regression screenshots.  The
@@ -136,6 +155,7 @@ export function createSandbox(prefix: string): Sandbox {
     root,
     lemonHome,
     userDataDir,
+    ...(fs.existsSync(harnessConfigPath) && { harnessConfigPath }),
     cleanup: () => {
       try {
         fs.rmSync(root, { recursive: true, force: true })
@@ -269,6 +289,7 @@ export function buildAppEnv(sandbox: Sandbox, extra: Record<string, string> = {}
     // mid-flight — otherwise the quit confirmation waits on a click that no
     // one is there to make, and the worker dies on a teardown timeout.
     LEMON_DESKTOP_SKIP_QUIT_CONFIRM: '1',
+    ...(sandbox.harnessConfigPath && { LEMON_DESKTOP_HARNESS_CONFIG: sandbox.harnessConfigPath }),
     // Clear dev-server override — we want the built dist/, not a vite server.
     // The dev-server check in main.ts looks for this env var; if it's set,
     // it loads from the vite URL instead of the local file.

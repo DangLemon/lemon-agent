@@ -7,7 +7,7 @@
 import { atom, computed, type ReadableAtom } from 'nanostores'
 
 import { internalCompanyPaneAllowed } from '@/app/internal-company/capabilities'
-import { internalCompanyExpectedFromBuild } from '@/app/internal-company/store'
+import { internalCompanyExpectedFromBuild, internalCompanyUiFlagsFromBuild } from '@/app/internal-company/store'
 import { SIDEBAR_COLLAPSE_MEDIA_QUERY } from '@/app/layout-constants'
 import { setPluginEnabled } from '@/contrib/plugins-store'
 import { registry } from '@/contrib/registry'
@@ -259,36 +259,12 @@ function rememberPaneShare(tree: LayoutNode, paneId: string) {
 /** The [target, added] weight pair a re-inserted pane's edge split should get,
  *  or undefined for the even default. Persisted state is untrusted. */
 function currentPaneAllowed(paneId: string): boolean {
-  return internalCompanyPaneAllowed(paneId, { mode: internalCompanyExpectedFromBuild ? 'harness' : 'upstream' })
+  return internalCompanyPaneAllowed(paneId, {
+    mode: internalCompanyExpectedFromBuild ? 'harness' : 'upstream',
+    ui: internalCompanyUiFlagsFromBuild
+  })
 }
 
-function clearSingletonSessionsTabStrip(node: LayoutNode): LayoutNode {
-  if (node.type === 'group') {
-    if (node.panes.length === 1 && node.panes[0] === 'sessions' && node.tabStrip) {
-      const { tabStrip: _tabStrip, ...rest } = node
-
-      return rest
-    }
-
-    return node
-  }
-
-  return { ...node, children: node.children.map(clearSingletonSessionsTabStrip) }
-}
-
-function pruneDisallowedPanes(tree: LayoutNode): LayoutNode {
-  let next: LayoutNode | null = tree
-  let pruned = false
-
-  for (const paneId of allPaneIds(tree)) {
-    if (!currentPaneAllowed(paneId)) {
-      pruned = true
-      next = next ? removePane(next, paneId) : null
-    }
-  }
-
-  return pruned && next ? clearSingletonSessionsTabStrip(next) : (next ?? tree)
-}
 
 function recalledEdgeWeights(paneId: string): [number, number] | undefined {
   const share = paneShares[paneId]
@@ -1383,8 +1359,7 @@ function adoptContributedPanes(): void {
     return
   }
 
-  const prunedTree = pruneDisallowedPanes(tree)
-  const panes = registry.getArea('panes').filter(pane => currentPaneAllowed(pane.id))
+  const panes = registry.getArea('panes')
 
   const dataOf = (paneId: string) =>
     panes.find(c => c.id === paneId)?.data as
@@ -1392,13 +1367,13 @@ function adoptContributedPanes(): void {
 
   const placementOf = (paneId: string) => dataOf(paneId)?.placement
   const mainId = panes.find(c => placementOf(c.id) === 'main')?.id
-  const inTree = new Set(allPaneIds(prunedTree))
 
   const dismissed = $dismissedPanes.get()
 
   // Enforced dock invariants run FIRST: they re-home panes that are ALREADY
   // in the tree, so the missing-pane adoption below never sees them.
-  const healed = enforceDockedPanes(prunedTree, dataOf)
+  const healed = enforceDockedPanes(tree, dataOf)
+  const inTree = new Set(allPaneIds(healed))
 
   // `placement: 'floating'` opts OUT of the tree entirely — those panes render
   // as fixed cards above it (renderer/floating-panes.tsx). Adopting one would

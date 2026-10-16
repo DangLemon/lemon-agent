@@ -27,12 +27,6 @@ export interface InternalCompanyCapabilityState {
   ui: HarnessUiFlags
 }
 
-export interface InternalCompanyRouteState {
-  allowedRoutes?: ReadonlySet<string>
-  mode: InternalCompanyUiMode
-  reservedRoutes?: ReadonlySet<string>
-}
-
 export interface HarnessEnv {
   readonly [key: string]: unknown
 }
@@ -47,7 +41,6 @@ export interface HarnessBuildConstants {
 }
 
 const BASE_ALLOWED_ROUTES = ['/', '/artifacts', '/settings', '/skills'] as const
-const INTERNAL_HARNESS_EXCLUDED_PANES = new Set(['lemon-bots:pane'])
 
 const SESSION_RESERVED_ROUTES = [
   ...BASE_ALLOWED_ROUTES,
@@ -150,6 +143,7 @@ export function internalCompanyExpectedFromEnv(env: HarnessEnv): boolean {
 export function harnessUiFlagsFromEnv(env: HarnessEnv): HarnessUiFlags {
   return {
     agents: envBoolean(env, 'VITE_LEMON_HARNESS_SHOW_AGENTS', false),
+    bots: envBoolean(env, 'VITE_LEMON_HARNESS_SHOW_BOTS', false),
     cron: envBoolean(env, 'VITE_LEMON_HARNESS_SHOW_CRON', true),
     messaging: envBoolean(env, 'VITE_LEMON_HARNESS_SHOW_MESSAGING', false),
     terminal: envBoolean(env, 'VITE_LEMON_HARNESS_SHOW_TERMINAL', true),
@@ -240,6 +234,13 @@ export function harnessProvisioningFromRuntimeReadiness(
   }
 }
 
+export interface InternalCompanyRouteState {
+  allowedRoutes?: ReadonlySet<string>
+  mode: InternalCompanyUiMode
+  reservedRoutes?: ReadonlySet<string>
+  ui?: Pick<HarnessUiFlags, 'bots'>
+}
+
 export function internalCompanyRouteAllowed(to: string, state: InternalCompanyRouteState): boolean {
   if (state.mode === 'upstream') {
     return true
@@ -259,5 +260,5 @@ export function filterInternalCompanyRoutes(routes: readonly string[], state: In
 }
 
 export function internalCompanyPaneAllowed(paneId: string, state: InternalCompanyRouteState): boolean {
-  return state.mode !== 'harness' || !INTERNAL_HARNESS_EXCLUDED_PANES.has(paneId)
+  return state.mode !== 'harness' || paneId !== 'lemon-bots:pane' || state.ui?.bots === true
 }

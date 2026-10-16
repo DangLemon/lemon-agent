@@ -204,7 +204,7 @@ async function capture(page: Page, name: string): Promise<void> {
 
 const rail = (page: Page) => page.locator('[data-slot="profile-rail"]')
 const gatewayGroup = (page: Page, id: string) => rail(page).locator(`[data-slot="profile-rail-gateway"][data-connection-id="${id}"]`)
-const activeGatewayLabel = (page: Page) => page.getByRole('button', { name: /^Registered gateways: / })
+const activeGatewayLabel = (page: Page) => page.locator('[data-slot="profile-rail-gateway"][data-active="true"]')
 
 async function groupOrder(page: Page): Promise<Array<[string, boolean]>> {
   return rail(page).locator('[data-slot="profile-rail-gateway"]').evaluateAll(nodes =>
@@ -240,7 +240,7 @@ test.describe('fleet profile rail — two registered gateways', () => {
     // Let boot settle fully (the gateway health item reports "ready" once the
     // primary socket is open) so the boot-time launch-mode restore has run
     // before any click — the rail must then hold whatever the user picks.
-    await expect(page.locator('[data-slot="statusbar"]').getByText('ready', { exact: true })).toBeVisible({ timeout: 120_000 })
+    await expect(page.locator('[data-slot="statusbar"]').getByText(/^(ready|Đã kết nối)$/)).toBeVisible({ timeout: 120_000 })
     await page.waitForTimeout(2_000)
   })
 
@@ -253,7 +253,7 @@ test.describe('fleet profile rail — two registered gateways', () => {
 
   test('lays both gateways on one strip, active gateway in its registry slot', async () => {
     // The statusbar readout names the gateway the workspace is on.
-    await expect(activeGatewayLabel(page)).toHaveAttribute('aria-label', 'Registered gateways: This device', { timeout: 60_000 })
+    await expect(activeGatewayLabel(page)).toHaveAttribute('data-connection-id', 'local', { timeout: 60_000 })
 
     // The remote gateway's group appears once the roster has enumerated it.
     const homelab = gatewayGroup(page, REMOTE_ID)

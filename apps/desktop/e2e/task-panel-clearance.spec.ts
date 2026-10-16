@@ -26,7 +26,7 @@ async function send(page: Page, text: string): Promise<void> {
 }
 
 async function openFreshDraft(page: Page): Promise<void> {
-  await page.locator('[data-slot="sidebar"] button[aria-label="New session"]').first().click()
+  await page.getByRole('button', { name: /^(New session|New conversation|Cuộc trò chuyện mới)$/ }).first().click()
   await expect(activeSurface(page).locator('[data-slot="aui_thread-viewport"]')).not.toContainText(PROMPT)
   await page.waitForTimeout(1_000)
 }

@@ -112,12 +112,7 @@ test('file bots into user sections by menu and drag; rename; delete returns them
   test.setTimeout(300_000)
   const page = fixture!.page
 
-  const tab = page
-    .getByRole('button', { name: 'Bots', exact: true })
-    .or(page.getByRole('tab', { name: 'Bots', exact: true }))
-    .first()
-
-  await tab.click()
+  await page.locator('[data-tree-tab="lemon-bots:pane"]').click()
   await expect(page.getByRole('button', { name: 'New bot or group chat' })).toBeVisible()
   await expect(botRow(page, 'alpha')).toBeVisible({ timeout: 30_000 })
   await expect(botRow(page, 'beta')).toBeVisible({ timeout: 30_000 })
@@ -196,14 +191,14 @@ test('file bots into user sections by menu and drag; rename; delete returns them
   await page.getByRole('menuitem', { name: 'Rename…' }).click()
   await expect(nameField).toHaveValue('Clients')
   await nameField.fill('Customers')
-  await page.getByRole('button', { name: 'Save' }).click()
+  await page.getByRole('button', { name: /^(Save|Lưu)$/ }).click()
   await expect(sectionHeading(page, 'Customers')).toBeVisible()
   await expect(sectionHeading(page, 'Clients')).toHaveCount(0)
   await capture(page, '7-renamed')
 
   // A second, empty section from the + menu shows its drop hint; collapsing
   // a section folds its rows like the gateway headings do.
-  await page.getByRole('button', { name: 'New bot or group chat' }).click()
+  await page.getByRole('button', { name: /New bot or group chat/ }).click()
   await page.getByRole('menuitem', { name: 'New section' }).click()
   await nameField.fill('Team')
   await page.getByRole('button', { name: 'Create' }).click()
@@ -217,7 +212,7 @@ test('file bots into user sections by menu and drag; rename; delete returns them
   // Delete Customers: no confirmation, its two bots return to Unassigned,
   // and the toast offers Undo.
   await sectionHeading(page, 'Customers').click({ button: 'right' })
-  await page.getByRole('menuitem', { name: 'Delete' }).click()
+  await page.getByRole('menuitem', { name: /^(Delete|Xóa)$/ }).click()
   await expect(sectionHeading(page, 'Customers')).toHaveCount(0)
   const toast = page.getByRole('status').filter({ hasText: 'Deleted “Customers”' })
   await expect(toast).toBeVisible()
@@ -246,7 +241,7 @@ test('file bots into user sections by menu and drag; rename; delete returns them
   // Delete both sections: the roster is the plain list again.
   for (const name of ['Customers', 'Team']) {
     await sectionHeading(page, name).click({ button: 'right' })
-    await page.getByRole('menuitem', { name: 'Delete' }).click()
+    await page.getByRole('menuitem', { name: /^(Delete|Xóa)$/ }).click()
   }
 
   await expect(roster(page).locator('[data-slot="bots-section"]')).toHaveCount(0)
