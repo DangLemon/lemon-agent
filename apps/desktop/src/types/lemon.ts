@@ -1219,6 +1219,17 @@ export interface ComputerUseStatus {
   error: string | null
 }
 
+/** Shape of `GET/PUT /api/tools/computer-use/privilege` (Settings picker). */
+export type ComputerUsePrivilegeMode = 'capture_only' | 'ask' | 'trusted_apps'
+
+export interface ComputerUsePrivilege {
+  privilege_mode: ComputerUsePrivilegeMode
+  trusted_apps: string[]
+  capture_ttl_seconds: number
+  require_fresh_capture: boolean
+  modes: ComputerUsePrivilegeMode[]
+}
+
 export interface SessionSearchResult {
   /** Lineage root of the matched conversation. Stable across compression and
    *  used as the durable pin id; falls back to session_id when absent. */

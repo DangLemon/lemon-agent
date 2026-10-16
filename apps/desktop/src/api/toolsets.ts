@@ -1,5 +1,7 @@
 import type {
   ActionResponse,
+  ComputerUsePrivilege,
+  ComputerUsePrivilegeMode,
   ComputerUseStatus,
   TerminalBackendsResponse,
   ToolsetConfig,
@@ -137,5 +139,24 @@ export function grantComputerUsePermissions(): Promise<ActionResponse> {
     ...profileScoped(),
     path: '/api/tools/computer-use/permissions/grant',
     method: 'POST'
+  })
+}
+
+export function getComputerUsePrivilege(): Promise<ComputerUsePrivilege> {
+  return lemonApi<ComputerUsePrivilege>({
+    ...profileScoped(),
+    path: '/api/tools/computer-use/privilege'
+  })
+}
+
+export function putComputerUsePrivilege(body: {
+  privilege_mode?: ComputerUsePrivilegeMode
+  trusted_apps?: string[]
+}): Promise<ComputerUsePrivilege> {
+  return lemonApi<ComputerUsePrivilege>({
+    ...profileScoped(),
+    path: '/api/tools/computer-use/privilege',
+    method: 'PUT',
+    body
   })
 }

@@ -2227,6 +2227,40 @@ class TestElementTokenAttachment:
         # The matching token rode along — cua-driver will prefer it.
         assert args["element_token"] == "s0001:5"
 
+    def test_schema_036_strips_element_index_keeps_token(self):
+        """cua-driver ≥0.36 refuses bare element_index; live schema drives strip+token."""
+        backend = self._backend_with_session({})
+        backend._session._tool_schemas = {
+            "click": {
+                "type": "object",
+                "properties": {
+                    "element_token": {"type": "string"},
+                    "button": {"type": "string"},
+                    "pid": {"type": "integer"},
+                    "window_id": {"type": "integer"},
+                    "session": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+        }
+        backend._snapshot_tokens = {11: "s0000002a:11"}
+        backend.click(element=11, button="left")
+        name, args = backend._session.call_tool.call_args.args
+        assert name == "click"
+        assert "element_index" not in args
+        assert args["element_token"] == "s0000002a:11"
+
+    def test_token_synthesized_from_snapshot_id(self):
+        backend = self._backend_with_session({})
+        backend._session._tool_schemas = {
+            "click": {"type": "object", "properties": {"element_token": {"type": "string"}}},
+        }
+        backend._snapshot_id = "s0000002a"
+        backend._snapshot_tokens = {}
+        backend.click(element=7, button="left")
+        _, args = backend._session.call_tool.call_args.args
+        assert args["element_token"] == "s0000002a:7"
+        assert "element_index" not in args
 
     def test_capture_refreshes_snapshot_tokens(self):
         """A fresh capture should overwrite any stale tokens from a

@@ -309,12 +309,31 @@ class CuaDriverBackend(_CaptureMixin, _InputMixin, ComputerUseBackend):
         # re-resolving to a different element. Cleared whenever a fresh capture overwrites the snapshot
         # context.
         self._snapshot_tokens: Dict[int, str] = {}
+        # cua-driver ≥0.36: click/set_value address elements via `element_token` (`<snapshot_id>:<row>`)
+        # and optional `capture_id` for pixel paths — not bare `element_index`.
+        self._snapshot_id: Optional[str] = None
+        self._capture_id: Optional[str] = None
 
     def _set_active_target(self, target: Dict[str, Any]) -> None:
         self._active_pid = target["pid"]
         self._active_window_id = target["window_id"]
         self._snapshot_tokens = {}  # prior snapshot's tokens: disarm before any capture so an exception can't pair them
+        self._snapshot_id = self._capture_id = None
         self._last_target = {"pid": self._active_pid, "window_id": self._active_window_id}
+
+    def _element_token_for(self, idx: Any) -> Optional[str]:
+        """Resolve a model-facing element index to a driver `element_token` for this snapshot."""
+        if not isinstance(idx, int):
+            return None
+        tokens = getattr(self, "_snapshot_tokens", None) or {}
+        if token := tokens.get(idx):
+            return token
+        # Synthesize when the driver omitted structured tokens but advertised a snapshot_id
+        # (cua-driver 0.36 pattern: `s0000002a:11`).
+        snap = getattr(self, "_snapshot_id", None)
+        if isinstance(snap, str) and snap.startswith("s"):
+            return f"{snap}:{idx}"
+        return None
 
     def launch_app(self, *, bundle_id: Optional[str] = None, name: Optional[str] = None,
                    urls: Optional[List[str]] = None, additional_arguments: Optional[List[str]] = None,
@@ -352,13 +371,36 @@ class CuaDriverBackend(_CaptureMixin, _InputMixin, ComputerUseBackend):
         payload.setdefault("session", self._session_id)
         return self._session.call_tool(name, payload, timeout=timeout)
 
+    def _schema_accepts(self, tool: str, property_name: str) -> Optional[bool]:
+        """Whether live tools/list schema accepts *property_name*. ``None`` = schema unknown (fail open)."""
+        schemas = getattr(self._session, "_tool_schemas", None)
+        if not isinstance(schemas, dict):
+            return None
+        schema = schemas.get(tool)
+        if not isinstance(schema, dict):
+            return None
+        properties = schema.get("properties")
+        if not isinstance(properties, dict):
+            return None
+        return property_name in properties
+
     def _action(self, name: str, args: Dict[str, Any], *, inject_session: bool = True) -> ActionResult:
-        # Attach the snapshot's `element_token` to an `element_index` call so a superseded snapshot yields an explicit
-        # 'stale' error. Gated on the per-tool capability: older drivers (`additionalProperties: false`) must never see it.
+        # Address elements the way the live schema allows:
+        # - cua-driver ≥0.36: `element_token` only (bare `element_index` is refused)
+        # - older drivers: keep `element_index`, attach token when capability advertises it
         idx = args.get("element_index")
-        token = self._snapshot_tokens.get(idx) if isinstance(idx, int) else None
-        if token and self._session.supports_capability("accessibility.element_tokens", tool=name):
-            args["element_token"] = token
+        token = args.get("element_token") or self._element_token_for(idx)
+        accepts_token = self._schema_accepts(name, "element_token")
+        accepts_index = self._schema_accepts(name, "element_index")
+        if accepts_token is None:
+            # Pre-discovery / unit mocks: legacy capability gate (tests + older drivers).
+            if token and self._session.supports_capability("accessibility.element_tokens", tool=name):
+                args["element_token"] = token
+        else:
+            if token and accepts_token:
+                args["element_token"] = token
+            if accepts_index is False:
+                args.pop("element_index", None)
         if inject_session:  # setdefault preserves any explicit session a caller already supplied
             args.setdefault("session", self._session_id)
         try:

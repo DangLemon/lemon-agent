@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { getActionStatus, getComputerUseStatus, grantComputerUsePermissions } from '@/lemon'
+import {
+  getActionStatus,
+  getComputerUsePrivilege,
+  getComputerUseStatus,
+  grantComputerUsePermissions,
+  putComputerUsePrivilege
+} from '@/lemon'
 import { appBrand, replaceLemonBrandTerms } from '@/lib/app-brand'
 import { AlertTriangle, Check, ExternalLink, Loader2, RefreshCw, X } from '@/lib/icons'
 import { upsertDesktopActionTask } from '@/store/activity'
 import { notify, notifyError } from '@/store/notifications'
-import type { ComputerUseStatus } from '@/types/lemon'
+import type { ComputerUsePrivilege, ComputerUsePrivilegeMode, ComputerUseStatus } from '@/types/lemon'
 
 import { Pill } from './primitives'
 
@@ -22,6 +28,28 @@ const PLATFORM_NOTE: Record<string, string> = {
   linux: 'Drives your desktop via the X11/XWayland accessibility stack — no permission prompt.',
   win32: 'First run may trigger a Windows SmartScreen prompt for the cua-driver UIAccess worker — allow it.'
 }
+
+const PRIVILEGE_OPTIONS: {
+  mode: ComputerUsePrivilegeMode
+  label: string
+  hint: string
+}[] = [
+  {
+    mode: 'capture_only',
+    label: 'Capture only',
+    hint: 'Screenshots and app lists only — clicks and typing stay blocked.'
+  },
+  {
+    mode: 'ask',
+    label: 'Ask before act',
+    hint: 'Mutating actions prompt Allow / Deny (recommended default).'
+  },
+  {
+    mode: 'trusted_apps',
+    label: 'Trusted apps',
+    hint: 'Apps on the list skip the prompt; everything else still asks.'
+  }
+]
 
 function tone(granted: boolean | null) {
   return granted === true ? 'primary' : 'muted'
@@ -51,26 +79,29 @@ function PermissionRow({ granted, label, hint }: { granted: boolean | null; labe
 /**
  * Cross-platform Computer Use preflight card.
  *
- * cua-driver runs on macOS, Windows, and Linux, but readiness differs: macOS
- * needs two TCC grants (Accessibility + Screen Recording) that attach to
- * cua-driver's own `com.trycua.driver` identity — not Lemon AI — and are
- * requested via `cua-driver permissions grant` (dialog attributed to
- * CuaDriver). Windows/Linux have no TCC toggles, so readiness is driver health
- * from `cua-driver doctor`. The backend folds both into one `ready` signal.
- *
- * Binary install/upgrade stays in the cua-driver provider's post-setup runner
- * below this card (the generic ToolsetConfigPanel).
+ * Block A — OS permissions (macOS TCC / driver health).
+ * Block B — What Lemon may do (privilege_mode + trusted apps), Codex-like.
  */
 export function ComputerUsePanel({ onConfiguredChange }: ComputerUsePanelProps) {
   const brand = appBrand()
   const [status, setStatus] = useState<ComputerUseStatus | null>(null)
+  const [privilege, setPrivilege] = useState<ComputerUsePrivilege | null>(null)
   const [loading, setLoading] = useState(true)
   const [granting, setGranting] = useState(false)
+  const [savingPrivilege, setSavingPrivilege] = useState(false)
+  const [draftApp, setDraftApp] = useState('')
   const activeRef = useRef(false)
 
   const refresh = useCallback(async () => {
     try {
-      setStatus(await getComputerUseStatus())
+      const [nextStatus, nextPrivilege] = await Promise.all([
+        getComputerUseStatus(),
+        getComputerUsePrivilege().catch(() => null)
+      ])
+      setStatus(nextStatus)
+      if (nextPrivilege) {
+        setPrivilege(nextPrivilege)
+      }
     } catch (err) {
       notifyError(err, 'Could not read Computer Use status')
     } finally {
@@ -135,6 +166,65 @@ export function ComputerUsePanel({ onConfiguredChange }: ComputerUsePanelProps) 
     }
   }, [onConfiguredChange, refresh])
 
+  const handlePrivilegeMode = useCallback(
+    async (mode: ComputerUsePrivilegeMode) => {
+      setSavingPrivilege(true)
+      try {
+        const next = await putComputerUsePrivilege({ privilege_mode: mode })
+        setPrivilege(next)
+        notify({ kind: 'info', title: 'Privilege updated', message: `Computer Use is now: ${mode}` })
+      } catch (err) {
+        notifyError(err, 'Could not update privilege')
+      } finally {
+        setSavingPrivilege(false)
+      }
+    },
+    []
+  )
+
+  const handleAddTrustedApp = useCallback(async () => {
+    const name = draftApp.trim()
+    if (!name || !privilege) {
+      return
+    }
+    const nextList = privilege.trusted_apps.some(a => a.toLowerCase() === name.toLowerCase())
+      ? privilege.trusted_apps
+      : [...privilege.trusted_apps, name]
+    setSavingPrivilege(true)
+    try {
+      const next = await putComputerUsePrivilege({
+        privilege_mode: 'trusted_apps',
+        trusted_apps: nextList
+      })
+      setPrivilege(next)
+      setDraftApp('')
+    } catch (err) {
+      notifyError(err, 'Could not update trusted apps')
+    } finally {
+      setSavingPrivilege(false)
+    }
+  }, [draftApp, privilege])
+
+  const handleRemoveTrustedApp = useCallback(
+    async (app: string) => {
+      if (!privilege) {
+        return
+      }
+      setSavingPrivilege(true)
+      try {
+        const next = await putComputerUsePrivilege({
+          trusted_apps: privilege.trusted_apps.filter(a => a !== app)
+        })
+        setPrivilege(next)
+      } catch (err) {
+        notifyError(err, 'Could not update trusted apps')
+      } finally {
+        setSavingPrivilege(false)
+      }
+    },
+    [privilege]
+  )
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
@@ -166,9 +256,10 @@ export function ComputerUsePanel({ onConfiguredChange }: ComputerUsePanelProps) 
   }
 
   const failingChecks = status.checks.filter(c => c.status !== 'ok')
+  const mode = privilege?.privilege_mode ?? 'ask'
 
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
         <div className="min-w-0">
           {status.can_grant ? (
@@ -189,28 +280,31 @@ export function ComputerUsePanel({ onConfiguredChange }: ComputerUsePanelProps) 
         </Button>
       </div>
 
-      {status.can_grant ? (
-        <>
-          <PermissionRow
-            granted={status.accessibility}
-            hint="Lets cua-driver post clicks, keystrokes, and read the accessibility tree."
-            label="Accessibility"
-          />
-          <PermissionRow
-            granted={status.screen_recording}
-            hint="Lets cua-driver capture screenshots of app windows."
-            label="Screen Recording"
-          />
-        </>
-      ) : (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-background/55 p-2.5">
-          <span className="text-sm font-medium">Driver health</span>
-          <Pill tone={tone(status.ready)}>
-            <GrantIcon granted={status.ready} />
-            {status.ready === true ? 'Ready' : status.ready === false ? 'Not ready' : 'Unknown'}
-          </Pill>
-        </div>
-      )}
+      <div className="grid gap-2">
+        <p className="px-1 text-[0.72rem] font-medium text-foreground/90">macOS permissions</p>
+        {status.can_grant ? (
+          <>
+            <PermissionRow
+              granted={status.accessibility}
+              hint="Lets cua-driver post clicks, keystrokes, and read the accessibility tree."
+              label="Accessibility"
+            />
+            <PermissionRow
+              granted={status.screen_recording}
+              hint="Lets cua-driver capture screenshots of app windows."
+              label="Screen Recording"
+            />
+          </>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-background/55 p-2.5">
+            <span className="text-sm font-medium">Driver health</span>
+            <Pill tone={tone(status.ready)}>
+              <GrantIcon granted={status.ready} />
+              {status.ready === true ? 'Ready' : status.ready === false ? 'Not ready' : 'Unknown'}
+            </Pill>
+          </div>
+        )}
+      </div>
 
       {failingChecks.map(c => (
         <p className="px-1 text-[0.7rem] text-muted-foreground" key={c.label}>
@@ -239,6 +333,91 @@ export function ComputerUsePanel({ onConfiguredChange }: ComputerUsePanelProps) 
           </Button>
         )
       )}
+
+      {/* Block B — privilege picker (independent of TCC readiness). */}
+      <div className="grid gap-2 border-t border-border/40 pt-3">
+        <div className="px-1">
+          <p className="text-[0.72rem] font-medium text-foreground/90">
+            {replaceLemonBrandTerms('What Lemon may do', brand)}
+          </p>
+          <p className="mt-0.5 text-[0.68rem] text-muted-foreground">
+            Separate from OS permissions — choose how far the agent can go after the driver is ready.
+          </p>
+        </div>
+
+        <div className="grid gap-1.5" role="radiogroup" aria-label="Computer Use privilege">
+          {PRIVILEGE_OPTIONS.map(opt => {
+            const selected = mode === opt.mode
+            return (
+              <button
+                key={opt.mode}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                disabled={savingPrivilege}
+                tabIndex={0}
+                aria-label={opt.label}
+                onClick={() => void handlePrivilegeMode(opt.mode)}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    void handlePrivilegeMode(opt.mode)
+                  }
+                }}
+                className={`rounded-lg px-2.5 py-2 text-left transition-colors ${
+                  selected ? 'bg-primary/15 ring-1 ring-primary/40' : 'bg-background/55 hover:bg-background/80'
+                }`}
+              >
+                <span className="text-sm font-medium">{opt.label}</span>
+                <p className="mt-0.5 text-[0.68rem] text-muted-foreground">{opt.hint}</p>
+              </button>
+            )
+          })}
+        </div>
+
+        {mode === 'trusted_apps' && privilege && (
+          <div className="grid gap-2 rounded-lg bg-background/55 p-2.5">
+            <p className="text-[0.7rem] text-muted-foreground">
+              Add app names (e.g. TextEdit, Safari) or bundle ids. Unlisted apps still ask before act.
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {privilege.trusted_apps.length === 0 && (
+                <span className="text-[0.68rem] text-muted-foreground">No trusted apps yet.</span>
+              )}
+              {privilege.trusted_apps.map(app => (
+                <button
+                  key={app}
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-md bg-background px-2 py-0.5 text-[0.7rem]"
+                  aria-label={`Remove ${app}`}
+                  onClick={() => void handleRemoveTrustedApp(app)}
+                >
+                  {app}
+                  <X className="size-3" />
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <input
+                className="min-w-[10rem] flex-1 rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
+                placeholder="App name or bundle id"
+                value={draftApp}
+                aria-label="Trusted app name"
+                onChange={event => setDraftApp(event.target.value)}
+                onKeyDown={event => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    void handleAddTrustedApp()
+                  }
+                }}
+              />
+              <Button disabled={savingPrivilege || !draftApp.trim()} onClick={() => void handleAddTrustedApp()} size="sm">
+                Add
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

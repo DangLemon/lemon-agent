@@ -483,6 +483,12 @@ class TerminalBackendSelect(BaseModel):
     backend: str
     profile: Optional[str] = None
 
+class ComputerUsePrivilegeUpdate(BaseModel):
+    """Settings → Computer Use privilege picker (capture_only | ask | trusted_apps)."""
+    privilege_mode: Optional[str] = None
+    trusted_apps: Optional[List[str]] = None
+    profile: Optional[str] = None
+
 class RawConfigUpdate(BaseModel):
     yaml_text: str
     profile: Optional[str] = None

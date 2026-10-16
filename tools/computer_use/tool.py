@@ -14,13 +14,30 @@ import os
 import re
 import sys
 import threading
+import time
 import uuid
 from collections import namedtuple
 from functools import partial
 from types import SimpleNamespace
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from tools.computer_use.ax_diff import (
+    ElementFp,
+    TreeDiff,
+    cache_key as ax_cache_key,
+    diff_trees,
+    fingerprint_elements,
+    format_tree_diff,
+)
 from tools.computer_use.backend import ActionResult, CaptureResult, ComputerUseBackend, UIElement, image_dimensions_from_bytes
+from tools.computer_use.privilege import (
+    fresh_capture_required,
+    get_capture_ttl_seconds,
+    privilege_blocks_mutate,
+    remember_trusted_app,
+    resolve_target_app,
+    should_skip_approval_for_app,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +106,13 @@ _approval_lock = threading.Lock()
 _session_auto_approve: Dict[str, bool] = {}   # sid -> "always_approve everything"
 _always_allow: Dict[str, set] = {}            # sid -> set of (action, delivery_mode) scope keys
 _escalation_warned: set = set()               # sids already warned that a bypass widened the driver mode
+# Per-session capture freshness (Codex-style: mutate requires a recent capture).
+_capture_freshness_lock = threading.Lock()
+_last_capture_at: Dict[str, float] = {}       # sid -> time.monotonic()
+_last_capture_app: Dict[str, str] = {}        # sid -> app from last successful capture
+# Phase 2: resident AX fingerprints per (session, app, window) for incremental tree_diff.
+_ax_tree_cache: Dict[str, List[ElementFp]] = {}
+_ax_tree_cache_lock = threading.Lock()
 
 def _cua_permission_mode(session_id: str) -> str:
     """Map Lemon AI's approval bypass onto Cua's immutable mode; fails closed. Both identity namespaces are consulted
@@ -183,6 +207,11 @@ def release_computer_use_session(session_id: str) -> bool:
         backend, call_lock = _detach_locked(sid)
     with _approval_lock:
         _session_auto_approve.pop(sid, None), _always_allow.pop(sid, None)
+    with _capture_freshness_lock:
+        _last_capture_at.pop(sid, None), _last_capture_app.pop(sid, None)
+    with _ax_tree_cache_lock:
+        for key in [k for k in _ax_tree_cache if k.startswith(f"{sid}|") or (not sid and k.startswith("|"))]:
+            _ax_tree_cache.pop(key, None)
     if backend is None:
         return False
     _stop_backend(backend, call_lock,
@@ -208,12 +237,68 @@ def _shutdown_backend_atexit() -> None:
         _backends.clear(), _backend_call_locks.clear(), _backend_permission_modes.clear()
     with _approval_lock:
         _session_auto_approve.clear(), _always_allow.clear(), _escalation_warned.clear()
+    with _capture_freshness_lock:
+        _last_capture_at.clear(), _last_capture_app.clear()
+    with _ax_tree_cache_lock:
+        _ax_tree_cache.clear()
     for backend, call_lock in unique.values():
         _stop_backend(backend, call_lock, lambda e: logger.debug("cua-driver atexit teardown failed: %s", e))
 
 def reset_backend_for_tests() -> None:  # pragma: no cover — tear down the cached backend and per-session state
     _shutdown_backend_atexit()
     _AUX_VISION_ROUTE_CACHE.clear()
+    # Legacy tests click on the empty session without an explicit capture; keep that path green.
+    # Ritual/stale tests use a non-empty session_id and omit mark_capture_fresh for that sid.
+    mark_capture_fresh("")
+
+def mark_capture_fresh(session_id: str = "", app: str = "") -> None:
+    """Record a successful capture for the ritual guard (also used by tests)."""
+    sid = str(session_id or "")
+    with _capture_freshness_lock:
+        _last_capture_at[sid] = time.monotonic()
+        if app and str(app).strip():
+            _last_capture_app[sid] = str(app).strip()
+
+def _capture_result_ok(result: Any) -> bool:
+    if isinstance(result, dict):
+        if result.get("error"):
+            return False
+        return bool(result.get("_multimodal") or result.get("ok") is not False)
+    if isinstance(result, str):
+        with contextlib.suppress(Exception):
+            payload = json.loads(result)
+            if isinstance(payload, dict) and payload.get("error"):
+                return False
+        return True
+    return result is not None
+
+def _require_fresh_capture(action: str, session_id: str = "") -> Optional[str]:
+    """JSON error when mutate runs without a recent capture for this session."""
+    if not fresh_capture_required(action):
+        return None
+    ttl = get_capture_ttl_seconds()
+    if ttl <= 0:
+        return None
+    sid = str(session_id or "")
+    with _capture_freshness_lock:
+        ts = _last_capture_at.get(sid)
+    if ts is None:
+        return json.dumps({
+            "error": "computer_use requires a fresh capture before this action",
+            "code": "stale_capture",
+            "action": action,
+            "hint": "Call capture(mode='som'|…) for the target app first, then retry. "
+                    "Blind mutate is blocked (Codex-style ritual).",
+        })
+    age = time.monotonic() - ts
+    if age > ttl:
+        return json.dumps({
+            "error": f"computer_use capture is stale ({age:.0f}s > ttl {ttl:.0f}s)",
+            "code": "stale_capture",
+            "action": action,
+            "hint": "Re-capture the target app, then retry the mutate action.",
+        })
+    return None
 
 def _noop_stub(name: str, *params: str, result: Any = None):
     # Recording stub: positional args are folded in under *params* (declared params default to None). ``result`` may
@@ -240,15 +325,20 @@ class _NoopBackend(ComputerUseBackend):  # pragma: no cover
 # ── Dispatch ────────────────────────────────────────────────────────────────
 def handle_computer_use(args: Dict[str, Any], **kwargs) -> Any:
     """Main entry point (tools.registry): a JSON string (text-only) or a dict marked `_multimodal`. Order: hard
-    blocks (_reject_unsafe) -> approval scopes (destructive action, then 'bring_to_front' — persistent focus is a
-    separate visible side effect with its own scope) -> backend -> dispatch under the session call lock."""
+    blocks (_reject_unsafe) -> privilege_mode -> fresh-capture ritual -> approval scopes (destructive action, then
+    'bring_to_front') -> backend -> dispatch under the session call lock."""
     action = (args.get("action") or "").strip().lower()
     if not action:
         return json.dumps({"error": "missing `action`"})
     session_id = str(kwargs.get("session_id") or "")  # approval-state / daemon-mode isolation key
     if (err := _reject_unsafe(action, args)) is not None:
         return err
-    scopes = ([action] if action in _ACTIONS and _ACTIONS[action].destructive else []) + (
+    destructive = bool(action in _ACTIONS and _ACTIONS[action].destructive)
+    if (err := privilege_blocks_mutate(action, destructive=destructive)) is not None:
+        return err
+    if (err := _require_fresh_capture(action, session_id)) is not None:
+        return err
+    scopes = ([action] if destructive else []) + (
         ["bring_to_front"] if args.get("bring_to_front") or (action == "focus_app" and args.get("raise_window")) else [])
     for scope in scopes:
         if (err := _request_approval(scope, args, session_id)) is not None:
@@ -263,12 +353,16 @@ def handle_computer_use(args: Dict[str, Any], **kwargs) -> Any:
         with _backend_lock:
             call_lock = _backend_call_locks.setdefault(session_id, threading.RLock())
         with call_lock:
-            return _dispatch(backend, action, args)
+            result = _dispatch(backend, action, args, session_id=session_id)
     except Exception as e:
         logger.exception("computer_use %s failed", action)
         return json.dumps({"error": f"{action} failed: {e}"})
+    if action == "capture" and _capture_result_ok(result):
+        mark_capture_fresh(session_id, resolve_target_app(args, backend))
+    return result
 
-def _request_approval(action: str, args: Dict[str, Any], session_id: str = "") -> Optional[str]:
+def _request_approval(action: str, args: Dict[str, Any], session_id: str = "",
+                      backend: Any = None) -> Optional[str]:
     """None if approved, else a JSON error string. Scoped by (action, delivery_mode) AND session_id: foreground
     delivery is a visible focus change, so a background ``approve_session`` must NOT cover it; the blanket
     ``always_approve`` does. No CLI approval wired -> default allow (gateway approval runs one layer out).
@@ -276,11 +370,19 @@ def _request_approval(action: str, args: Dict[str, Any], session_id: str = "") -
     ``always_approve`` (the blanket "auto-approve everything" unlock) still covers foreground, since the
     user explicitly opted into unattended operation. State is keyed on session_id so concurrent runs don't
     leak unlocks into one another. See #67052.
+
+    ``computer_use.privilege_mode=trusted_apps`` skips the prompt when the target app is on the allowlist.
     """
     scope_key = (action, "foreground" if args.get("delivery_mode") == "foreground" else "background")
     with _approval_lock:
         if _session_auto_approve.get(session_id) or scope_key in _always_allow.get(session_id, set()):
             return None
+    # Backend may not exist yet (approval runs before spawn); fall back to last capture app.
+    with _capture_freshness_lock:
+        sticky_app = _last_capture_app.get(session_id, "")
+    target_app = resolve_target_app(args, backend) or sticky_app
+    if should_skip_approval_for_app(target_app):
+        return None
     if (cb := _approval_callback) is None:
         return None
     try:
@@ -293,6 +395,11 @@ def _request_approval(action: str, args: Dict[str, Any], session_id: str = "") -
             _always_allow.setdefault(session_id, set()).add(scope_key)
             if verdict == "always_approve":
                 _session_auto_approve[session_id] = True
+    # Explicit "Remember this app" only — do not widen trusted_apps on blanket always_approve.
+    if args.get("remember_app") or args.get("_remember_app"):
+        with contextlib.suppress(Exception):
+            if target_app:
+                remember_trusted_app(target_app)
     if verdict in ("approve_once", "approve_session", "always_approve"):
         return None
     return json.dumps({"error": ("approval prompt timed out — the user did not respond. Silence is not consent; "
@@ -332,12 +439,18 @@ def _do_scroll(backend, action, args, **delivery):
     return backend.scroll(direction=args.get("direction", "down"), amount=int(args.get("amount", 3)),
                           element=args.get("element"), **_scroll_xy(args), modifiers=args.get("modifiers"), **delivery)
 
-def _do_capture(backend, action, args, **_):
+def _do_capture(backend, action, args, session_id: str = "", **_):
     if (mode := str(args.get("mode", "som"))) not in {"som", "vision", "ax"}:
         return json.dumps({"error": f"bad mode {mode!r}; use som|vision|ax"})
     # pid/window_id forwarded only when given so older backends keep their defaults.
-    return _capture_response(backend.capture(mode=mode, app=args.get("app"),
-                                             **{k: args[k] for k in ("pid", "window_id") if args.get(k) is not None}))
+    # full_tree=true forces a non-diff summary even when a resident tree exists (Phase 2 escape hatch;
+    # not in the frozen schema — models can still pass it; unknown props are ignored elsewhere).
+    full_tree = bool(args.get("full_tree"))
+    return _capture_response(
+        backend.capture(mode=mode, app=args.get("app"),
+                        **{k: args[k] for k in ("pid", "window_id") if args.get(k) is not None}),
+        session_id=session_id, backend=backend, full_tree=full_tree,
+    )
 
 def _do_listing(backend, action, args, key, **_):
     return json.dumps({key: (items := getattr(backend, action)()), "count": len(items)})
@@ -387,7 +500,8 @@ _ACTION_SUGGESTIONS = {
     "input_text": "type", "screenshot": "capture", "get_window_state": "capture", "left_click": "click", "mouse_click": "click",
 }
 
-def _dispatch(backend: ComputerUseBackend, action: str, args: Dict[str, Any]) -> Any:
+def _dispatch(backend: ComputerUseBackend, action: str, args: Dict[str, Any],
+              session_id: str = "") -> Any:
     spec = _ACTIONS.get(action)
     if spec is None:
         return json.dumps({"error": f"unknown action {action!r}" + (f" — did you mean {hint!r}? See the action enum in the tool schema."
@@ -401,9 +515,13 @@ def _dispatch(backend: ComputerUseBackend, action: str, args: Dict[str, Any]) ->
             "— input actions always hit the sticky target from the last capture/focus_app. "
             f"Call capture(app={requested_app.strip()!r}) or focus_app first, then retry.")})
     # delivery_mode / bring_to_front thread through every input action (background → foreground ladder).
-    res = spec.handler(backend, action, args, delivery_mode=args.get("delivery_mode"),
-                       bring_to_front=bool(args.get("bring_to_front")))
-    return res if isinstance(res, (str, dict)) else _maybe_follow_capture(backend, res, bool(args.get("capture_after")))
+    handler_kwargs: Dict[str, Any] = dict(
+        delivery_mode=args.get("delivery_mode"), bring_to_front=bool(args.get("bring_to_front")))
+    if action == "capture":
+        handler_kwargs["session_id"] = session_id
+    res = spec.handler(backend, action, args, **handler_kwargs)
+    return res if isinstance(res, (str, dict)) else _maybe_follow_capture(
+        backend, res, bool(args.get("capture_after")), session_id=session_id)
 
 # ── Response shaping ────────────────────────────────────────────────────────
 def _classify_action_result(res: ActionResult) -> Dict[str, Any]:
@@ -462,9 +580,16 @@ def _bounds_unknown(bounds) -> bool:
 
 def _element_to_dict(e: UIElement) -> Dict[str, Any]:
     # A zero rect is "geometry unknown", not a position — null it so no coordinate= is ever derived from it (the index still works).
-    return {"index": e.index, "role": e.role, "label": e.label[:_MAX_ELEMENT_LABEL_CHARS],
-            "bounds": None if _bounds_unknown(e.bounds) else list(e.bounds), "app": e.app,
-            **({"label_truncated": True} if len(e.label) > _MAX_ELEMENT_LABEL_CHARS else {})}
+    out: Dict[str, Any] = {
+        "index": e.index, "role": e.role, "label": e.label[:_MAX_ELEMENT_LABEL_CHARS],
+        "bounds": None if _bounds_unknown(e.bounds) else list(e.bounds), "app": e.app,
+        **({"label_truncated": True} if len(e.label) > _MAX_ELEMENT_LABEL_CHARS else {}),
+    }
+    # cua-driver ≥0.36 opaque handle — surface when present so the model can prefer token over bare index.
+    token = getattr(e, "element_token", None)
+    if isinstance(token, str) and token:
+        out["element_token"] = token
+    return out
 
 def _format_elements(elements: List[UIElement], max_lines: int = 40) -> List[str]:
     out = [f"  #{e.index} {e.role} {e.label.replace(chr(10), ' ')[:60]!r} "
@@ -514,9 +639,11 @@ def _capture_view(cap: CaptureResult, max_elements: int) -> SimpleNamespace:
                            screenshot_path=_persist_capture_image(cap) if has_image else None,
                            dims_omitted=dims if too_small else None, has_image=has_image)
 
-def _capture_summary_lines(v: SimpleNamespace) -> List[str]:
+def _capture_summary_lines(v: SimpleNamespace, *, tree_diff: Optional[TreeDiff] = None,
+                           diff_first: bool = False) -> List[str]:
     """Human-readable capture summary; line ORDER is contract. Lists only what `elements` surfaces, otherwise the
-    summary names indices the model can't find."""
+    summary names indices the model can't find. When *diff_first* and *tree_diff* are set (Phase 2 ax re-capture),
+    the summary leads with the incremental diff and skips the full element dump (indices still in ``elements``)."""
     notes = (
         v.bounds_note and v.bounds_note + (f"; estimated scale ~{v.bounds_scale}x (screenshot position x "
                                            f"{v.bounds_scale} ≈ native coordinate)" if v.bounds_scale else ""),
@@ -525,12 +652,27 @@ def _capture_summary_lines(v: SimpleNamespace) -> List[str]:
         v.elements_file and (f"full element tree with untruncated labels saved to {v.elements_file} — "
                              "read_file/search_files it if you need dropped label text or elements beyond the cap"),
     )
-    return [
+    header = [
         f"capture mode={v.cap.mode} {v.width}x{v.height}"
         + (f" app={v.cap.app}" if v.cap.app else "") + (f" window={v.cap.window_title!r}" if v.cap.window_title else ""),
         f"{v.total} interactable element(s):",
         *(f"  ({note})" for note in notes if note),
-        *_format_elements(v.visible),
+    ]
+    if diff_first and tree_diff is not None:
+        return [
+            *header,
+            format_tree_diff(tree_diff),
+            "  (full element list in `elements`; pass full_tree=true to expand the summary)",
+            *([f"  (screenshot omitted: {v.dims_omitted[0]}x{v.dims_omitted[1]} is below the "
+               f"{_MIN_PROVIDER_IMAGE_DIMENSION}x{_MIN_PROVIDER_IMAGE_DIMENSION} provider minimum)"]
+              if v.dims_omitted else []),
+        ]
+    body = list(_format_elements(v.visible))
+    if tree_diff is not None:
+        body = [format_tree_diff(tree_diff), *body]
+    return [
+        *header,
+        *body,
         *([f"  (screenshot omitted: {v.dims_omitted[0]}x{v.dims_omitted[1]} is below the "
            f"{_MIN_PROVIDER_IMAGE_DIMENSION}x{_MIN_PROVIDER_IMAGE_DIMENSION} provider minimum)"] if v.dims_omitted else []),
     ]
@@ -546,10 +688,33 @@ def _text_capture_payload(v: SimpleNamespace, summary: str, extra: Optional[Dict
                    bounds_scale=v.bounds_scale),
     })
 
-def _capture_response(cap: CaptureResult, max_elements: int = _DEFAULT_MAX_ELEMENTS) -> Any:
+def _remember_ax_tree(session_id: str, cap: CaptureResult, backend: Optional[ComputerUseBackend] = None,
+                     ) -> Tuple[Optional[TreeDiff], str]:
+    """Compare *cap* to the resident tree for this window; store the new fingerprints. Returns (diff|None, key)."""
+    window_id = getattr(backend, "_active_window_id", None) if backend is not None else None
+    key = ax_cache_key(session_id, app=cap.app or "", window_id=window_id, window_title=cap.window_title or "")
+    curr = fingerprint_elements(cap.elements)
+    with _ax_tree_cache_lock:
+        prev = _ax_tree_cache.get(key)
+        _ax_tree_cache[key] = curr
+    if prev is None:
+        return None, key
+    return diff_trees(prev, curr), key
+
+def _capture_response(cap: CaptureResult, max_elements: int = _DEFAULT_MAX_ELEMENTS,
+                      session_id: str = "", backend: Optional[ComputerUseBackend] = None,
+                      full_tree: bool = False) -> Any:
     v = _capture_view(cap, max_elements)
-    lines = _capture_summary_lines(v)
-    summary, extra = "\n".join(lines), None  # multimodal/aux paths use this; text paths append notes and rebuild
+    tree_diff, _key = _remember_ax_tree(session_id, cap, backend)
+    # ax re-capture of the same window: lead with diff (cheaper turns). First capture / full_tree / som|vision
+    # keep the full element dump in the summary.
+    diff_first = bool(tree_diff is not None and cap.mode == "ax" and not full_tree)
+    lines = _capture_summary_lines(v, tree_diff=tree_diff, diff_first=diff_first)
+    summary = "\n".join(lines)  # multimodal/aux paths use this; text paths append notes and rebuild
+    extra: Dict[str, Any] = {}
+    if tree_diff is not None:
+        extra["tree_diff"] = tree_diff.stats()
+        extra["tree_diff_text"] = format_tree_diff(tree_diff)
     if v.has_image:
         # Hand the screenshot to auxiliary.vision (text-only result) when the main model may not consume images
         # natively; returning the multimodal envelope unconditionally tripped HTTP 404/400 at the provider.
@@ -560,7 +725,8 @@ def _capture_response(cap: CaptureResult, max_elements: int = _DEFAULT_MAX_ELEME
                             {"type": "image_url", "image_url": {"url": f"data:{_capture_image_format(cap)[0]};base64,{cap.png_b64}"}}],
                 "text_summary": summary,
                 "meta": {"mode": cap.mode, "width": v.width, "height": v.height, "elements": v.total, "png_bytes": cap.png_bytes_len,
-                         **_present(screenshot_path=v.screenshot_path, elements_file=v.elements_file, bounds_scale=v.bounds_scale)},
+                         **_present(screenshot_path=v.screenshot_path, elements_file=v.elements_file, bounds_scale=v.bounds_scale),
+                         **extra},
             }
         # Decide whether to hand the screenshot to the auxiliary.vision pipeline (text-only result) or keep
         # the multimodal envelope (main model handles vision natively). Issue #24015: previously the
@@ -575,13 +741,14 @@ def _capture_response(cap: CaptureResult, max_elements: int = _DEFAULT_MAX_ELEME
         # now break with a provider error, so degrade to text.
         lines.append("  (vision unavailable: the auxiliary vision model could not be reached; screenshot "
                      "omitted. Element-index actions still work — drive via the element list above.)")
-        extra = {"vision_unavailable": True}
+        extra["vision_unavailable"] = True
     if v.truncated:  # text paths carry the `elements` array, so the truncation note applies
         lines.append(f"  (response truncated to {len(v.visible)} of {v.total} elements; the full tree is in "
                      "elements_file — read_file/search_files it, or pass app= to narrow scope)")
     return _text_capture_payload(v, "\n".join(lines), extra)
 
-def _maybe_follow_capture(backend: ComputerUseBackend, res: ActionResult, do_capture: bool) -> Any:
+def _maybe_follow_capture(backend: ComputerUseBackend, res: ActionResult, do_capture: bool,
+                          session_id: str = "") -> Any:
     # No follow-up capture after a failed action: a normal-looking screenshot would suggest success.
     if not do_capture or not res.ok:
         return _text_response(res)
@@ -594,7 +761,7 @@ def _maybe_follow_capture(backend: ComputerUseBackend, res: ActionResult, do_cap
     except Exception as e:
         logger.warning("follow-up capture failed: %s", e)
         return _text_response(res)
-    resp, payload = _capture_response(cap), _action_payload(res)
+    resp, payload = _capture_response(cap, session_id=session_id, backend=backend), _action_payload(res)
     if isinstance(resp, dict) and resp.get("_multimodal"):
         # Keep the evidence/verdict contract visible alongside the image — it governs whether input may repeat.
         resp["content"][0]["text"] = resp["text_summary"] = json.dumps(payload) + "\n\n" + resp["text_summary"]

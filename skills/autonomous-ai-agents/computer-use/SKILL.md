@@ -32,9 +32,21 @@ skill installed by `cua-driver skills install`. Lemon AI autodetection is a
 planned cua-driver follow-up, so currently point Lemon AI at the resulting
 `~/.cua-driver/skills/cua-driver` directory or symlink it into your skill space.
 
+## Privilege (Settings → Computer Use)
+
+Desktop exposes a Codex-like privilege picker (separate from macOS TCC):
+
+| Mode | Behavior |
+|---|---|
+| `capture_only` | Capture / list only — click/type blocked |
+| `ask` (default) | Mutate prompts Allow / Deny |
+| `trusted_apps` | Listed apps skip the prompt; others still ask |
+
+The tool layer also **requires a fresh capture** before click/type/key/drag/scroll/set_value (`stale_capture` if missing or past TTL). Always capture first.
+
 ## The canonical workflow
 
-**Step 1 — Capture first.** Almost every task starts with:
+**Step 1 — Capture first.** Almost every task starts with (enforced — blind mutate fails):
 
 ```
 computer_use(action="capture", mode="som", app="<the app you're driving>")
