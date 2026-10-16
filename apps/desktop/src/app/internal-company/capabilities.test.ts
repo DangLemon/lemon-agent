@@ -113,6 +113,7 @@ describe('internal company static harness capabilities', () => {
     const env = harnessEnvFromBuildConstants({
       harness: 'internal',
       showAgents: 'true',
+      showBots: 'true',
       showCron: 'false',
       showMessaging: 'true',
       showTerminal: 'false',
@@ -122,6 +123,7 @@ describe('internal company static harness capabilities', () => {
     expect(internalCompanyExpectedFromEnv(env)).toBe(true)
     expect(harnessUiFlagsFromEnv(env)).toEqual({
       agents: true,
+      bots: true,
       cron: false,
       messaging: true,
       terminal: false,

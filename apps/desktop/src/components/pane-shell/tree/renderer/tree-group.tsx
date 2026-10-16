@@ -331,7 +331,8 @@ export function TreeGroup({
   // it is the resolver's call, not this component's — see strip-visibility.ts
   // for the precedence. The same resolver answers for the toggle command, so
   // the keystroke and the screen always agree about which way "toggle" points.
-  const internalSessionsSingleton = internalCompany.mode === 'harness' && shown.length === 1 && shown[0] === 'sessions'
+  const internalSessionsSingleton =
+    internalCompany.mode === 'harness' && !internalCompany.ui.bots && shown.length === 1 && shown[0] === 'sessions'
 
   const stripVisible =
     !internalSessionsSingleton &&

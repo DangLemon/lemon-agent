@@ -4,6 +4,7 @@
   "sourceRepository": "DangLemon/lemon-agent",
   "ui": {
     "agents": false,
+    "bots": true,
     "cron": true,
     "messaging": false,
     "terminal": true,

@@ -93,7 +93,7 @@ test('cut, copy, and select all gray out in an empty composer', async () => {
 
   await expect(selectAll).toHaveAttribute('data-disabled', /.*/)
   await expect(page.getByRole('menuitem', { name: /^Cut/ })).toHaveAttribute('data-disabled', /.*/)
-  await expect(page.getByRole('menuitem', { name: /^Copy/ })).toHaveAttribute('data-disabled', /.*/)
+  await expect(page.getByRole('menuitem', { name: /^(Copy|Sao chép)/ })).toHaveAttribute('data-disabled', /.*/)
 
   await page.keyboard.press('Escape')
 })

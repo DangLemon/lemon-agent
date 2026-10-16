@@ -12,11 +12,11 @@ import {
   rendererHarnessMarkerPlugin
 } from '../vite.config'
 
-function harnessResource(agents: boolean) {
+function harnessResource(agents: boolean, bots = false) {
   return {
     schemaVersion: 1,
     profile: 'internal',
-    ui: { agents, cron: true, messaging: false, terminal: true, webhooks: false }
+    ui: { agents, bots, cron: true, messaging: false, terminal: true, webhooks: false }
   }
 }
 
@@ -43,6 +43,22 @@ test('Vite compiles internal harness defines from the Lemon selector', () => {
     assert.equal(define.__LEMON_DESKTOP_HARNESS__, JSON.stringify('internal'))
     assert.equal(define.__LEMON_HARNESS_SHOW_AGENTS__, JSON.stringify('false'))
   })
+})
+
+test('Vite compiles the Bots pane opt-in from the harness config', () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'vite-config-harness-bots-'))
+
+  try {
+    const lemonPath = path.join(tempRoot, 'lemon.json')
+    const resource = harnessResource(false, true)
+    fs.writeFileSync(lemonPath, JSON.stringify(resource), 'utf8')
+    const define = harnessViteDefines({ LEMON_DESKTOP_HARNESS_CONFIG: lemonPath })
+
+    assert.equal(define.__LEMON_HARNESS_SHOW_BOTS__, JSON.stringify('true'))
+    assert.deepEqual(rendererHarnessMarkerFromDefines(define), resource)
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true })
+  }
 })
 
 test('Vite emits the renderer harness marker from resolved internal defines', () => {

@@ -211,6 +211,7 @@ describe('ProfileRail multi-gateway entry point', () => {
     setInternalCompanyCapabilitiesForTest(
       initialInternalCompanyCapabilities(true, {
         agents: false,
+        bots: false,
         cron: true,
         messaging: false,
         terminal: false,

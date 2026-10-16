@@ -27,13 +27,8 @@ type Page = MockBackendFixture['page']
 let fixture: MockBackendFixture | null = null
 
 async function openBots(page: Page): Promise<void> {
-  const tab = page
-    .getByRole('button', { name: 'Bots', exact: true })
-    .or(page.getByRole('tab', { name: 'Bots', exact: true }))
-    .first()
-
-  await tab.click()
-  await expect(page.getByRole('button', { name: 'New bot or group chat' })).toBeVisible()
+  await page.locator('[data-tree-tab="lemon-bots:pane"]').click()
+  await expect(page.getByRole('button', { name: /New bot or group chat/ })).toBeVisible()
 }
 
 async function settle(page: Page, timeout = 90_000): Promise<void> {
@@ -125,7 +120,7 @@ test('a bot row click lands on the Bot Chat the row previews, not a side thread'
   await settle(page, 15_000)
 
   // A `+` side thread for alpha, with a real turn so it is a persisted tile.
-  await page.keyboard.press('Control+t')
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+T' : 'Control+T')
   const composer = page.locator('[data-slot="composer-root"] [contenteditable="true"]').filter({ visible: true }).first()
   await expect(composer).toBeVisible({ timeout: 15_000 })
   await composer.click()

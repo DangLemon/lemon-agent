@@ -4,13 +4,12 @@ import { expect, test } from './test'
 let fixture: MockBackendFixture | null = null
 
 async function openBots(page: MockBackendFixture['page']): Promise<void> {
-  const tab = page.getByRole('button', { name: 'Bots', exact: true }).or(page.getByRole('tab', { name: 'Bots', exact: true })).first()
-  await tab.click()
+  await page.locator('[data-tree-tab="lemon-bots:pane"]').click()
   await expect(page.getByRole('button', { name: 'New bot or group chat' })).toBeVisible()
 }
 
 async function createAgent(page: MockBackendFixture['page'], name: string, title: string): Promise<void> {
-  await page.getByRole('button', { name: 'New bot or group chat' }).click()
+  await page.getByRole('button', { name: /New bot or group chat/ }).click()
   await page.getByRole('menuitem', { name: 'New Bot' }).click()
 
   const dialog = page.getByRole('dialog', { name: 'New Bot' })
@@ -39,7 +38,7 @@ test('local bot replaces an open group main workspace', async () => {
   await createAgent(page, 'programmer', 'Programmer')
   await createAgent(page, 'reviewer', 'Reviewer')
 
-  await page.getByRole('button', { name: 'New bot or group chat' }).click()
+  await page.getByRole('button', { name: /New bot or group chat/ }).click()
   await page.getByRole('menuitem', { name: 'New Group Chat' }).click()
 
   const dialog = page.getByRole('dialog', { name: 'New Group Chat' })
@@ -51,7 +50,7 @@ test('local bot replaces an open group main workspace', async () => {
   await dialog.getByRole('textbox', { name: 'Group name' }).fill('Programmer, Reviewer')
   await dialog.getByRole('button', { name: 'Create Group (2)' }).click()
 
-  const groupTab = page.getByRole('tab', { name: /Programmer, Reviewer Close/ })
+  const groupTab = page.getByRole('tab', { name: /Programmer, Reviewer (Close|Đóng)/ })
   const groupComposer = page.getByRole('textbox', { name: 'Message Programmer, Reviewer' }).filter({ visible: true })
   await expect(groupTab).toBeVisible({ timeout: 20_000 })
   await expect(groupTab).toHaveAttribute('aria-selected', 'true')
