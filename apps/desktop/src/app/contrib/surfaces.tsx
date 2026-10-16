@@ -137,9 +137,10 @@ export const ChatRoutesSurface = memo(function ChatRoutesSurface({
 
   const modelMenuContent = useMemo(
     () =>
-      gatewayState === 'open' && internalCompany.mode === 'upstream' ? (
+      gatewayState === 'open' ? (
         <ModelMenuPanel
           gateway={gateway || undefined}
+          onlyCurrentProvider={internalCompany.mode === 'harness'}
           onSelectModel={actions.selectModel}
           ownerConnectionId={activeConnectionId || undefined}
           profile={activeGatewayProfile}

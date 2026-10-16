@@ -57,12 +57,12 @@ afterEach(() => {
 
 // A minimal controller — these tests are about the CATALOG's own behaviour
 // (what it lists, what it offers), not about what any host does with a pick.
-function renderMenu() {
+function renderMenu({ onlyCurrentProvider = false, provider = '' } = {}) {
   const select = vi.fn()
 
   const controller: ModelMenuController = {
     applyPreset: vi.fn(),
-    current: { effort: '', fast: false, model: '', provider: '' },
+    current: { effort: '', fast: false, model: '', provider },
     presetFor: () => ({}),
     select,
     setOptions: vi.fn()
@@ -74,13 +74,27 @@ function renderMenu() {
     <QueryClientProvider client={client}>
       <DropdownMenu open>
         <DropdownMenuContent>
-          <ModelCatalogMenu controller={controller} />
+          <ModelCatalogMenu controller={controller} onlyCurrentProvider={onlyCurrentProvider} />
         </DropdownMenuContent>
       </DropdownMenu>
     </QueryClientProvider>
   )
 
   return select
+}
+
+const DOWNLOAD_JOB: LocalRuntimeJob = {
+  job_id: 'dl1',
+  kind: 'model-download',
+  target: 'Qwen3.8 Flash Next (UD-Q4_K_XL)',
+  model_id: 'qwen3.8-flash-next',
+  status: 'running',
+  phase: 'downloading',
+  detail: '',
+  total_bytes: 100,
+  done_bytes: 41,
+  percent: 41,
+  error: null
 }
 
 // Curation is ONE global preference, so it belongs to the catalog rather than
@@ -122,21 +136,56 @@ describe('the catalog owns model curation', () => {
   })
 })
 
-describe('in-flight local downloads', () => {
-  const DOWNLOAD_JOB: LocalRuntimeJob = {
-    job_id: 'dl1',
-    kind: 'model-download',
-    target: 'Qwen3.8 Flash Next (UD-Q4_K_XL)',
-    model_id: 'qwen3.8-flash-next',
-    status: 'running',
-    phase: 'downloading',
-    detail: '',
-    total_bytes: 100,
-    done_bytes: 41,
-    percent: 41,
-    error: null
-  }
+describe('current-provider scope', () => {
+  it('hides models from other providers while preserving custom-provider aliases', async () => {
+    getGlobalModelOptions.mockResolvedValue({
+      providers: [
+        {
+          aliases: ['custom:dfsadfasdf'],
+          models: ['gpt-5.5'],
+          name: 'Custom Agent',
+          slug: 'dfsadfasdf'
+        },
+        { models: ['gemini-3.1-pro'], name: 'Google', slug: 'google' }
+      ]
+    })
 
+    renderMenu({ onlyCurrentProvider: true, provider: 'custom:dfsadfasdf' })
+
+    await screen.findByText(/GPT-5\.5/i)
+    expect(screen.queryByText(/Gemini 3\.1 Pro/i)).toBeNull()
+  })
+
+  it('uses the backend current marker for managed local sessions', async () => {
+    getGlobalModelOptions.mockResolvedValue({
+      providers: [
+        {
+          is_current: true,
+          models: ['Qwen3.6-27B-UD-Q4_K_XL'],
+          name: 'Local',
+          slug: 'llamacpp'
+        },
+        {
+          is_current: false,
+          models: ['stale-custom-model'],
+          name: 'Custom endpoint',
+          slug: 'custom'
+        },
+        { models: ['gemini-3.1-pro'], name: 'Google', slug: 'google' }
+      ]
+    })
+    $localRuntimeJobs.set([DOWNLOAD_JOB])
+
+    renderMenu({ onlyCurrentProvider: true, provider: 'custom' })
+
+    await screen.findByText(/Qwen3\.6 27B/i)
+    expect(screen.getByText('Qwen3.8 Flash Next (UD-Q4_K_XL)')).toBeTruthy()
+    expect(screen.queryByText(/Stale Custom Model/i)).toBeNull()
+    expect(screen.queryByText(/Gemini 3\.1 Pro/i)).toBeNull()
+  })
+})
+
+describe('in-flight local downloads', () => {
   it('shows a downloading model as a disabled progress row in its own Local group', async () => {
     // No llamacpp provider in the catalog (first-ever download).
     $localRuntimeJobs.set([DOWNLOAD_JOB])

@@ -1,8 +1,10 @@
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { atom } from 'nanostores'
+import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { $internalCompanyCapabilities, resetInternalCompanyCapabilitiesForTest } from '@/app/internal-company/store'
 import type { LemonGateway } from '@/lemon'
 import { $gateway } from '@/store/gateway'
 import { $activeGatewayProfile } from '@/store/profile'
@@ -19,7 +21,12 @@ vi.mock('@/store/session', () => ({
   $gatewayState: atom('open')
 }))
 vi.mock('../chat', () => ({
-  ChatView: ({ gateway }: { gateway: { id?: string } | null }) => <div data-testid="gateway">{gateway?.id}</div>
+  ChatView: ({ gateway, modelMenuContent }: { gateway: { id?: string } | null; modelMenuContent?: ReactNode }) => (
+    <div data-testid="gateway">
+      {gateway?.id}
+      {modelMenuContent}
+    </div>
+  )
 }))
 vi.mock('../chat/sidebar', () => ({ ChatSidebar: () => null }))
 vi.mock('../right-sidebar/terminal/chrome', () => ({ TerminalPaneChrome: () => null }))
@@ -47,12 +54,17 @@ vi.mock('../routes', () => ({
 }))
 vi.mock('./latest-actions', () => ({ latestChatActions: () => ({}), latestSidebarActions: () => ({}) }))
 vi.mock('./panes', () => ({ setStatusbarItemGroup: vi.fn(), useStatusbarContributions: () => [] }))
-vi.mock('../shell/model-menu-panel', () => ({ ModelMenuPanel: () => null }))
+vi.mock('../shell/model-menu-panel', () => ({
+  ModelMenuPanel: ({ onlyCurrentProvider }: { onlyCurrentProvider?: boolean }) => (
+    <div data-only-current-provider={String(!!onlyCurrentProvider)} data-testid="model-menu" />
+  )
+}))
 
 afterEach(() => {
   cleanup()
   $gateway.set(null)
   $activeGatewayProfile.set('default')
+  resetInternalCompanyCapabilitiesForTest()
 })
 
 describe('ChatRoutesSurface', () => {
@@ -77,5 +89,18 @@ describe('ChatRoutesSurface', () => {
     })
 
     expect(screen.getByTestId('gateway').textContent).toBe('b')
+  })
+
+  it('keeps the chat model menu available in the internal workspace', () => {
+    $internalCompanyCapabilities.set({ ...$internalCompanyCapabilities.get(), expected: true, mode: 'harness' })
+    const actions = { getGateway: () => $gateway.get() } as unknown as WiringActions
+
+    render(
+      <MemoryRouter>
+        <ChatRoutesSurface actions={actions} />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByTestId('model-menu').getAttribute('data-only-current-provider')).toBe('true')
   })
 })

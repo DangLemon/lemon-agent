@@ -239,7 +239,7 @@ describe('ChatBar internal floating composer', () => {
     expect(screen.getByRole('button', { name: 'Đính kèm' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Gửi' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Giọng nói' })).toBeTruthy()
-    expect(screen.queryByTestId('model-pill')).toBeNull()
+    expect(screen.getByTestId('model-pill')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Add context' })).toBeNull()
   })
 })

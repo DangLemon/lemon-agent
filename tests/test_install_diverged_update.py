@@ -33,7 +33,8 @@ def _extract_install_sh_update_block() -> str:
 def _extract_install_ps1_branch_update_block() -> str:
     text = INSTALL_PS1.read_text()
     match = re.search(
-        r"(?P<block>git -c windows\.appendAtomically=false checkout \$Branch.*?elseif \(\$Tag\))",
+        r"(?P<block>\$isBranch = Checkout-FetchedBranchOrRef -Ref \$Branch.*?)"
+        r"(?=\n\s*if \(\$autostashRef\))",
         text,
         re.DOTALL,
     )

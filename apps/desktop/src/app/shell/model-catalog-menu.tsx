@@ -44,11 +44,18 @@ import type { LocalModelLoadProgress, ModelOptionProvider, ModelOptionsResponse 
 
 import { type FastControl, ModelEditSubmenu, resolveFastControl } from './model-edit-submenu'
 
-/** Whether a catalog row represents the session's current provider. Custom
- *  providers report the canonical `custom:<key>` identity from `model.options`
- *  while the row's slug is the bare config key, so exact slug equality never
- *  matches — check the row's alias set too (#87035). */
-function isCurrentProvider(provider: ModelOptionProvider, currentProvider: string): boolean {
+/** Whether a catalog row represents the session's current provider. When the
+ *  backend identifies any current row, its endpoint-aware marker is authoritative;
+ *  catalogs without a marker fall back to slug/alias identity. */
+function isCurrentProvider(
+  provider: ModelOptionProvider,
+  currentProvider: string,
+  hasBackendMarker: boolean
+): boolean {
+  if (hasBackendMarker) {
+    return provider.is_current === true
+  }
+
   return provider.slug === currentProvider || (provider.aliases?.includes(currentProvider) ?? false)
 }
 
@@ -103,6 +110,8 @@ interface ModelCatalogMenuProps {
   /** Render the virtual `moa` provider's presets as a selectable section.
    *  Off for override surfaces, where a MoA preset isn't a worker model. */
   includeMoa?: boolean
+  /** Keep internal workspaces on the provider already assigned to the session. */
+  onlyCurrentProvider?: boolean
   /** Registry source owning this catalog. Profile/session names are not unique
    * across sources, so this participates in the React Query cache key. */
   ownerConnectionId?: string
@@ -131,6 +140,7 @@ export function ModelCatalogMenu({
   footer,
   gateway,
   includeMoa = false,
+  onlyCurrentProvider = false,
   ownerConnectionId,
   profile = 'default',
   request,
@@ -238,34 +248,56 @@ export function ModelCatalogMenu({
     : null
 
   const providers = modelOptions.data?.providers
+  const current = controller.current
+  const hasCurrentProviderMarker = providers?.some(provider => provider.is_current === true) ?? false
 
   // The catalog carries MoA presets as a virtual `moa` provider row. Keep it
   // out of the main groups so presets never show up twice.
-  const moaPresets = useMemo(
-    () => (includeMoa ? (providers?.find(p => p.slug.toLowerCase() === 'moa')?.models ?? []) : []),
-    [providers, includeMoa]
-  )
+  const moaPresets = useMemo(() => {
+    const provider = providers?.find(item => item.slug.toLowerCase() === 'moa')
+
+    return (
+      includeMoa &&
+      provider &&
+      (!onlyCurrentProvider || isCurrentProvider(provider, current.provider, hasCurrentProviderMarker))
+    )
+      ? (provider.models ?? [])
+      : []
+  }, [providers, includeMoa, onlyCurrentProvider, current.provider, hasCurrentProviderMarker])
 
   const pickerProviders = useMemo(
     () =>
       providers?.filter(
         provider =>
           provider.slug.toLowerCase() !== 'moa' &&
+          (!onlyCurrentProvider || isCurrentProvider(provider, current.provider, hasCurrentProviderMarker)) &&
           // Strict --local gate: staged local models exist on disk, but
           // without the flag the GUI doesn't offer them.
           (localModelsEnabled || provider.slug !== LOCAL_PROVIDER_SLUG)
       ) ?? [],
-    [providers, localModelsEnabled]
+    [providers, localModelsEnabled, onlyCurrentProvider, current.provider, hasCurrentProviderMarker]
   )
 
-  const current = controller.current
-
   const q = normalize(search)
+
+  const localProviderIsCurrent =
+    (providers?.some(
+      provider =>
+        provider.slug === LOCAL_PROVIDER_SLUG &&
+        isCurrentProvider(provider, current.provider, hasCurrentProviderMarker)
+    ) ?? false) ||
+    (!hasCurrentProviderMarker && current.provider === LOCAL_PROVIDER_SLUG)
 
   // In-flight downloads render inside the Local provider group when it
   // exists, else as their own trailing 'Local' group (first download —
   // nothing staged yet, so the catalog has no local provider row).
-  const shownDownloads = q ? downloads.filter(job => (job.target || '').toLowerCase().includes(q)) : downloads
+  const shownDownloads =
+    onlyCurrentProvider && !localProviderIsCurrent
+      ? []
+      : q
+        ? downloads.filter(job => (job.target || '').toLowerCase().includes(q))
+        : downloads
+
   const hasLocalGroup = pickerProviders.some(provider => provider.slug === LOCAL_PROVIDER_SLUG)
 
   // Resolve visibility HERE, against the catalog we actually fetched: an empty
@@ -352,7 +384,7 @@ export function ModelCatalogMenu({
   const rowIsCurrent = (row: KbRow) =>
     row.kind === 'moa'
       ? current.provider === 'moa' && row.preset === current.model
-      : isCurrentProvider(row.provider, current.provider) &&
+      : isCurrentProvider(row.provider, current.provider, hasCurrentProviderMarker) &&
         (row.family.id === current.model || row.family.fastId === current.model)
 
   const autoIndex = q
@@ -494,7 +526,7 @@ export function ModelCatalogMenu({
                     // The active id may be the base or its -fast sibling; either
                     // way this one family row represents both.
                     const activeId =
-                      isCurrentProvider(group.provider, current.provider) &&
+                      isCurrentProvider(group.provider, current.provider, hasCurrentProviderMarker) &&
                       (current.model === family.id || current.model === family.fastId)
                         ? current.model
                         : null
@@ -720,6 +752,7 @@ function groupModels(
 ): ProviderGroup[] {
   const q = normalize(search)
   const groups: ProviderGroup[] = []
+  const hasCurrentProviderMarker = providers.some(provider => provider.is_current === true)
 
   for (const provider of providers) {
     const allFamilies = collapseModelFamilies(provider.models ?? [])
@@ -751,7 +784,7 @@ function groupModels(
     // stable curated order, so selecting a model can't shuffle the list. While
     // SEARCHING the pin is skipped: a query means "show me matches".
     const activeId =
-      !q && isCurrentProvider(provider, current.provider) && current.model
+      !q && isCurrentProvider(provider, current.provider, hasCurrentProviderMarker) && current.model
         ? allFamilies.find(family => family.id === current.model || family.fastId === current.model)?.id
         : undefined
 

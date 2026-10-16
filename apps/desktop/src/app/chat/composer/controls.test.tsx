@@ -156,7 +156,7 @@ describe('internal workspace controls', () => {
     expect((screen.getByRole('button', { name: 'Gửi' }) as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getByRole('button', { name: 'Giọng nói' })).toBeTruthy()
     expect(screen.queryByLabelText('Start voice conversation')).toBeNull()
-    expect(screen.queryByTestId('model-pill')).toBeNull()
+    expect(screen.getByTestId('model-pill')).toBeTruthy()
     expect(onStart).not.toHaveBeenCalled()
   })
 
@@ -164,7 +164,7 @@ describe('internal workspace controls', () => {
     renderControls({ internalWorkspace: true })
 
     expect((screen.getByRole('button', { name: 'Gửi' }) as HTMLButtonElement).disabled).toBe(false)
-    expect(screen.queryByTestId('model-pill')).toBeNull()
+    expect(screen.getByTestId('model-pill')).toBeTruthy()
   })
 })
 
