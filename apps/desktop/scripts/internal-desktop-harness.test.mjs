@@ -115,6 +115,7 @@ test('configured internal manifest pins approved repo, model, and MCP env refs',
   assert.equal(resource.sourceRepository, 'DangLemon/lemon-agent')
   assert.deepEqual(resource.ui, {
     agents: false,
+    bots: true,
     cron: true,
     messaging: false,
     terminal: true,
@@ -282,6 +283,7 @@ test('resolveHarnessViteDefines emits internal flags only for a valid selected i
     assert.deepEqual(resolveHarnessViteDefines({ LEMON_DESKTOP_HARNESS_CONFIG: input }), {
       'import.meta.env.VITE_LEMON_DESKTOP_HARNESS': JSON.stringify('internal'),
       'import.meta.env.VITE_LEMON_HARNESS_SHOW_AGENTS': JSON.stringify('false'),
+      'import.meta.env.VITE_LEMON_HARNESS_SHOW_BOTS': JSON.stringify('false'),
       'import.meta.env.VITE_LEMON_HARNESS_SHOW_CRON': JSON.stringify('true'),
       'import.meta.env.VITE_LEMON_HARNESS_SHOW_MESSAGING': JSON.stringify('false'),
       'import.meta.env.VITE_LEMON_HARNESS_SHOW_TERMINAL': JSON.stringify('true'),
