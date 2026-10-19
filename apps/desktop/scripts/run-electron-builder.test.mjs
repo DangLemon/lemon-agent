@@ -19,6 +19,7 @@ const validHarnessResource = {
   sourceRepository: 'DangLemon/lemon-agent',
   ui: {
     agents: false,
+    bots: false,
     cron: true,
     messaging: false,
     terminal: true,

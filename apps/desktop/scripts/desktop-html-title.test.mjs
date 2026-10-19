@@ -45,7 +45,7 @@ test('internal desktop HTML uses the Lemon AI title', () => {
         schemaVersion: 1,
         profile: 'internal',
         sourceRepository: 'DangLemon/lemon-agent',
-        ui: { agents: false, cron: true, messaging: false, terminal: true, webhooks: false }
+        ui: { agents: false, bots: false, cron: true, messaging: false, terminal: true, webhooks: false }
       })
     )
     const env = { LEMON_DESKTOP_HARNESS_CONFIG: config }

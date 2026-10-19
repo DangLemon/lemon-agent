@@ -61,6 +61,7 @@ function validManifest() {
     sourceRepository: 'DangLemon/lemon-agent',
     ui: {
       agents: false,
+      bots: false,
       cron: true,
       messaging: false,
       terminal: true,
@@ -401,6 +402,7 @@ function changedCanonicalManifest() {
     ...validManifest(),
     ui: {
       agents: true,
+      bots: false,
       cron: false,
       messaging: true,
       terminal: true,
