@@ -17,6 +17,7 @@ describe('internal company static harness capabilities', () => {
 
     expect(state.mode).toBe('upstream')
     expect(state.expected).toBe(false)
+    expect(state.ui.bots).toBe(false)
     expect(state.terminalAllowed).toBe(true)
     expect(internalCompanyRouteAllowed('/settings?tab=providers', state)).toBe(true)
     expect(internalCompanyRouteAllowed('/profiles', state)).toBe(true)
@@ -27,6 +28,7 @@ describe('internal company static harness capabilities', () => {
 
     expect(state.mode).toBe('harness')
     expect(state.expected).toBe(true)
+    expect(state.ui.bots).toBe(false)
     expect(state.provisioning.state).toBe('unknown')
     expect(state.terminalAllowed).toBe(true)
 
@@ -42,6 +44,7 @@ describe('internal company static harness capabilities', () => {
   it('lets static env flags opt into advanced harness surfaces and terminal visibility', () => {
     const ui = harnessUiFlagsFromEnv({
       VITE_LEMON_HARNESS_SHOW_AGENTS: '1',
+      VITE_LEMON_HARNESS_SHOW_BOTS: 'true',
       VITE_LEMON_HARNESS_SHOW_CRON: 'false',
       VITE_LEMON_HARNESS_SHOW_MESSAGING: 'true',
       VITE_LEMON_HARNESS_SHOW_TERMINAL: '0',
@@ -51,6 +54,7 @@ describe('internal company static harness capabilities', () => {
     const state = initialInternalCompanyCapabilities(true, ui)
 
     expect(state.terminalAllowed).toBe(false)
+    expect(state.ui.bots).toBe(true)
     expect(internalCompanyRouteAllowed('/agents', state)).toBe(true)
     expect(internalCompanyRouteAllowed('/messaging', state)).toBe(true)
     expect(internalCompanyRouteAllowed('/webhooks', state)).toBe(true)

@@ -5,6 +5,7 @@ export type HarnessProvisioningState = 'complete' | 'incomplete' | 'unknown'
 
 export interface HarnessUiFlags {
   agents: boolean
+  bots: boolean
   cron: boolean
   messaging: boolean
   terminal: boolean
@@ -34,6 +35,7 @@ export interface HarnessEnv {
 export interface HarnessBuildConstants {
   harness: string
   showAgents: string
+  showBots: string
   showCron: string
   showMessaging: string
   showTerminal: string
@@ -73,6 +75,7 @@ export function harnessEnvFromBuildConstants(constants: Partial<HarnessBuildCons
   return {
     VITE_LEMON_DESKTOP_HARNESS: constants.harness ?? '',
     VITE_LEMON_HARNESS_SHOW_AGENTS: constants.showAgents ?? 'false',
+    VITE_LEMON_HARNESS_SHOW_BOTS: constants.showBots ?? 'false',
     VITE_LEMON_HARNESS_SHOW_CRON: constants.showCron ?? 'true',
     VITE_LEMON_HARNESS_SHOW_MESSAGING: constants.showMessaging ?? 'false',
     VITE_LEMON_HARNESS_SHOW_TERMINAL: constants.showTerminal ?? 'true',
@@ -83,6 +86,7 @@ export function harnessEnvFromBuildConstants(constants: Partial<HarnessBuildCons
 const HARNESS_RUNTIME_GLOBAL_BY_CONSTANT: Record<keyof HarnessBuildConstants, string> = {
   harness: '__LEMON_DESKTOP_HARNESS__',
   showAgents: '__LEMON_HARNESS_SHOW_AGENTS__',
+  showBots: '__LEMON_HARNESS_SHOW_BOTS__',
   showCron: '__LEMON_HARNESS_SHOW_CRON__',
   showMessaging: '__LEMON_HARNESS_SHOW_MESSAGING__',
   showTerminal: '__LEMON_HARNESS_SHOW_TERMINAL__',
@@ -109,6 +113,11 @@ export function internalCompanyBuildEnv(): HarnessEnv {
     showAgents: buildConstantValue(
       'showAgents',
       typeof __LEMON_HARNESS_SHOW_AGENTS__ === 'string' ? __LEMON_HARNESS_SHOW_AGENTS__ : '',
+      'false'
+    ),
+    showBots: buildConstantValue(
+      'showBots',
+      typeof __LEMON_HARNESS_SHOW_BOTS__ === 'string' ? __LEMON_HARNESS_SHOW_BOTS__ : '',
       'false'
     ),
     showCron: buildConstantValue(
