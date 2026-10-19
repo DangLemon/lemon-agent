@@ -265,7 +265,6 @@ function currentPaneAllowed(paneId: string): boolean {
   })
 }
 
-
 function recalledEdgeWeights(paneId: string): [number, number] | undefined {
   const share = paneShares[paneId]
 
@@ -946,6 +945,35 @@ export type TreeSide = 'left' | 'right'
 
 export const $collapsedTreeSides = atom<ReadonlySet<TreeSide>>(new Set())
 
+/** Transient pointer preview; does not affect persisted side visibility. */
+export const $sidebarPreviewSide = atom<TreeSide | null>(null)
+let sidebarPreviewTimer: ReturnType<typeof setTimeout> | undefined
+
+export function setSidebarPreviewPointer(side: TreeSide, inside: boolean) {
+  if (sidebarPreviewTimer) {
+    clearTimeout(sidebarPreviewTimer)
+    sidebarPreviewTimer = undefined
+  }
+
+  if (inside) {
+    $sidebarPreviewSide.set(side)
+  } else {
+    sidebarPreviewTimer = setTimeout(() => {
+      $sidebarPreviewSide.set(null)
+      sidebarPreviewTimer = undefined
+    }, 120)
+  }
+}
+
+export function setSidebarPreviewSide(side: TreeSide | null) {
+  if (sidebarPreviewTimer) {
+    clearTimeout(sidebarPreviewTimer)
+    sidebarPreviewTimer = undefined
+  }
+
+  $sidebarPreviewSide.set(side)
+}
+
 // Side visibility is DERIVED from an app store (the binding owns persistence
 // + button state). Reveals un-collapse the column directly instead of writing
 // back through the setter — the right side's store IS the file tree's toggle,
@@ -960,10 +988,15 @@ export function setTreeSideCollapsed(side: TreeSide, collapsed: boolean) {
     $collapsedTreeSides.set(next)
   }
 
-  // Opening a side is an intent to SEE it — heal any pane of that side that a
-  // stale dismissal record removed from the tree, so ⌘B/⌘J can never press on
-  // nothing. Closing chrome panes is NEVER permanent (main parity).
+  // Opening the side becomes persistent; it must beat any pending hover-preview
+  // leave timer, or that timer can re-open the overlay after the next close.
   if (!collapsed) {
+    if (sidebarPreviewTimer) {
+      clearTimeout(sidebarPreviewTimer)
+      sidebarPreviewTimer = undefined
+    }
+
+    $sidebarPreviewSide.set(null)
     restoreDismissedSidePanes(side)
   }
 }

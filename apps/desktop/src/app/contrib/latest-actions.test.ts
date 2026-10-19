@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { SidebarNavItem } from '../types'
 
-import { latestChatActions, latestSidebarActions } from './latest-actions'
+import { latestChatActions, latestSidebarActions, latestSidebarNavigationActions } from './latest-actions'
 import type { ChatActions, SidebarActions } from './types'
 
 function makeChatActions(): ChatActions {
@@ -70,6 +70,21 @@ describe('latestActions adapters', () => {
     const actions = makeSidebarActions()
     actions.onNavigate = staleNavigate
     const adapted = latestSidebarActions(actions)
+
+    actions.onNavigate = latestNavigate
+    adapted.onNavigate(item)
+
+    expect(staleNavigate).not.toHaveBeenCalled()
+    expect(latestNavigate).toHaveBeenCalledWith(item)
+  })
+
+  it('late-binds navigation for the standalone nav rail', () => {
+    const staleNavigate = vi.fn()
+    const latestNavigate = vi.fn()
+    const item = { id: 'settings', icon: vi.fn(), label: 'Settings', route: '/settings' } satisfies SidebarNavItem
+    const actions = makeSidebarActions()
+    actions.onNavigate = staleNavigate
+    const adapted = latestSidebarNavigationActions(actions)
 
     actions.onNavigate = latestNavigate
     adapted.onNavigate(item)

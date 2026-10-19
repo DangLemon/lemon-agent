@@ -55,6 +55,10 @@ export function latestChatActions(actions: ChatActions): ChatActions {
   }
 }
 
+export function latestSidebarNavigationActions(actions: Pick<SidebarActions, 'onNavigate'>): Pick<SidebarActions, 'onNavigate'> {
+  return { onNavigate: (item: Parameters<SidebarActions['onNavigate']>[0]) => actions.onNavigate(item) }
+}
+
 export function latestSidebarActions(actions: SidebarActions): SidebarActions {
   return {
     onArchiveSession: (...args) => actions.onArchiveSession(...args),

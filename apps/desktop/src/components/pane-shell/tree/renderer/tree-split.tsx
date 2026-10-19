@@ -23,9 +23,11 @@ import {
   $collapsedTreeSides,
   $hiddenTreePanes,
   $narrowViewport,
+  $sidebarPreviewSide,
   isCollapsePane,
   persistTree,
   presetSplitWeights,
+  setSidebarPreviewPointer,
   setTreeGroupMinimized,
   setTreeSplitWeights
 } from '../store'
@@ -97,6 +99,7 @@ export function TreeSplit({ node, root, rootRow }: { node: SplitNode; root?: boo
   const overrides = useSubtreeOverrides(useMemo(() => allPaneIds(node), [node]))
   const editMode = useStore($layoutEditMode)
   const collapsedSides = useStore($collapsedTreeSides)
+  const previewSide = useStore($sidebarPreviewSide)
   const horizontal = node.orientation === 'row'
   const axis = node.orientation
 
@@ -279,7 +282,7 @@ export function TreeSplit({ node, root, rootRow }: { node: SplitNode; root?: boo
       // 2-session layout: 31 commits across a 58-frame drag, 20.7fps, with
       // TreeNode at 490ms and Block/Ct re-parsing markdown for 620ms. The
       // store is written ONCE on release; during the drag the seam is
-      // previewed with inline styles on the same wrappers React sizes.
+      // adjusted with inline styles on the same wrappers React sizes.
       //
       // Preview rules (learned the hard way — a wrong shape here left a
       // phantom gap where a hidden sidebar lived):
@@ -581,33 +584,57 @@ export function TreeSplit({ node, root, rootRow }: { node: SplitNode; root?: boo
       {tracks.map(({ child, collapsed, minimized, narrowCollapsed, sizing, track }, i) => {
         const partner = collapsed ? -1 : seamPartner(i)
         const absorbs = i === absorberIndex
+        const side = semanticSides ? rootChildSide(child, paneFor) : null
+
+        const previewed =
+          !narrow &&
+          rootRow &&
+          horizontal &&
+          !editMode &&
+          collapsed &&
+          side !== null &&
+          side === previewSide &&
+          collapsedSides.has(side)
+
+        const previewPaneId = allPaneIds(child).find(id => paneChrome(paneFor(id)).placement === 'left')
+        const previewWidth = previewPaneId ? (paneChrome(paneFor(previewPaneId)).width ?? '237px') : '237px'
+        const mainIndex = node.children.findIndex(candidate => rootChildSide(candidate, paneFor) === null)
+        const previewOnLeft = mainIndex < 0 || i < mainIndex
 
         return (
           <div
-            className="relative flex min-h-0 min-w-0"
+            className={cn(
+              'relative flex min-h-0 min-w-0',
+              previewed && 'absolute inset-y-0 z-40 overflow-hidden bg-(--ui-sidebar-surface-background) shadow-2xl',
+              previewed && (previewOnLeft ? 'left-0' : 'right-0')
+            )}
             key={child.id}
+            onPointerEnter={rootRow && horizontal && !narrow && side ? () => setSidebarPreviewPointer(side, true) : undefined}
+            onPointerLeave={rootRow && horizontal && !narrow && side ? () => setSidebarPreviewPointer(side, false) : undefined}
             style={
-              collapsed
-                ? { display: 'none' }
-                : minimized
-                  ? { flex: `0 0 ${MINIMIZED_TRACK}` }
-                  : {
-                      // One flexbox formula for everything: a sized zone is
-                      // grow-0 shrink-1 from its preferred basis (it yields
-                      // gracefully on tight windows, floored by min-width);
-                      // everything else splits the leftover by weight. In an
-                      // all-fixed run an UNCAPPED last track grows into the
-                      // leftover; capped sidebars stay at their declared size.
-                      flex: track ? `${absorbs ? 1 : 0} 1 ${track}` : `${grow(i)} ${grow(i)} 0px`,
-                      // Pane-declared clamps apply along THIS split's axis only
-                      // (a rail's width clamp shouldn't constrain its height).
-                      // The absorber is uncapped by selection, so dropping its
-                      // max is a no-op; capped tracks always keep theirs.
-                      minWidth: (horizontal && sizing?.minWidth) || 0,
-                      maxWidth: horizontal && !absorbs ? sizing?.maxWidth : undefined,
-                      minHeight: (!horizontal && sizing?.minHeight) || 0,
-                      maxHeight: horizontal || absorbs ? undefined : sizing?.maxHeight
-                    }
+              previewed
+                ? { width: previewWidth }
+                : collapsed
+                  ? { display: 'none' }
+                  : minimized
+                    ? { flex: `0 0 ${MINIMIZED_TRACK}` }
+                    : {
+                        // One flexbox formula for everything: a sized zone is
+                        // grow-0 shrink-1 from its preferred basis (it yields
+                        // gracefully on tight windows, floored by min-width);
+                        // everything else splits the leftover by weight. In an
+                        // all-fixed run an UNCAPPED last track absorbs the
+                        // leftover; capped sidebars stay put.
+                        flex: track ? `${absorbs ? 1 : 0} 1 ${track}` : `${grow(i)} ${grow(i)} 0px`,
+                        // Pane-declared clamps apply along THIS split's axis only
+                        // (a rail's width clamp shouldn't constrain its height).
+                        // The absorber is uncapped by selection, so dropping its
+                        // max is a no-op; capped tracks always keep theirs.
+                        minWidth: (horizontal && sizing?.minWidth) || 0,
+                        maxWidth: horizontal && !absorbs ? sizing?.maxWidth : undefined,
+                        minHeight: (!horizontal && sizing?.minHeight) || 0,
+                        maxHeight: horizontal || absorbs ? undefined : sizing?.maxHeight
+                      }
             }
           >
             {partner >= 0 && (

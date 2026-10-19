@@ -64,7 +64,8 @@ export const en: Translations = {
       },
       lite: {
         title: 'Uninstall GUI + agent, keep my data',
-        description: 'Remove the app and the Lemon AI agent, but keep config, chats, and secrets for a future reinstall.',
+        description:
+          'Remove the app and the Lemon AI agent, but keep config, chats, and secrets for a future reinstall.',
         consequence: 'the Chat GUI and the Lemon AI agent (config, chats, and secrets are kept)'
       },
       full: {
@@ -186,8 +187,7 @@ export const en: Translations = {
       elevenLabsRejectedKey: 'ElevenLabs rejected the API key (401).',
       diskFull: 'Disk full — free some space, then try again.',
       gatewayAuthFailed: 'Gateway authentication failed — check your API_SERVER_KEY.',
-      methodNotAllowed:
-        'The desktop backend rejected that request (405 Method Not Allowed). Try restarting Lemon AI.',
+      methodNotAllowed: 'The desktop backend rejected that request (405 Method Not Allowed). Try restarting Lemon AI.',
       microphonePermission: 'Microphone permission was denied.',
       openaiRejectedApiKey: 'OpenAI rejected the API key.',
       openaiRejectedApiKeyWithStatus: status => `OpenAI rejected the API key (${status} invalid_api_key).`,
@@ -270,6 +270,7 @@ export const en: Translations = {
     hideSidebar: 'Hide sidebar',
     showSidebar: 'Show sidebar',
     search: 'Search',
+    navigation: 'Main navigation',
     searchTitle: 'Search sessions, views, and actions',
     swapSidebarSides: 'Swap sidebar sides',
     hideRightSidebar: 'Hide right sidebar',
@@ -463,7 +464,8 @@ export const en: Translations = {
       saveAndUse: 'Save and use',
       testConnection: 'Test connection',
       cancelChanges: 'Cancel changes',
-      saveScope: 'Saved connections are used for new conversations. Existing conversations may keep their selected model.',
+      saveScope:
+        'Saved connections are used for new conversations. Existing conversations may keep their selected model.',
       loadFailed: 'Could not load AI connections.',
       saveFailed: 'Could not save this connection. Check the fields and try again.',
       saved: 'Saved. New conversations will use this connection.',
@@ -931,8 +933,7 @@ export const en: Translations = {
       intro:
         'Local by default. Use remote when this app should drive a Lemon AI backend elsewhere. Gateway connections are machine-level; profiles are discovered from the gateways you connect.',
       envOverrideTitle: 'Environment variables are controlling this desktop session.',
-      envOverrideDesc:
-        'Unset LEMON_DESKTOP_REMOTE_URL and LEMON_DESKTOP_REMOTE_TOKEN to use the saved setting below.',
+      envOverrideDesc: 'Unset LEMON_DESKTOP_REMOTE_URL and LEMON_DESKTOP_REMOTE_TOKEN to use the saved setting below.',
       modeTitle: 'Connection mode',
       localTitle: 'Local gateway',
       localDesc: 'Start a private Lemon AI backend on localhost. This is the default and works offline.',
@@ -1058,8 +1059,7 @@ export const en: Translations = {
         'The host key has CHANGED since you last connected. Verify this is expected, then run ssh-keygen -R <host> and reconnect.',
       sshErrNotInstalled:
         'Lemon AI is not installed on the remote host. Install it there (curl -fsSL https://raw.githubusercontent.com/DangLemon/lemon-agent/main/scripts/install.sh | sh) or set the Lemon AI path.',
-      sshErrPlatform:
-        'Unsupported remote platform. Lemon AI SSH mode supports Linux, macOS, and Windows remote hosts.',
+      sshErrPlatform: 'Unsupported remote platform. Lemon AI SSH mode supports Linux, macOS, and Windows remote hosts.',
       sshErrTimeout: 'SSH connection timed out. The host may be unreachable or asleep.',
       sshErrUpdateRequired: 'Update Lemon AI on the remote host before connecting with Desktop SSH.',
       sshErrUnknown: 'SSH connection failed.'
@@ -2094,7 +2094,8 @@ export const en: Translations = {
       menuItem: 'Connect to a remote host…',
       badge: (host: string) => `Runs on ${host}`,
       title: (profile: string) => `Connect ${profile} to a remote host`,
-      description: 'Sessions in this profile will run on the remote Lemon AI you point it at, instead of this computer.',
+      description:
+        'Sessions in this profile will run on the remote Lemon AI you point it at, instead of this computer.',
       urlLabel: 'Remote address',
       urlPlaceholder: 'https://lemon.example.com',
       urlInvalid: 'Enter a full address starting with http:// or https://',
@@ -2399,6 +2400,7 @@ export const en: Translations = {
 
   sidebar: {
     nav: {
+      chat: 'Chat',
       'new-session': 'New session',
       skills: 'Capabilities',
       messaging: 'Messaging',
@@ -2909,7 +2911,8 @@ export const en: Translations = {
     maybeLater: 'Maybe later',
     moreChanges: count => `+ ${count} more change${count === 1 ? '' : 's'} included.`,
     manualTitle: 'Update from your terminal',
-    manualBody: 'You installed Lemon AI from the command line, so updates run there too. Paste this into your terminal:',
+    manualBody:
+      'You installed Lemon AI from the command line, so updates run there too. Paste this into your terminal:',
     manualPickedUp: 'Lemon AI will pick up the new version next time you launch it.',
     guiSkewTitle: 'Update the desktop app',
     guiSkewBody:
@@ -3061,7 +3064,8 @@ export const en: Translations = {
       xai: { short: 'Grok models', description: 'Direct access to xAI Grok models.' },
       local: {
         short: 'self-hosted',
-        description: 'Point Lemon AI at a local or self-hosted OpenAI-compatible endpoint (vLLM, llama.cpp, Ollama, etc).'
+        description:
+          'Point Lemon AI at a local or self-hosted OpenAI-compatible endpoint (vLLM, llama.cpp, Ollama, etc).'
       }
     },
     backToSignIn: 'Back to sign in',

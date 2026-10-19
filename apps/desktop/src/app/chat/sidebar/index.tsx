@@ -3,28 +3,17 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useStore } from '@nanostores/react'
 import type * as React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation } from 'react-router'
 
 import { $internalCompanyCapabilities } from '@/app/internal-company/store'
 import { PlatformAvatar } from '@/app/messaging/platform-icon'
 import { BrandMark } from '@/components/brand-mark'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
-import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { GlyphSpinner } from '@/components/ui/glyph-spinner'
 import { KbdGroup } from '@/components/ui/kbd'
 import { SearchField } from '@/components/ui/search-field'
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem
-} from '@/components/ui/sidebar'
-import { Tip, TipKeybindLabel } from '@/components/ui/tooltip'
-import { useContributions } from '@/contrib/react/use-contributions'
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent } from '@/components/ui/sidebar'
+import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import { searchSessions, type SessionInfo, type SessionSearchResult } from '@/lemon'
 import { appBrand } from '@/lib/app-brand'
@@ -112,7 +101,6 @@ import {
   refreshPullRequests,
   sessionPrKey
 } from '@/store/pull-requests'
-import { openRouteTile } from '@/store/route-tiles'
 import {
   $cronSessions,
   $currentCwd,
@@ -137,19 +125,7 @@ import { markSessionUnread } from '@/store/session-unread-remote'
 import { $archivedSessions, loadArchivedSessions } from '@/store/sidebar-archive'
 import { $sidebarSessionRankIds } from '@/store/sidebar-sort'
 
-import {
-  type AppView,
-  ARTIFACTS_ROUTE,
-  CRON_ROUTE,
-  internalCompanyRouteAllowed,
-  MESSAGING_ROUTE,
-  NEW_CHAT_ROUTE,
-  SETTINGS_ROUTE,
-  SIDEBAR_NAV_AREA,
-  type SidebarNavContribution,
-  SKILLS_ROUTE
-} from '../../routes'
-import type { SidebarNavItem } from '../../types'
+import type { AppView } from '../../routes'
 import { type NewSessionSplitHandler, startNewSessionDrag } from '../new-session-drag'
 
 import { SidebarSectionAddButton } from './chrome'
@@ -183,7 +159,6 @@ import { WorktreeDialog } from './projects/worktree-dialog'
 import { SidebarBlankState, SidebarPinnedEmptyState, SidebarSessionSkeletons } from './section-states'
 import { buildSessionByAnyId, resolvePinnedSessions } from './session-index'
 import { SidebarSessionsSection, VIRTUALIZE_THRESHOLD } from './sessions-section'
-import { CONTEXT_SPLIT_KIT, SplitSubmenu } from './split-submenu'
 
 // Non-session groups (messaging platforms) stay compact: show a few rows up
 // front, reveal more in larger steps on demand. Keeps a busy platform from
@@ -270,81 +245,6 @@ function HarnessBrandLockup() {
   )
 }
 
-const SIDEBAR_NAV: SidebarNavItem[] = [
-  {
-    id: 'new-session',
-    label: '',
-    icon: props => <Codicon name="robot" {...props} />,
-    action: 'new-session',
-    keybindActionId: 'session.new'
-  },
-  {
-    id: 'skills',
-    label: '',
-    icon: props => <Codicon name="symbol-misc" {...props} />,
-    route: SKILLS_ROUTE,
-    keybindActionId: 'nav.skills'
-  },
-  {
-    id: 'messaging',
-    label: '',
-    icon: props => <Codicon name="comment" {...props} />,
-    route: MESSAGING_ROUTE,
-    keybindActionId: 'nav.messaging'
-  },
-  {
-    id: 'artifacts',
-    label: '',
-    icon: props => <Codicon name="files" {...props} />,
-    route: ARTIFACTS_ROUTE,
-    keybindActionId: 'nav.artifacts'
-  },
-  {
-    id: 'cron',
-    label: '',
-    icon: props => <Codicon name="watch" {...props} />,
-    route: CRON_ROUTE,
-    keybindActionId: 'nav.cron'
-  }
-]
-
-const HARNESS_SIDEBAR_NAV: SidebarNavItem[] = [
-  {
-    id: 'chat',
-    label: '',
-    icon: props => <Codicon name="comment-discussion" {...props} />,
-    route: NEW_CHAT_ROUTE
-  },
-  {
-    id: 'skills',
-    label: '',
-    icon: props => <Codicon name="symbol-misc" {...props} />,
-    route: SKILLS_ROUTE,
-    keybindActionId: 'nav.skills'
-  },
-  {
-    id: 'documents',
-    label: '',
-    icon: props => <Codicon name="files" {...props} />,
-    route: ARTIFACTS_ROUTE,
-    keybindActionId: 'nav.artifacts'
-  },
-  {
-    id: 'schedule',
-    label: '',
-    icon: props => <Codicon name="calendar" {...props} />,
-    route: CRON_ROUTE,
-    keybindActionId: 'nav.cron'
-  },
-  {
-    id: 'settings',
-    label: '',
-    icon: props => <Codicon name="settings-gear" {...props} />,
-    route: SETTINGS_ROUTE,
-    keybindActionId: 'nav.settings'
-  }
-]
-
 // Two modes via the `compact` height variant (styles.css):
 //   tall    → each section is shrink-0, capped, its own scroller; Sessions is flex-1.
 //   compact → COMPACT_FLAT drops the caps so the whole stack scrolls as one.
@@ -414,7 +314,6 @@ function searchResultToSession(result: SessionSearchResult): SessionInfo {
 
 interface ChatSidebarProps extends React.ComponentProps<typeof Sidebar> {
   currentView: AppView
-  onNavigate: (item: SidebarNavItem) => void
   onLoadMoreSessions: () => Promise<void> | void
   onLoadMoreMessaging?: (platform: string) => Promise<void> | void
   onResumeSession: (sessionId: string, session?: SessionInfo) => void
@@ -435,7 +334,6 @@ interface ChatSidebarProps extends React.ComponentProps<typeof Sidebar> {
 
 export function ChatSidebar({
   currentView,
-  onNavigate,
   onLoadMoreSessions,
   onLoadMoreMessaging,
   onResumeSession,
@@ -449,35 +347,8 @@ export function ChatSidebar({
 }: ChatSidebarProps) {
   const { t } = useI18n()
   const s = t.sidebar
-  const { pathname } = useLocation()
-  // Contributed nav rows (plugins pairing a page with a sidebar entry) render
-  // below the built-ins with the same chrome; active = at their route.
   const internalCompany = useStore($internalCompanyCapabilities)
   const harnessMode = internalCompany.mode === 'harness'
-  const navContributions = useContributions(SIDEBAR_NAV_AREA)
-
-  const contributedNav = useMemo<SidebarNavItem[]>(
-    () =>
-      navContributions.flatMap(c => {
-        const data = c.data as Partial<SidebarNavContribution> | undefined
-
-        if (!data?.path?.startsWith('/') || !data.label || !internalCompanyRouteAllowed(data.path, internalCompany)) {
-          return []
-        }
-
-        const codicon = data.codicon || 'plug'
-
-        return [
-          {
-            id: c.id,
-            label: data.label,
-            icon: (props: { className?: string }) => <Codicon name={codicon} {...props} />,
-            route: data.path
-          }
-        ]
-      }),
-    [internalCompany, navContributions]
-  )
 
   const panesFlipped = useStore($panesFlipped)
   const grouping = useStore($sidebarGrouping)
@@ -1590,12 +1461,9 @@ export function ChatSidebar({
       })
     )
 
-  const navItems = harnessMode ? HARNESS_SIDEBAR_NAV : SIDEBAR_NAV
-  const harnessNavCopy = t.internalWorkspace.nav
-
   const handlePlainNewSession = () => {
     $newChatProfile.set(null)
-    onNavigate(SIDEBAR_NAV[0]!)
+    onNewSessionInWorkspace(null)
   }
 
   const handleNewSessionPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -1633,156 +1501,26 @@ export function ChatSidebar({
                 onNewSessionPointerDown={handleNewSessionPointerDown}
               />
             ) : (
-              <HarnessBrandLockup />
+              <>
+                <HarnessBrandLockup />
+                <Button
+                  className="h-7 w-full justify-start gap-2 rounded-md px-2 text-[0.8125rem] font-medium text-(--ui-text-secondary) [-webkit-app-region:no-drag] hover:bg-(--ui-control-hover-background) hover:text-foreground"
+                  data-sidebar-new-chat=""
+                  data-tour="sidebar-nav-new-session"
+                  onClick={handlePlainNewSession}
+                  onPointerDown={handleNewSessionPointerDown}
+                  type="button"
+                >
+                  <Codicon name="robot" />
+                  {s.nav['new-session']}
+                  <KbdGroup
+                    className={cn('ml-auto opacity-55', newSessionKbdFlash && 'opacity-100!')}
+                    keys={newSessionKbd}
+                    size="sm"
+                  />
+                </Button>
+              </>
             )}
-            <SidebarMenu className={cn('gap-px', harnessMode && 'mt-3 gap-1')}>
-              {[...navItems, ...contributedNav]
-                .filter(item => !item.route || internalCompanyRouteAllowed(item.route, internalCompany))
-                .map(item => {
-                  const isInteractive = Boolean(item.action) || Boolean(item.route)
-
-                  const active =
-                    (item.id === 'chat' && currentView === 'chat') ||
-                    (item.id === 'skills' && currentView === 'skills') ||
-                    (item.id === 'messaging' && currentView === 'messaging') ||
-                    (item.id === 'artifacts' && currentView === 'artifacts') ||
-                    (item.id === 'documents' && currentView === 'artifacts') ||
-                    (item.id === 'cron' && currentView === 'cron') ||
-                    (item.id === 'schedule' && currentView === 'cron') ||
-                    (item.id === 'settings' && currentView === 'settings') ||
-                    // Contributed rows light up at their own route.
-                    (Boolean(item.route) && pathname === item.route)
-
-                  const isNewSession = item.id === 'new-session'
-
-                  const button = (
-                    <SidebarMenuButton
-                      aria-disabled={!isInteractive}
-                      className={cn(
-                        // no-drag: these rows sit directly under the titlebar's
-                        // [-webkit-app-region:drag] strips (app-shell.tsx), with only
-                        // 6px of clearance. Drag regions win hit-testing over DOM
-                        // (pointer-events can't override), and on Linux/WSLg the
-                        // resolved region has been observed to swallow clicks on the
-                        // top rows. Same carve-out as USER_BUBBLE_BASE_CLASS in
-                        // thread.tsx.
-                        'flex h-7 w-full justify-start gap-2 rounded-md border border-transparent px-2 text-left text-[0.8125rem] font-medium text-(--ui-text-secondary) transition-colors duration-100 ease-out [-webkit-app-region:no-drag] hover:bg-(--ui-control-hover-background) hover:text-foreground hover:transition-none',
-                        harnessMode &&
-                          'h-9 rounded-lg px-2.5 text-[0.875rem] text-[var(--lemon-workspace-ink-muted)] hover:bg-[var(--lemon-workspace-control-hover)] hover:text-[var(--lemon-workspace-ink)]',
-                        active &&
-                          (harnessMode
-                            ? 'border-[var(--lemon-workspace-selected-border)] bg-[var(--lemon-workspace-selected)] text-[var(--lemon-workspace-ink)] shadow-none hover:border-[var(--lemon-workspace-selected-border)]! hover:bg-[var(--lemon-workspace-selected)]'
-                            : 'border-(--ui-stroke-tertiary) bg-(--ui-control-active-background) text-foreground shadow-none hover:border-(--ui-stroke-tertiary)!'),
-                        !isInteractive &&
-                          'cursor-default hover:border-transparent hover:bg-transparent hover:text-inherit'
-                      )}
-                      // A tip anchored to the label points at the end of the
-                      // word; the row is what it's actually about.
-                      data-tip-region=""
-                      onClick={() => {
-                        // A plain new session lands in whatever profile the live
-                        // gateway is on (= the active switcher context). null →
-                        // no swap. The switcher header is the single place to
-                        // change which profile that is.
-                        if (isNewSession) {
-                          $newChatProfile.set(null)
-                        }
-
-                        onNavigate(item)
-                      }}
-                      onPointerDown={event => {
-                        // The "New session" row is a drag source too: drag it onto
-                        // a chat zone's tab strip / edge / center to create the
-                        // session exactly there (stack / split). The pointer drag
-                        // session owns the gesture — a sub-threshold release falls
-                        // through to the onClick above (ordinary new session), and
-                        // an engaged drag suppresses that click so it never
-                        // double-creates. The create callback sets $newChatProfile
-                        // itself (the suppressed click can't), so a dragged new
-                        // session lands in the same profile a click would.
-                        if (!isNewSession) {
-                          return
-                        }
-
-                        startNewSessionDrag(placement => {
-                          $newChatProfile.set(null)
-                          onNewSessionSplit(placement.dir, { anchor: placement.anchor, before: placement.before })
-                        }, event)
-                      }}
-                      tooltip={
-                        item.keybindActionId && !harnessMode
-                          ? {
-                              children: (
-                                <TipKeybindLabel actionId={item.keybindActionId} text={s.nav[item.id] ?? item.label} />
-                              )
-                            }
-                          : harnessMode
-                            ? (harnessNavCopy[item.id as keyof typeof harnessNavCopy] ?? s.nav[item.id] ?? item.label)
-                            : (s.nav[item.id] ?? item.label)
-                      }
-                      type="button"
-                    >
-                      <item.icon className="size-4 shrink-0 text-[color-mix(in_srgb,currentColor_72%,transparent)]" />
-                      {/* Shrink-to-fit, not flex-1: the label carries the row's
-                        `data-tour` handle, and anything anchored to it should
-                        land at the end of the WORD, not out at the sidebar's
-                        edge. Still truncates — `min-w-0` lets it shrink past
-                        its content when the rail is narrow — and the trailing
-                        chip's `ml-auto` was already doing the pushing that
-                        `flex-1` looked like it was for.
-                        Its own `sidebar-nav-` namespace: the overlay nav owns
-                        `nav-<id>`, and both are on screen with Settings open. */}
-                      <span className="min-w-0 truncate" data-tip-arrow-only="" data-tour={`sidebar-nav-${item.id}`}>
-                        {harnessMode
-                          ? (harnessNavCopy[item.id as keyof typeof harnessNavCopy] ?? s.nav[item.id] ?? item.label)
-                          : (s.nav[item.id] ?? item.label)}
-                      </span>
-                      {isNewSession && (
-                        <KbdGroup
-                          className={cn('ml-auto opacity-55', newSessionKbdFlash && 'opacity-100!')}
-                          keys={newSessionKbd}
-                          size="sm"
-                        />
-                      )}
-                    </SidebarMenuButton>
-                  )
-
-                  // New session + route-backed pages can open in a split —
-                  // right-click for the directional "Open in split" submenu.
-                  return (
-                    <SidebarMenuItem key={item.id}>
-                      {isNewSession || item.route ? (
-                        <ContextMenu>
-                          <ContextMenuTrigger asChild>{button}</ContextMenuTrigger>
-                          <ContextMenuContent
-                            aria-label={
-                              harnessMode
-                                ? (harnessNavCopy[item.id as keyof typeof harnessNavCopy] ??
-                                  s.nav[item.id] ??
-                                  item.label)
-                                : (s.nav[item.id] ?? item.label)
-                            }
-                          >
-                            <SplitSubmenu
-                              kit={CONTEXT_SPLIT_KIT}
-                              label={s.row.openInSplit}
-                              onSplit={dir => {
-                                if (isNewSession) {
-                                  onNewSessionSplit(dir)
-                                } else if (item.route) {
-                                  openRouteTile(item.route, dir)
-                                }
-                              }}
-                            />
-                          </ContextMenuContent>
-                        </ContextMenu>
-                      ) : (
-                        button
-                      )}
-                    </SidebarMenuItem>
-                  )
-                })}
-            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 

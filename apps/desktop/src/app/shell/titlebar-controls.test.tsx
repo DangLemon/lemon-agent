@@ -1,13 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { initialInternalCompanyCapabilities } from '@/app/internal-company/capabilities'
-import {
-  resetInternalCompanyCapabilitiesForTest,
-  setInternalCompanyCapabilitiesForTest
-} from '@/app/internal-company/store'
+import { resetInternalCompanyCapabilitiesForTest, setInternalCompanyCapabilitiesForTest } from '@/app/internal-company/store'
+import { $sidebarPreviewSide } from '@/components/pane-shell/tree/store'
+import { $panesFlipped, $sidebarOpen, setSidebarOpen } from '@/store/layout'
 
 import { TitlebarControls, type TitlebarTool } from './titlebar-controls'
 
@@ -22,6 +21,10 @@ function renderControls(tools: TitlebarTool[], leftTools: TitlebarTool[] = []) {
 afterEach(() => {
   cleanup()
   resetInternalCompanyCapabilitiesForTest()
+  vi.unstubAllGlobals()
+  setSidebarOpen(true)
+  $sidebarPreviewSide.set(null)
+  $panesFlipped.set(false)
 })
 
 describe('TitlebarControls internal harness policy', () => {
@@ -33,6 +36,16 @@ describe('TitlebarControls internal harness policy', () => {
 
     expect(screen.queryByRole('button', { name: 'Profiles' })).toBeNull()
     expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('closes the sidebar instead of leaving a stale hover preview over it', () => {
+    renderControls([])
+    $sidebarPreviewSide.set('left')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide sidebar' }))
+
+    expect($sidebarOpen.get()).toBe(false)
+    expect($sidebarPreviewSide.get()).toBeNull()
   })
 
   it('keeps only sidebar and settings controls in the internal harness titlebar', () => {

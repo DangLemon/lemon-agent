@@ -127,7 +127,7 @@ export function NarrowOverlays() {
 
   return (
     <>
-      {/* Hover-intent strips on each edge that has a collapsed pane. */}
+      {/* Narrow viewports unmount collapsible panes; reveal them over the grid. */}
       {sides.map(side => (
         <div
           className={cn('absolute inset-y-0 z-30 w-1.5', side === 'left' ? 'left-0' : 'right-0')}

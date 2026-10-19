@@ -5,6 +5,7 @@ import type { ChatSidebar } from '../chat/sidebar'
 import type { CommandCenterSection } from '../command-center'
 import type { useGatewayRequest } from '../gateway/hooks/use-gateway-request'
 import type { ModelMenuPanel } from '../shell/model-menu-panel'
+import type { SidebarNavItem } from '../types'
 
 export type GatewayRequester = ReturnType<typeof useGatewayRequest>['requestGateway']
 
@@ -17,12 +18,13 @@ export type SidebarActions = Pick<
   | 'onLoadMoreMessaging'
   | 'onLoadMoreSessions'
   | 'onManageCronJob'
-  | 'onNavigate'
   | 'onNewSessionInWorkspace'
   | 'onNewSessionSplit'
   | 'onResumeSession'
   | 'onTriggerCronJob'
->
+> & {
+  onNavigate: (item: SidebarNavItem) => void
+}
 
 /** The ChatView handlers the controller owns — forwarded verbatim. */
 export type ChatActions = Pick<
@@ -58,6 +60,8 @@ export type ChatActions = Pick<
  * so surfaces bound to it never re-render on identity churn but always invoke
  * the latest closure.
  */
+export type NavRailActions = Pick<SidebarActions, 'onNavigate'>
+
 export interface WiringActions extends SidebarActions, ChatActions {
   /** Imperative access to the live gateway for controller-owned callbacks.
    *  Rendered surfaces subscribe to the active `$gateway` atom directly. */
@@ -69,10 +73,11 @@ export interface WiringActions extends SidebarActions, ChatActions {
   toggleCommandCenter: () => void
 }
 
-/** The four wired surfaces the controller publishes; `WiredPane` renders one by
- *  key inside a registered pane / chrome slot. */
+/** The wired surfaces the controller publishes; `WiredPane` renders panes,
+ *  shell-only surfaces mount once outside the layout tree. */
 export interface WiringApi {
   sidebar: ReactNode
+  navRail: ReactNode
   chatRoutes: ReactNode
   terminal: ReactNode
   statusbar: ReactNode

@@ -21,6 +21,7 @@ import { $freshDraftReady, $gatewayState } from '@/store/session'
 
 import { ChatView } from '../chat'
 import { ChatSidebar } from '../chat/sidebar'
+import { SidebarNavRail } from '../chat/sidebar/nav-rail'
 import { TerminalPaneChrome } from '../right-sidebar/terminal/chrome'
 import { contributedRoutes, internalCompanyRouteAllowed, NEW_CHAT_ROUTE, ROUTES_AREA, sessionRoute } from '../routes'
 import { useStatusSnapshot } from '../shell/hooks/use-status-snapshot'
@@ -28,9 +29,9 @@ import { useStatusbarItems } from '../shell/hooks/use-statusbar-items'
 import { ModelMenuPanel } from '../shell/model-menu-panel'
 import { StatusbarControls } from '../shell/statusbar-controls'
 
-import { latestChatActions, latestSidebarActions } from './latest-actions'
+import { latestChatActions, latestSidebarActions, latestSidebarNavigationActions } from './latest-actions'
 import { setStatusbarItemGroup, useStatusbarContributions } from './panes'
-import type { SidebarActions, WiringActions } from './types'
+import type { NavRailActions, SidebarActions, WiringActions } from './types'
 
 // Same lazy-view split as DesktopController — pages load on demand. The
 // full-page views the workspace route table mounts live here; overlay views
@@ -55,6 +56,18 @@ export const SidebarSurface = memo(function SidebarSurface({
   const latestActions = useMemo(() => latestSidebarActions(actions), [actions])
 
   return <ChatSidebar currentView={currentView} {...latestActions} />
+})
+
+export const SidebarNavRailSurface = memo(function SidebarNavRailSurface({
+  actions,
+  currentView
+}: {
+  actions: NavRailActions
+  currentView: ComponentProps<typeof ChatSidebar>['currentView']
+}) {
+  const latestNavigation = useMemo(() => latestSidebarNavigationActions(actions), [actions])
+
+  return <SidebarNavRail currentView={currentView} onNavigate={latestNavigation.onNavigate} />
 })
 
 export const TerminalSurface = memo(function TerminalSurface() {
