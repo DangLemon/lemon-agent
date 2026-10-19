@@ -9,7 +9,7 @@ metadata:
   lemon:
     tags: [computer-use, desktop, automation, gui, cross-platform]
     category: desktop
-    related_skills: []
+    related_skills: [browser-native-orchestration]
 ---
 
 # Computer Use (universal, any-model, cross-platform)
@@ -32,9 +32,21 @@ skill installed by `cua-driver skills install`. Lemon AI autodetection is a
 planned cua-driver follow-up, so currently point Lemon AI at the resulting
 `~/.cua-driver/skills/cua-driver` directory or symlink it into your skill space.
 
+## Privilege (Settings → Computer Use)
+
+Desktop exposes a Codex-like privilege picker (separate from macOS TCC):
+
+| Mode | Behavior |
+|---|---|
+| `capture_only` | Capture / list only — click/type blocked |
+| `ask` (default) | Mutate prompts Allow / Deny |
+| `trusted_apps` | Listed apps skip the prompt; others still ask |
+
+The tool layer also **requires a fresh capture** before click/type/key/drag/scroll/set_value (`stale_capture` if missing or past TTL). Always capture first.
+
 ## The canonical workflow
 
-**Step 1 — Capture first.** Almost every task starts with:
+**Step 1 — Capture first.** Almost every task starts with (enforced — blind mutate fails):
 
 ```
 computer_use(action="capture", mode="som", app="<the app you're driving>")
@@ -178,6 +190,10 @@ own schemas document the current contract. Reserve `computer_use` for browser
 *chrome* (the address bar, permission prompts, extension popups, native
 dialogs) and anything else on screen that isn't page content.
 
+**Orchestration (Phase 4):** see skill `browser-native-orchestration` for the
+decision table and the web-form + TextEdit demo
+(`scripts/demo_browser_native_orchestration.py`).
+
 ### Key shortcuts vary per platform
 
 Use the host's idiomatic modifier:
@@ -288,6 +304,14 @@ in your conversation context.
 | Anything else weird | **First action: ask the user to run `lemon computer-use doctor`.** It runs the cua-driver `health_report` MCP tool and prints a structured per-check matrix. Their output tells you (and them) exactly what's wrong |
 
 ## When NOT to use `computer_use`
+
+| Task | Prefer |
+|---|---|
+| Fill / click inside a web page DOM | `browser_*` |
+| Browser OS chrome (address bar, permission sheet) | `computer_use` |
+| TextEdit / Finder / Mail / Slack desktop | `computer_use` |
+| Known file path edits | `read_file` / `write_file` / `patch` |
+| Shell | `terminal` |
 
 - **Web automation you can do via separate headless `browser_*` tools** — those use a
   real headless Chromium and are more reliable than driving the user's

@@ -2210,6 +2210,20 @@ DEFAULT_CONFIG = {
         # closed unless signed with the official com.trycua.driver identity. Only for local driver
         # development from source.
         "allow_unsigned_driver": False,
+        # Desktop privilege picker (Settings → Computer Use). Distinct from shell approvals.mode / YOLO.
+        # capture_only | ask | trusted_apps — default ask (mutate prompts; never default YOLO).
+        "privilege_mode": "ask",
+        # App names / bundle ids that skip the mutate approval prompt when privilege_mode=trusted_apps.
+        "trusted_apps": [],
+        # Mutate (click/type/…) requires a successful capture within this many seconds (0 disables TTL).
+        "capture_ttl_seconds": 120,
+        # When true, blind mutate without a prior capture for the session fails closed (Codex-style ritual).
+        "require_fresh_capture": True,
+        # Phase 3 history lite: opt-in session timeline of CU actions. Privacy default OFF (not Skysight).
+        "history_enabled": False,
+        "history_max_events": 200,
+        # When true, also append jsonl under $LEMON_HOME/cache/computer_use/ (still opt-in).
+        "history_persist": False,
     },
     # Egress credential-injection proxy (iron-proxy) for remote terminal sandboxes (Docker today):
     # the sandbox sees opaque tokens and iron-proxy swaps in real credentials at egress, so a

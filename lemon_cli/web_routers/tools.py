@@ -17,8 +17,8 @@ from lemon_cli.web_deps import late
 from lemon_cli.web_server_profiles import _plugin_terminal_backend_rows
 from starlette.concurrency import run_in_threadpool
 from lemon_cli.web_models import (
-    TerminalBackendSelect, ToolsetEnvUpdate, ToolsetModelSelect, ToolsetPostSetup,
-    ToolsetProviderSelect, ToolsetToggle)
+    ComputerUseHistoryUpdate, ComputerUsePrivilegeUpdate, TerminalBackendSelect, ToolsetEnvUpdate,
+    ToolsetModelSelect, ToolsetPostSetup, ToolsetProviderSelect, ToolsetToggle)
 from lemon_cli.web_routers._common import (
     _CONFIG_MUTATION_LOCK, _profile_cli_args, _profile_scope, _spawn_lemon_action,
     config_write_scope, log as _log, scoped_to_thread, spawn_profile_action)
@@ -670,6 +670,74 @@ async def get_computer_use_status(profile: Optional[str] = None):
     from tools.computer_use.permissions import computer_use_status
 
     return await scoped_to_thread(profile, computer_use_status)
+
+
+@router.get("/api/tools/computer-use/privilege")
+async def get_computer_use_privilege(profile: Optional[str] = None):
+    """Desktop privilege picker state (``privilege_mode`` + ``trusted_apps``)."""
+    from tools.computer_use.privilege import privilege_snapshot
+
+    return await scoped_to_thread(profile, privilege_snapshot)
+
+
+@router.put("/api/tools/computer-use/privilege")
+async def put_computer_use_privilege(
+    body: ComputerUsePrivilegeUpdate, profile: Optional[str] = None):
+    """Update ``computer_use.privilege_mode`` / ``trusted_apps`` (Codex-like picker)."""
+    from tools.computer_use.privilege import apply_privilege_update, parse_privilege_mode
+
+    mode = body.privilege_mode
+    trusted = body.trusted_apps
+    if mode is None and trusted is None:
+        raise _bad_request("Provide privilege_mode and/or trusted_apps")
+    if mode is not None:
+        try:
+            mode = parse_privilege_mode(mode)
+        except ValueError as exc:
+            raise _bad_request(str(exc)) from exc
+
+    def _run():
+        with config_write_scope(body.profile or profile):
+            try:
+                return apply_privilege_update(privilege_mode=mode, trusted_apps=trusted)
+            except ValueError as exc:
+                raise _bad_request(str(exc)) from exc
+
+    return await asyncio.to_thread(_run)
+
+
+@router.get("/api/tools/computer-use/history")
+async def get_computer_use_history(
+    profile: Optional[str] = None, session_id: Optional[str] = None, limit: int = 50):
+    """Opt-in CU session timeline + config snapshot (privacy default OFF)."""
+    from tools.computer_use.history import history_snapshot, summarize_history
+
+    def _run():
+        snap = history_snapshot()
+        summary = summarize_history(session_id or "", limit=limit)
+        return {**snap, **summary}
+
+    return await scoped_to_thread(profile, _run)
+
+
+@router.put("/api/tools/computer-use/history")
+async def put_computer_use_history(
+    body: ComputerUseHistoryUpdate, profile: Optional[str] = None):
+    """Enable/disable CU history (never on by default)."""
+    from tools.computer_use.history import apply_history_update
+
+    if body.history_enabled is None and body.history_max_events is None and body.history_persist is None:
+        raise _bad_request("Provide history_enabled and/or history_max_events and/or history_persist")
+
+    def _run():
+        with config_write_scope(body.profile or profile):
+            return apply_history_update(
+                history_enabled=body.history_enabled,
+                history_max_events=body.history_max_events,
+                history_persist=body.history_persist,
+            )
+
+    return await asyncio.to_thread(_run)
 
 
 @router.post("/api/tools/computer-use/permissions/grant")

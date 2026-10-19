@@ -44,6 +44,8 @@ def _install_backend(cu_tool):
     backend = _RecordingBackend()
     cu_tool.reset_backend_for_tests()
     cu_tool._backend = backend
+    # reset clears capture freshness; re-seed empty session for legacy click tests
+    cu_tool.mark_capture_fresh("")
     return backend
 
 

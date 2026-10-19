@@ -369,6 +369,7 @@ def test_persistent_focus_has_a_separate_approval_scope():
         return "approve_once" if action == "click" else "deny"
 
     computer_use.set_approval_callback(approve)
+    computer_use.mark_capture_fresh("approval-session")
     try:
         result = json.loads(
             computer_use.handle_computer_use(

@@ -268,11 +268,26 @@ class _CaptureMixin:
         # array (trycua/cua#1961). Falls back to markdown regex parsing for cua-driver builds that didn't
         # carry the structured shape — those bounds come back (0,0,0,0); the structured path preserves real
         # frames.
-        sc_elements = (gws_out.get("structuredContent") or {}).get("elements")
+        sc = gws_out.get("structuredContent") or {}
+        sc_elements = sc.get("elements") if isinstance(sc, dict) else None
         elements = (_parse_elements_from_structured(sc_elements) if isinstance(sc_elements, list) and sc_elements
                     else _parse_elements_from_tree(tree) if tree else [])
-        # Tokens are tied to this snapshot: overwrite the whole map (and clear it when the new capture carries none).
-        self._snapshot_tokens = {e.index: e.element_token for e in elements if e.element_token}
+        # cua-driver ≥0.36 returns snapshot_id / capture_id at the structured root even when
+        # `elements` is omitted (tree_markdown only). Keep them for element_token synthesis + pixel paths.
+        snap = sc.get("snapshot_id") if isinstance(sc, dict) else None
+        cap_id = sc.get("capture_id") if isinstance(sc, dict) else None
+        self._snapshot_id = snap if isinstance(snap, str) and snap.startswith("s") else None
+        self._capture_id = cap_id if isinstance(cap_id, str) and cap_id else None
+        # Tokens are tied to this snapshot: prefer driver-provided tokens, else synthesize
+        # `<snapshot_id>:<index>` so click/set_value can address rows without bare element_index.
+        tokens: Dict[int, str] = {}
+        for e in elements:
+            if e.element_token:
+                tokens[e.index] = e.element_token
+            elif self._snapshot_id:
+                tokens[e.index] = f"{self._snapshot_id}:{e.index}"
+                e.element_token = tokens[e.index]
+        self._snapshot_tokens = tokens
         return *_image_from_tool_result(gws_out), elements, window_title
 
     def capture(self, mode: str = "som", app: Optional[str] = None, pid: Optional[int] = None,

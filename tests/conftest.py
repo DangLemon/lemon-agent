@@ -1720,6 +1720,15 @@ def _isolate_computer_use_approval_state():
     and only fail in full-suite runs. Teardown-only, so tests that install
     their own callback keep it for their own duration.
     """
+    try:
+        # Legacy tests click without an explicit capture; seed the empty session
+        # so require_fresh_capture does not break the suite. Privilege/stale
+        # tests use a non-empty session_id and clear this themselves.
+        from tools.computer_use import tool as _cu_tool
+
+        _cu_tool.mark_capture_fresh("")
+    except Exception:
+        pass
     yield
     try:
         from tools.computer_use import tool as _cu_tool
@@ -1728,6 +1737,9 @@ def _isolate_computer_use_approval_state():
         with _cu_tool._approval_lock:
             _cu_tool._always_allow.clear()
             _cu_tool._session_auto_approve.clear()
+        with _cu_tool._capture_freshness_lock:
+            _cu_tool._last_capture_at.clear()
+            _cu_tool._last_capture_app.clear()
     except Exception:
         pass
 

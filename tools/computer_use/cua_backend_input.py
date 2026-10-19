@@ -102,9 +102,25 @@ class _InputMixin:
         if button_norm not in {"left", "right", "middle"}:
             return _refuse("click", f"unknown button {button!r} — expected left, right, middle.")
         tool, args["button"] = ("double_click" if click_count == 2 else "click"), button_norm
+
+        def _element_click_args() -> Dict[str, Any]:
+            # Prefer opaque token (cua-driver ≥0.36); keep element_index for older schemas —
+            # `_action` strips index when the live schema rejects it.
+            payload: Dict[str, Any] = {"element_index": element}
+            if token := self._element_token_for(element):
+                payload["element_token"] = token
+            return payload
+
+        def _coordinate_click_args() -> Dict[str, Any]:
+            payload: Dict[str, Any] = {"x": x, "y": y}
+            # Pixel path: capture_id lets 0.36 refuse stale screenshots atomically.
+            if isinstance(getattr(self, "_capture_id", None), str) and self._capture_id:
+                payload["capture_id"] = self._capture_id
+            return payload
+
         refusal = self._pointer_args(tool, args, (
-            ("element_index click", {"element_index": element} if element is not None else None),
-            ("coordinate click", {"x": x, "y": y} if x is not None and y is not None else None),
+            ("element click", _element_click_args if element is not None else None),
+            ("coordinate click", _coordinate_click_args if x is not None and y is not None else None),
         ), "click requires element= or x/y.")
         if modifiers:
             args["modifier"] = modifiers
@@ -138,8 +154,14 @@ class _InputMixin:
         # (window_id is still sent for routing).
         xy = lambda: ({"x": x, "y": y}  # noqa: E731
                       if self._session.supports_capability("input.scroll.coordinates", tool="scroll") else {})
+        def _element_scroll_args() -> Dict[str, Any]:
+            payload: Dict[str, Any] = {"element_index": element}
+            if token := self._element_token_for(element):
+                payload["element_token"] = token
+            return payload
+
         refusal = self._pointer_args("scroll", args, (
-            ("element scroll", {"element_index": element}
+            ("element scroll", _element_scroll_args
              if element is not None and self._active_window_id is not None else None),
             ("coordinate scroll", xy if x is not None and y is not None else None),
         ), None)
@@ -168,4 +190,7 @@ class _InputMixin:
             return refusal
         if element is None:
             return _refuse("set_value", "set_value requires element= (element index).")
-        return self._action("set_value", {**args, "element_index": element, "value": value})
+        payload: Dict[str, Any] = {**args, "element_index": element, "value": value}
+        if token := self._element_token_for(element):
+            payload["element_token"] = token
+        return self._action("set_value", payload)
