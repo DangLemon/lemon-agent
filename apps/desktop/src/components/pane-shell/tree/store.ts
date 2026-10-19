@@ -982,6 +982,10 @@ export function setSidebarPreviewSide(side: TreeSide | null) {
 const sideOpeners: Partial<Record<TreeSide, (open: boolean) => void>> = {}
 
 export function setTreeSideCollapsed(side: TreeSide, collapsed: boolean) {
+  if (collapsed && $sidebarPreviewSide.get() === side) {
+    setSidebarPreviewSide(null)
+  }
+
   const next = toggledSet($collapsedTreeSides.get(), side, collapsed)
 
   if (next) {

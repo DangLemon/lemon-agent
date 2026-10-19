@@ -1,4 +1,5 @@
-import { cleanup, render } from '@testing-library/react'
+import { act, cleanup, render } from '@testing-library/react'
+import { atom } from 'nanostores'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { registry } from '@/contrib/registry'
@@ -97,6 +98,26 @@ describe('the main placement floor in the renderer', () => {
     expect(sessions!.style.display).not.toBe('none')
     expect(globalThis.document.querySelectorAll('[data-tree-group="grp-sessions"]')).toHaveLength(1)
     expect(zoneWrapper('grp-main')!.style.display).not.toBe('none')
+  })
+
+  it('clears a hover preview when the persisted side closes', () => {
+    const tree = split('row', [group(['sessions'], { id: 'grp-sessions' }), group(['workspace'], { id: 'grp-main' })])
+    const $open = atom(false)
+
+    declareDefaultTree(tree)
+    bindTreeSideVisibility('left', $open, vi.fn())
+    $sidebarPreviewSide.set('left')
+    render(<TreeSplit node={tree} root rootRow />)
+
+    expect(zoneWrapper('grp-sessions')?.style.display).not.toBe('none')
+
+    act(() => {
+      $open.set(true)
+      $open.set(false)
+    })
+
+    expect($sidebarPreviewSide.get()).toBeNull()
+    expect(zoneWrapper('grp-sessions')?.style.display).toBe('none')
   })
 
   it('renders the main zone with every main tab hidden, and leaves tool zones absorbable', () => {

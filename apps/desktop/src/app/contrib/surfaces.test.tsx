@@ -15,7 +15,7 @@ import type { WiringActions } from './types'
 vi.mock('@/contrib/react/use-contributions', () => ({ useContributions: vi.fn() }))
 vi.mock('@/store/connections', () => ({ $activeConnectionId: atom('local') }))
 vi.mock('@/store/gateway', () => ({ $gateway: atom<unknown>(null) }))
-vi.mock('@/store/profile', () => ({ $activeGatewayProfile: atom('default') }))
+vi.mock('@/store/profile', () => ({ $activeGatewayProfile: atom('default'), $showAllProfiles: atom(false) }))
 vi.mock('@/store/session', () => ({
   $freshDraftReady: atom(false),
   $gatewayState: atom('open')
@@ -48,8 +48,13 @@ vi.mock('../routes', () => ({
       return state.allowedRoutes?.has(path) ?? true
     }
   ),
+  ARTIFACTS_ROUTE: '/artifacts',
+  CRON_ROUTE: '/cron',
+  MESSAGING_ROUTE: '/messaging',
   NEW_CHAT_ROUTE: '/new',
   ROUTES_AREA: 'routes',
+  SETTINGS_ROUTE: '/settings',
+  SKILLS_ROUTE: '/skills',
   sessionRoute: (id: string) => `/${id}`
 }))
 vi.mock('./latest-actions', () => ({ latestChatActions: () => ({}), latestSidebarActions: () => ({}) }))
