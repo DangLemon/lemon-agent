@@ -38,7 +38,7 @@ import { estimateServerTokens, serverUsageCount } from '@/lib/mcp-cost'
 import { completeMcpDesktopOAuth } from '@/lib/mcp-dashboard-oauth'
 import { type McpImportEntry, parseMcpImport } from '@/lib/mcp-import'
 import { useMcpOAuthScopeGuard } from '@/lib/mcp-oauth-scope'
-import { NEEDS_AUTH_RE, PROBE_TTL_MS, probeCache, probeKey, serverFingerprint } from '@/lib/mcp-probe-cache'
+import { NEEDS_AUTH_RE, serverFingerprint } from '@/lib/mcp-probe-cache'
 import { getServers, isServerShape, type McpServers, normalizeEntry } from '@/lib/mcp-servers'
 import { countEnabledTools, isToolEnabled, toggleToolInServer } from '@/lib/mcp-tool-filter'
 import { cn } from '@/lib/utils'
@@ -362,9 +362,9 @@ export function McpTab({
 
   // The profile this tab configures: the Capabilities profile-scope selector's
   // choice (`profile`) when set, otherwise the app-wide active profile. Every
-  // fetch/save below is scoped to it, and it keys the config/catalog/probe
-  // caches so switching the selector refetches and never shows another
-  // profile's servers (AGENTS.md scope-in-key). When no override is passed this
+  // fetch/save below is scoped to it, and it keys the config/catalog caches so
+  // switching the selector refetches and never shows another profile's servers
+  // (AGENTS.md scope-in-key). When no override is passed this
   // resolves to $activeGatewayProfile, so behavior is identical to before.
   const appProfile = useStore($activeGatewayProfile)
   const scopeProfileKey = profile != null ? profileScopeKey(profile) : normalizeProfileKey(appProfile)
@@ -394,15 +394,13 @@ export function McpTab({
 
   const [saving, setSaving] = useState(false)
   const [probes, setProbes] = useState<Record<string, Probe>>({})
-  const probesRef = useRef(probes)
-  probesRef.current = probes
 
   // 30-day per-tool call counts (registry names). null = analytics unavailable
   // or not loaded yet — the cost overlay then omits usage entirely.
   const [toolCalls30d, setToolCalls30d] = useState<null | Record<string, number>>(null)
 
   // Blocks the browser until an OAuth flow lands a token; also reset on profile
-  // switch, so declared up here alongside the other per-profile view state.
+  // switch, so declared here alongside the other per-profile view state.
   const [authing, setAuthing] = useState<null | string>(null)
 
   // Master document draft. `docVersion` remounts the editor when the draft is
@@ -533,16 +531,16 @@ export function McpTab({
   }, [config, dirty, draft, names, profilePending, servers])
 
   // Bumped on every profile switch. Async probe/auth completions capture the
-  // epoch at call time and bail if it changed, so a slow profile-A request can't
+  // epoch at call time and bail if it changed, so a slow profile-A request cannot
   // write its result into profile B's state after the user switched.
   const profileEpoch = useRef(0)
   const oauthAttempt = useRef(0)
 
   // A profile switch invalidates the config query (see store/profile.ts), which
   // refetches the new backend's mcp.json. Reset ALL per-profile view state — the
-  // draft (incl. a dirty one, so profile A's edits can't be saved into B), its
-  // seed latch, probes, and cursor — so everything reseeds for the new profile.
-  // The probe cache is already profile-keyed, so this just forces a re-probe.
+  // draft (including a dirty one, so profile A's edits cannot be saved into B),
+  // its seed latch, manual probe state, and cursor — so everything reseeds for
+  // the new profile.
   useOnProfileSwitch(() => {
     profileEpoch.current += 1
     draftSeeded.current = false
@@ -587,7 +585,6 @@ export function McpTab({
 
   const runProbe = async (serverName: string) => {
     const epoch = profileEpoch.current
-    const key = probeKey(serverName, servers[serverName], scopeProfileKey)
     setProbes(current => ({ ...current, [serverName]: 'probing' }))
 
     try {
@@ -598,7 +595,6 @@ export function McpTab({
         return
       }
 
-      probeCache.set(key, { at: Date.now(), result })
       setProbes(current => ({ ...current, [serverName]: result }))
     } catch (err) {
       if (profileEpoch.current !== epoch) {
@@ -606,7 +602,6 @@ export function McpTab({
       }
 
       const result = { ok: false, error: err instanceof Error ? err.message : String(err), tools: [] }
-      probeCache.set(key, { at: Date.now(), result })
       setProbes(current => ({ ...current, [serverName]: result }))
     }
   }
@@ -641,11 +636,6 @@ export function McpTab({
       }
 
       setProbes(current => ({ ...current, [serverName]: result }))
-      // Cache under the POST-auth fingerprint (auth: oauth) on success — that's
-      // the config the mount effect will read back, so it hits this entry.
-      const probedConfig = result.ok ? { ...servers[serverName], auth: 'oauth' } : servers[serverName]
-      probeCache.set(probeKey(serverName, probedConfig, scopeProfileKey), { at: Date.now(), result })
-
       if (result.ok) {
         // The endpoint persisted `auth: oauth` — mirror it locally.
         const nextServers = { ...servers, [serverName]: { ...servers[serverName], auth: 'oauth' } }
@@ -686,27 +676,6 @@ export function McpTab({
       }
     }
   }
-
-  // It should just know: probe enabled servers as config arrives — but through
-  // the cache, so revisiting the page doesn't respawn/reconnect the fleet.
-  useEffect(() => {
-    for (const [serverName, server] of Object.entries(servers)) {
-      if (!serverEnabled(server) || probesRef.current[serverName] !== undefined) {
-        continue
-      }
-
-      const cached = probeCache.get(probeKey(serverName, server, scopeProfileKey))
-
-      if (cached && Date.now() - cached.at < PROBE_TTL_MS) {
-        setProbes(current => ({ ...current, [serverName]: cached.result }))
-      } else {
-        void runProbe(serverName)
-      }
-    }
-    // Re-run only when the server set changes; runProbe is recreated every
-    // render and adding it would re-probe the fleet on every keystroke.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [servers])
 
   // Cosmetic 30-day usage counts for the cost overlay — cached module-wide per
   // scope profile, epoch-guarded like the probes so a slow profile-A fetch
@@ -1021,9 +990,7 @@ export function McpTab({
       }
 
       resetDraft(entries)
-      // Keep only probes for servers that survived AND kept the same config;
-      // removed OR edited entries drop their probe so the mount effect re-probes
-      // the new shape (the cache also misses on the changed fingerprint).
+      // Keep only manual probe results for servers that survived unchanged.
       setProbes(current =>
         Object.fromEntries(
           Object.entries(current).filter(
@@ -1298,7 +1265,9 @@ function ServerConfig({
   const canAuth =
     typeof entry.url === 'string' &&
     !hasHeaderAuth &&
-    (entry.auth === 'oauth' ? status === 'needs-auth' || status === 'error' : !entry.auth && status === 'needs-auth')
+    (entry.auth === 'oauth'
+      ? status === 'unknown' || status === 'needs-auth' || status === 'error'
+      : !entry.auth && status === 'needs-auth')
 
   const summary = probe && probe !== 'probing' && probe.ok ? capabilitySummary(m, probe, entry, cost) : null
 

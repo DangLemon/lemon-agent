@@ -2410,11 +2410,8 @@ def _dashboard_sanitize_desktop_env(headless_backend) -> None:
         os.environ.pop("LEMON_SERVE_HEADLESS", None)
 
 
-def _dashboard_prepare_runtime(args, headless_backend) -> bool:
-    """Deps check, skills seed, terminal env bridge, plugins, MCP discovery.
-
-    Returns ``start_mcp_discovery_after_bind`` for start_server.
-    """
+def _dashboard_prepare_runtime(args, headless_backend) -> None:
+    """Deps check, skills seed, terminal env bridge, plugin load, startup discovery."""
     # Attach gui.log early so dashboard startup/build failures are captured in
     # the same logs directory as every other Lemon AI surface.
     try:
@@ -2471,17 +2468,9 @@ def _dashboard_prepare_runtime(args, headless_backend) -> bool:
         # missing provider if it matters.
         print(f"⚠ Plugin discovery failed: {exc}", file=sys.stderr)
 
-    # Desktop chat uses the in-process /api/ws gateway (tui_gateway.server
-    # ._make_agent), which only snapshots the tool registry and never starts
-    # MCP discovery — so configured MCP servers would never connect. Spawn
-    # discovery in the background here so a slow/dead server can't block
-    # startup. Desktop-spawned headless backends start it AFTER the socket
-    # binds instead (start_server's ready path): the thread's first act is the
-    # ~350ms `mcp` SDK import, which holds the GIL against the web_server
-    # import and delays the READY sentinel; _make_agent's bounded
-    # wait_for_mcp_discovery covers a server still connecting at first turn.
-    mcp_discovery_after_bind = headless_backend and os.environ.get("LEMON_DESKTOP") == "1"
-    if not mcp_discovery_after_bind:
+    # Desktop discovery waits for an actual prompt, after its profile scope binds.
+    is_desktop_serve = headless_backend and os.environ.get("LEMON_DESKTOP") == "1"
+    if not is_desktop_serve:
         try:
             from lemon_cli.mcp_startup import start_background_mcp_discovery
 
@@ -2494,7 +2483,7 @@ def _dashboard_prepare_runtime(args, headless_backend) -> bool:
                 "Background MCP tool discovery failed at dashboard startup",
                 exc_info=True,
             )
-    return mcp_discovery_after_bind
+    return False
 
 
 def cmd_dashboard(args):
@@ -2521,7 +2510,7 @@ def cmd_dashboard(args):
     apply_nofile_soft_limit()
 
     _ssh_session_token = _read_ssh_session_token_file(_token_file) if _token_file else None
-    _mcp_discovery_after_bind = _dashboard_prepare_runtime(args, _headless_backend)
+    _dashboard_prepare_runtime(args, _headless_backend)
 
     from lemon_cli.web_server import start_server
 
@@ -2543,7 +2532,6 @@ def cmd_dashboard(args):
         headless=_headless_backend,
         ssh_session_token=_ssh_session_token,
         ssh_owner_nonce=_ssh_owner_nonce,
-        start_mcp_discovery_after_bind=_mcp_discovery_after_bind,
     )
 
 

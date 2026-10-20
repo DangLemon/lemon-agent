@@ -1,0 +1,95 @@
+name: Windows Desktop E2E (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or commit to test
+        required: false
+        type: string
+        default: fix/windows-fixing
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-windows-on-demand-${{ inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-desktop-e2e:
+    name: Windows Electron E2E
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: Install npm 12
+        shell: pwsh
+        run: |
+          $npmVersion = npm --version
+          if (-not $npmVersion.StartsWith('12.')) { npm i -g npm@12 }
+          if ((node -p 'process.arch') -ne 'x64') { throw 'Expected x64 Node.js' }
+
+      - name: Install workspace dependencies
+        uses: ./.github/actions/retry
+        with:
+          command: npm ci
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # 8.2.0
+        with:
+          version: '0.9.28'
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Install Python 3.11 and test dependencies
+        shell: pwsh
+        run: |
+          uv python install 3.11
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv sync --locked --python 3.11 --extra all --extra dev
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build Desktop and run focused E2E
+        working-directory: apps/desktop
+        shell: pwsh
+        env:
+          CI: 'true'
+          OPENROUTER_API_KEY: ''
+          OPENAI_API_KEY: ''
+          NOUS_API_KEY: ''
+          LEMON_DESKTOP_HARNESS_CONFIG: ''
+          LEMON_DESKTOP_BAKE_HARNESS_ENV: '0'
+          AMAZON_ADS_CLIENT_ID: ''
+          AMAZON_ADS_CLIENT_SECRET: ''
+          TIKTOK_ADS_ACCESS_TOKEN: ''
+          TIKTOK_ADS_APP_ID: ''
+          TIKTOK_ADS_APP_SECRET: ''
+        run: |
+          npm run build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:LEMON_E2E_PYTHON = (Resolve-Path '../../.venv/Scripts/python.exe').Path
+          npx playwright test e2e/mcp-output.spec.ts --reporter=list
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload Playwright diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-desktop-e2e-${{ github.run_id }}
+          path: |
+            apps/desktop/playwright-report/
+            apps/desktop/test-results/
+          retention-days: 14
+          if-no-files-found: ignore

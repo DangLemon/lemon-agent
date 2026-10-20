@@ -1,10 +1,9 @@
 import type { McpTestResult } from '@/lemon'
 
 // ---------------------------------------------------------------------------
-// Shared MCP probe cache. Extracted from mcp-tab.tsx so the MCP page and the
-// background health checker (store/mcp-health.ts) share ONE cache: a probe is
-// a REAL connect/disconnect (stdio servers get spawned!), so neither surface
-// may re-probe what the other just learned.
+// Manual MCP probe helpers. A probe is a REAL connect/disconnect (stdio servers
+// get spawned!), so results stay in the MCP tab instead of triggering background
+// connections when the user has not asked to test a server.
 // ---------------------------------------------------------------------------
 
 export const NEEDS_AUTH_RE = /\b(401|unauthorized|forbidden|invalid[_ ]?token|authentication|oauth)\b/i
