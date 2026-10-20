@@ -956,7 +956,8 @@ def _announce_built_agent(sid: str, key: str, current: dict, agent) -> None:
         info["config_warning"] = cfg_warn
         logger.warning(cfg_warn)
     _emit("session.info", sid, info)
-    _schedule_mcp_late_refresh(sid, agent)  # servers slower than the bounded discovery wait land here
+    if _session_source(current) != "desktop":
+        _schedule_mcp_late_refresh(sid, agent)
 
 
 def _finish_agent_build(sid: str, key: str, current: dict, *, notify_registered: bool, scopes, session_db) -> None:
@@ -1015,11 +1016,12 @@ def _start_agent_build(sid: str, session: dict) -> None:
                 scopes = _bind_build_profile_scopes(profile_home)
                 session_db = _open_profile_session_db(profile_home)
             try:
-                from tui_gateway.entry import ensure_mcp_discovery_started
-                ensure_mcp_discovery_started()
-            except Exception:
-                logger.warning("MCP discovery startup failed", exc_info=True)
-            try:
+                if _session_source(current) != "desktop":
+                    try:
+                        from tui_gateway.entry import ensure_mcp_discovery_started
+                        ensure_mcp_discovery_started()
+                    except Exception:
+                        logger.warning("MCP discovery startup failed", exc_info=True)
                 agent = _make_agent(sid, key, **_deferred_build_agent_kwargs(current, session_db))
             finally:
                 _clear_session_context(tokens)
@@ -2144,7 +2146,7 @@ def _schedule_mcp_late_refresh(sid: str, agent) -> None:
         return
 
     def _wait_then_refresh() -> None:
-        if not join_mcp_discovery(timeout=30.0):  # a server still not connected after this is genuinely slow/dead
+        if not join_mcp_discovery(timeout=30.0):  # a server still not connected after 30 seconds is genuinely slow/dead
             return
         with _sessions_lock:
             session = _sessions.get(sid)
@@ -2267,11 +2269,11 @@ def _make_agent(
     if synthetic is not None:
         return synthetic
     from run_agent import AIAgent
-    # MCP discovery runs in a daemon thread (a dead server can't freeze the shell); the agent snapshots its tool
-    # list once, so briefly wait for in-flight discovery. Dashboard /api/ws uses mcp_startup; TUI stdio uses entry.
-    for _mod in ("lemon_cli.mcp_startup", "tui_gateway.entry"):
-        with contextlib.suppress(Exception):
-            importlib.import_module(_mod).wait_for_mcp_discovery()
+    # Desktop sessions discover MCP on their first prompt after profile scopes bind.
+    if _resolve_session_source(platform_override) != "desktop":
+        for _mod in ("lemon_cli.mcp_startup", "tui_gateway.entry"):
+            with contextlib.suppress(Exception):
+                importlib.import_module(_mod).wait_for_mcp_discovery()
     cfg = _load_cfg()
     system_prompt = _startup_system_prompt(cfg, session_id or key)
     model, runtime = _resolve_agent_model_runtime(model_override, provider_override)
@@ -2362,7 +2364,8 @@ def _init_session(
     _wire_session_agent(sid, key, agent)  # no eager slash-worker pre-warm (see _start_agent_build)
     _start_session_services(sid, key, _sessions.get(sid, {}))
     _emit("session.info", sid, _session_info(agent, _sessions.get(sid, {})))
-    _schedule_mcp_late_refresh(sid, agent)
+    if _session_source(_sessions.get(sid, {})) != "desktop":
+        _schedule_mcp_late_refresh(sid, agent)
 
 
 def _new_session_key() -> str:
@@ -2486,7 +2489,10 @@ def _finalize_superseded_runtimes(stale: list[tuple[str, dict]]) -> None:
 
 
 def _schedule_agent_build(sid: str, delay: float = 0.05) -> None:
-    """Pre-warm a deferred session's agent off the response path (session.create + cold resume; _sess() also builds on demand)."""
+    """Pre-warm non-Desktop sessions off the response path; Desktop waits for an actual prompt."""
+    session = _sessions.get(sid)
+    if session is None or _session_source(session) == "desktop":
+        return
 
     def _run():
         if (session := _sessions.get(sid)) is not None:

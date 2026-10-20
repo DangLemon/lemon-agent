@@ -435,6 +435,24 @@ class _TurnRun:
     receipt_attempted: bool = False
 
 
+def _prepare_desktop_mcp_tools(session: dict, agent) -> None:
+    """Discover and refresh once registration is complete; do not latch a partial snapshot."""
+    if _session_source(session) != "desktop" or session.get("_mcp_prompt_discovery_done"):
+        return
+    try:
+        from lemon_cli.mcp_startup import ensure_mcp_discovery_before_agent_build, mcp_discovery_in_flight
+        ensure_mcp_discovery_before_agent_build(logger=logger)
+        if mcp_discovery_in_flight():
+            return
+        from tools.mcp_tool_agent import refresh_agent_mcp_tools
+        refresh_agent_mcp_tools(
+            agent, enabled_override=_load_enabled_toolsets("desktop"), quiet_mode=True, preserve_prefix=True)
+    except Exception:
+        logger.warning("Desktop prompt MCP discovery/refresh failed", exc_info=True)
+    else:
+        session["_mcp_prompt_discovery_done"] = True
+
+
 def _prepare_turn_input(sid: str, session: dict, st: _TurnRun, text: Any, images: list[str]):
     """Bind scopes, sync the agent, snapshot history, build the run message; returns
     ``(prompt, run_message, cols, streamer)`` or None when @-expansion was refused.
@@ -467,6 +485,7 @@ def _prepare_turn_input(sid: str, session: dict, st: _TurnRun, text: Any, images
         _sync_agent_compression_with_config(sid, session)
     _sync_bot_capabilities(sid, session)  # Bot Chat: adopt Settings->Capabilities edits
     st.agent = agent = session["agent"]
+    _prepare_desktop_mcp_tools(session, agent)
     # Snapshot after the model sync: a deferred switch's history mutation belongs to this turn.
     with session["history_lock"]:
         st.history = list(session["history"])

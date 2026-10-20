@@ -344,8 +344,9 @@ def _(rid, params: dict) -> dict:
     # message-preview name. Title mirrors the TUI /branch naming.
     if parent_session_id and history:
         _seed_branch_row(_sessions[sid], key, parent_session_id, history, source, profile_home)
-    # Return immediately so Ink can paint; the AIAgent builds right after the flush.
-    _schedule_agent_build(sid)
+    # Return immediately so Ink can paint; Desktop waits to build until the first prompt.
+    if source != "desktop":
+        _schedule_agent_build(sid)
     _schedule_session_cap_enforcement()  # trim detached idle sessions over the cap
     cwd = _sessions[sid]["cwd"]
     override = session_model_override or {}
@@ -710,9 +711,8 @@ def _resume_deferred(ctx: _Resume) -> dict:
 
 
 def _resume_cold(ctx: _Resume) -> dict:
-    """Default cold resume: transcript now, agent OFF the response path (_make_agent can block for seconds;
-    callers await this RPC before painting) — pre-warmed on a timer, _sess() builds on demand if the first
-    prompt beats it. Unlike lazy, restores full ancestor history + persisted runtime identity."""
+    """Default cold resume: transcript now, agent OFF the response path. TUI pre-warms on a timer;
+    Desktop builds on its first prompt. Unlike lazy, restores full ancestor history + persisted runtime identity."""
     sid, source, cwd = ctx.mint()
     try:
         history, display_history, raw_history = ctx.restore()
@@ -723,7 +723,8 @@ def _resume_cold(ctx: _Resume) -> dict:
                         todo_state=_todo_state_from_history(history))
     if (reused := ctx.claim(sid, record)) is not None:
         return reused
-    _schedule_agent_build(sid)
+    if source != "desktop":
+        _schedule_agent_build(sid)
     _schedule_session_cap_enforcement()  # trim detached idle sessions over the cap
     return _resume_response(ctx, sid, record, info=ctx.info(cwd, overrides), display=display_history,
                             count_source=raw_history,

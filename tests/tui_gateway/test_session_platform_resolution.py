@@ -97,3 +97,34 @@ class TestSessionSourceFallback:
         assert _srv._session_source({"source": "telegram"}) == "telegram"
 
 
+class TestAgentPrewarm:
+    def test_desktop_session_does_not_schedule_agent_build(self, clean_env, monkeypatch):
+        _srv = _reload_resolver()
+        calls = []
+        monkeypatch.setitem(_srv._sessions, "desktop-session", {"source": "desktop"})
+        monkeypatch.setattr(_srv.threading, "Timer", lambda *args, **kwargs: calls.append(args))
+
+        _srv._schedule_agent_build("desktop-session")
+
+        assert calls == []
+
+    def test_tui_session_still_schedules_agent_build(self, clean_env, monkeypatch):
+        _srv = _reload_resolver()
+        calls = []
+
+        class _Timer:
+            def __init__(self, *args, **kwargs):
+                calls.append(args)
+                self.daemon = False
+
+            def start(self):
+                pass
+
+        monkeypatch.setitem(_srv._sessions, "tui-session", {"source": "tui"})
+        monkeypatch.setattr(_srv.threading, "Timer", _Timer)
+
+        _srv._schedule_agent_build("tui-session")
+
+        assert len(calls) == 1
+
+

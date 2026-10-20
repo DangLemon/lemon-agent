@@ -1,72 +1,37 @@
-"""Desktop `serve` starts background MCP discovery only after the socket binds.
-
-The MCP SDK import (~350ms) used to run on a thread started BEFORE
-web_server was imported, holding the GIL against the main thread's own
-import path and delaying the READY sentinel the Desktop waits on.
-"""
+"""Desktop `serve` keeps MCP discovery off startup until a real prompt."""
 
 from __future__ import annotations
 
+import json
 import logging
-import threading
 
+import lemon_cli.main as main
 import lemon_cli.mcp_startup as mcp_startup
-import lemon_cli.web_server as web_server
-import lemon_cli.web_server_lifecycle as web_server_lifecycle
-from tests.lemon_cli.test_dashboard_auth_gate import _stub_uvicorn_run
 
 
-def _reset_discovery_state(monkeypatch):
-    monkeypatch.setattr(mcp_startup, "_mcp_discovery_started", False)
-    monkeypatch.setattr(mcp_startup, "_mcp_discovery_thread", None)
-    monkeypatch.setattr(mcp_startup, "_mcp_discovery_deferred", None)
+def test_desktop_serve_does_not_start_discovery_at_startup(monkeypatch):
+    monkeypatch.setenv("LEMON_DESKTOP", "1")
+    calls = []
+    monkeypatch.setattr(mcp_startup, "start_background_mcp_discovery", lambda **kwargs: calls.append(kwargs))
+    monkeypatch.setattr(main, "_sync_bundled_skills_quietly", lambda: None)
+    monkeypatch.setattr(main, "_resolve_dashboard_web_dist", lambda *args: None)
+    monkeypatch.setattr("lemon_cli.config.apply_terminal_config_to_env", lambda: None)
+    monkeypatch.setattr("lemon_cli.plugins.discover_plugins", lambda: None)
+
+    main._dashboard_prepare_runtime(object(), headless_backend=True)
+
+    assert calls == []
 
 
-def test_desktop_serve_arms_mcp_discovery_only_after_ready_sentinel(monkeypatch):
-    _reset_discovery_state(monkeypatch)
-    order: list[str] = []
-    monkeypatch.setattr(
-        mcp_startup,
-        "start_background_mcp_discovery",
-        lambda *, logger, thread_name: order.append("discovery:" + thread_name),
-    )
-    monkeypatch.setattr(web_server, "_write_machine_sentinel_line", lambda line: order.append("sentinel"))
-    monkeypatch.setattr(web_server_lifecycle, "_write_machine_sentinel_line", lambda line: order.append("sentinel"))
-    _stub_uvicorn_run(monkeypatch)
+def test_non_desktop_dashboard_still_starts_discovery(monkeypatch):
+    monkeypatch.delenv("LEMON_DESKTOP", raising=False)
+    calls = []
+    monkeypatch.setattr(mcp_startup, "start_background_mcp_discovery", lambda **kwargs: calls.append(kwargs))
+    monkeypatch.setattr(main, "_sync_bundled_skills_quietly", lambda: None)
+    monkeypatch.setattr(main, "_resolve_dashboard_web_dist", lambda *args: None)
+    monkeypatch.setattr("lemon_cli.config.apply_terminal_config_to_env", lambda: None)
+    monkeypatch.setattr("lemon_cli.plugins.discover_plugins", lambda: None)
 
-    web_server.start_server(
-        host="127.0.0.1", port=0, open_browser=False, headless=True,
-        start_mcp_discovery_after_bind=True,
-    )
-    timer = mcp_startup._mcp_discovery_deferred
-    assert order == ["sentinel"] and isinstance(timer, threading.Timer)
-    timer.cancel()
-    # An agent build inside the delay window pulls discovery forward itself.
-    mcp_startup.wait_for_mcp_discovery(timeout=0)
-    assert order == ["sentinel", "discovery:dashboard-mcp-discovery"]
-    assert mcp_startup._mcp_discovery_deferred is None
+    main._dashboard_prepare_runtime(object(), headless_backend=False)
 
-    # Without the flag (dashboard / non-Desktop serve) start_server does not
-    # start discovery itself — cmd_dashboard's pre-import path still owns it.
-    order.clear()
-    _reset_discovery_state(monkeypatch)
-    web_server.start_server(host="127.0.0.1", port=0, open_browser=False, headless=True)
-    assert order == ["sentinel"] and mcp_startup._mcp_discovery_deferred is None
-
-
-def test_deferred_discovery_fires_once_and_is_idempotent(monkeypatch):
-    _reset_discovery_state(monkeypatch)
-    calls: list[str] = []
-    monkeypatch.setattr(
-        mcp_startup,
-        "start_background_mcp_discovery",
-        lambda *, logger, thread_name: calls.append(thread_name),
-    )
-    log = logging.getLogger("test")
-    mcp_startup.defer_background_mcp_discovery(logger=log, thread_name="t", delay=60)
-    mcp_startup.defer_background_mcp_discovery(logger=log, thread_name="t", delay=60)  # second arm is a no-op
-    first = mcp_startup._mcp_discovery_deferred
-    mcp_startup._start_deferred_mcp_discovery_now()
-    mcp_startup._start_deferred_mcp_discovery_now()
-    assert calls == ["t"]
-    assert first is not None and mcp_startup._mcp_discovery_deferred is None
+    assert calls == [{"logger": main.logger, "thread_name": "dashboard-mcp-discovery"}]

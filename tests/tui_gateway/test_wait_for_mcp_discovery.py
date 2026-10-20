@@ -11,6 +11,35 @@ import threading
 import time
 
 import tui_gateway.entry as entry
+import tui_gateway.server as server
+
+
+def test_desktop_prompt_retries_tools_refresh_until_discovery_finishes(monkeypatch):
+    import lemon_cli.mcp_startup as mcp_startup
+    import tools.mcp_tool_agent as mcp_tool_agent
+
+    events = []
+    in_flight = iter((True, False))
+    monkeypatch.setattr(mcp_startup, "ensure_mcp_discovery_before_agent_build", lambda **kwargs: events.append("discover"))
+    monkeypatch.setattr(mcp_startup, "mcp_discovery_in_flight", lambda: next(in_flight))
+    monkeypatch.setattr(server, "_load_enabled_toolsets", lambda platform: [platform, "mcp-local"])
+    monkeypatch.setattr(
+        mcp_tool_agent, "refresh_agent_mcp_tools",
+        lambda *args, **kwargs: events.append(("refresh", kwargs.get("enabled_override"), kwargs.get("preserve_prefix"))),
+    )
+    session = {"source": "desktop"}
+    agent = object()
+
+    server._prepare_desktop_mcp_tools(session, agent)
+    assert events == ["discover"]
+    assert "_mcp_prompt_discovery_done" not in session
+
+    server._prepare_desktop_mcp_tools(session, agent)
+    assert events == ["discover", "discover", ("refresh", ["desktop", "mcp-local"], True)]
+    assert session["_mcp_prompt_discovery_done"] is True
+
+    server._prepare_desktop_mcp_tools(session, agent)
+    assert events == ["discover", "discover", ("refresh", ["desktop", "mcp-local"], True)]
 
 
 def _restore_thread_slot(saved):

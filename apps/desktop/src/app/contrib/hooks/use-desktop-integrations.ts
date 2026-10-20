@@ -8,7 +8,6 @@ import { resolveDeepLinkAction } from '@/lib/deeplink-routes'
 import { pathFromLemonDeepLink, resolveInternalCompanyOpenPath } from '@/lib/lemon-open-target'
 import { storedSessionIdForNotification } from '@/lib/session-ids'
 import { requestMcpInstallFromDeepLink } from '@/store/mcp-deeplink-install'
-import { startMcpHealthChecker, stopMcpHealthChecker } from '@/store/mcp-health'
 import {
   clearPluginNotifyHandlers,
   invokePluginNotifyAction,
@@ -74,9 +73,6 @@ export function useDesktopIntegrations({
   // process's "open updates" menu request.
   useEffect(() => {
     startUpdatePoller()
-    // Background MCP health: HTTP/SSE servers only (never spawns stdio),
-    // notifies on transitions into needs-auth/error with a Sign in action.
-    startMcpHealthChecker()
     // The native "Check for Updates…" menu item lives in the app menu next to
     // "About Lemon AI" — it is the OS-standard affordance for updating THIS app,
     // so it always opens the client overlay. Inheriting the connection-mode
@@ -87,7 +83,6 @@ export function useDesktopIntegrations({
     return () => {
       unsubscribe?.()
       stopUpdatePoller()
-      stopMcpHealthChecker()
     }
   }, [])
 

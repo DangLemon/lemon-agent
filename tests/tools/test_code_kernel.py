@@ -64,6 +64,117 @@ def _run(code, **kwargs):
     return json.loads(execute_code(code, task_id="kernel-test", **kwargs))
 
 
+class TestOutputFiles(unittest.TestCase):
+    def test_success_returns_canonical_file_path(self):
+        with tempfile.TemporaryDirectory() as cwd, _kernel_config(mode="project"):
+            with patch("tools.code_execution_tool._resolve_child_cwd", return_value=cwd):
+                result = _run("from pathlib import Path\nPath('plot.png').write_bytes(b'image')",
+                              output_files=["plot.png"])
+        expected = str(Path(cwd, "plot.png").resolve())
+        self.assertEqual(result["files_created"], [expected])
+        self.assertEqual(result["output_file"], expected)
+
+    def test_strict_mode_rejects_declarations_without_temp_paths(self):
+        with _kernel_config(mode="strict"):
+            result = _run("pass", output_files=["result.png"])
+        self.assertEqual(result["status"], "error")
+        self.assertIn("strict mode", result["error"])
+        self.assertNotIn("/tmp/", result["error"])
+
+    def test_invalid_declarations_are_rejected(self):
+        with tempfile.TemporaryDirectory() as cwd, _kernel_config(mode="project"):
+            with patch("tools.code_execution_tool._resolve_child_cwd", return_value=cwd):
+                result = _run("print('must not execute')", output_files=["../outside"])
+        self.assertEqual(result["status"], "error")
+        self.assertIn("relative paths", result["error"])
+
+    def test_multiple_files_return_all_paths_without_single_output_alias(self):
+        with tempfile.TemporaryDirectory() as cwd, _kernel_config(mode="project"):
+            code = "from pathlib import Path\nPath('a.png').write_bytes(b'a')\nPath('b.svg').write_text('<svg/>')"
+            with patch("tools.code_execution_tool._resolve_child_cwd", return_value=cwd):
+                result = _run(code, output_files=["a.png", "b.svg"])
+        self.assertEqual(result["files_created"], [str(Path(cwd, name).resolve()) for name in ("a.png", "b.svg")])
+        self.assertNotIn("output_file", result)
+
+    def test_absolute_paths_are_rejected_even_when_inside_cwd(self):
+        with tempfile.TemporaryDirectory() as cwd, _kernel_config(mode="project"):
+            output = Path(cwd, "plot.png")
+            output.write_bytes(b"image")
+            with patch("tools.code_execution_tool._resolve_child_cwd", return_value=cwd):
+                result = _run("pass", output_files=[str(output)])
+        self.assertEqual(result["status"], "error")
+        self.assertIn("relative paths", result["error"])
+
+    def test_windows_paths_are_rejected_on_every_platform(self):
+        with tempfile.TemporaryDirectory() as cwd, _kernel_config(mode="project"):
+            declarations = [r"..\\outside", r"C:\\outside.txt", r"C:outside.txt", r"\\\\server\\share\\file"]
+            with patch("tools.code_execution_tool._resolve_child_cwd", return_value=cwd):
+                results = [_run("pass", output_files=[path]) for path in declarations]
+        for result in results:
+            self.assertEqual(result["status"], "error")
+            self.assertIn("relative paths", result["error"])
+
+    def test_duplicate_files_are_returned_once(self):
+        with tempfile.TemporaryDirectory() as cwd, _kernel_config(mode="project"):
+            Path(cwd, "plot.png").write_bytes(b"image")
+            with patch("tools.code_execution_tool._resolve_child_cwd", return_value=cwd):
+                result = _run("pass", output_files=["plot.png", "plot.png"])
+        self.assertEqual(result["files_created"], [str(Path(cwd, "plot.png").resolve())])
+        self.assertEqual(result["output_file"], str(Path(cwd, "plot.png").resolve()))
+
+    def test_failed_cell_created_file_not_added_to_result(self):
+        with tempfile.TemporaryDirectory() as cwd, _kernel_config(mode="project"):
+            with patch("tools.code_execution_tool._resolve_child_cwd", return_value=cwd):
+                result = _run("from pathlib import Path\nPath('partial.txt').write_text('x')\nraise RuntimeError('failed')",
+                              output_files=["partial.txt"])
+        self.assertEqual(result["status"], "error")
+        self.assertNotIn("files_created", result)
+
+    def test_missing_or_symlink_declarations_are_rejected(self):
+        with tempfile.TemporaryDirectory() as cwd, _kernel_config(mode="project"):
+            Path(cwd, "target.txt").write_text("x")
+            Path(cwd, "alias.txt").symlink_to(Path(cwd, "target.txt"))
+            with patch("tools.code_execution_tool._resolve_child_cwd", return_value=cwd):
+                missing = _run("pass", output_files=["missing.txt"])
+                symlink = _run("pass", output_files=["alias.txt"])
+        self.assertEqual(missing["status"], "error")
+        self.assertIn("missing or unreadable", missing["error"])
+        self.assertEqual(symlink["status"], "error")
+        self.assertIn("symlinks", symlink["error"])
+
+    @unittest.skipUnless(os.name == "nt", "junctions are Windows-specific")
+    def test_junction_declarations_are_rejected(self):
+        with tempfile.TemporaryDirectory() as cwd, tempfile.TemporaryDirectory() as outside, _kernel_config(mode="project"):
+            junction = Path(cwd, "junction")
+            subprocess.run(["cmd", "/c", "mklink", "/J", str(junction), outside],
+                           check=True, capture_output=True)
+            Path(outside, "secret.txt").write_text("outside")
+            with patch("tools.code_execution_tool._resolve_child_cwd", return_value=cwd):
+                result = _run("pass", output_files=["junction/secret.txt"])
+        self.assertEqual(result["status"], "error")
+        self.assertIn("symlinks or junctions", result["error"])
+
+    def test_directory_and_oversized_files_are_rejected(self):
+        from tools.code_execution_tool import _MANAGED_FILE_MAX_BYTES
+        with tempfile.TemporaryDirectory() as cwd, _kernel_config(mode="project"):
+            Path(cwd, "large.bin").write_bytes(b"x" * (_MANAGED_FILE_MAX_BYTES + 1))
+            with patch("tools.code_execution_tool._resolve_child_cwd", return_value=cwd):
+                directory = _run("pass", output_files=["."])
+                oversized = _run("pass", output_files=["large.bin"])
+        self.assertEqual(directory["status"], "error")
+        self.assertIn("regular files", directory["error"])
+        self.assertEqual(oversized["status"], "error")
+        self.assertIn("100 MiB", oversized["error"])
+
+    def test_failed_cell_does_not_return_declared_files(self):
+        with tempfile.TemporaryDirectory() as cwd, _kernel_config(mode="project"):
+            with patch("tools.code_execution_tool._resolve_child_cwd", return_value=cwd):
+                result = _run("from pathlib import Path\nPath('present.txt').write_text('x')\nraise RuntimeError('failed')",
+                              output_files=["present.txt"])
+        self.assertEqual(result["status"], "error")
+        self.assertNotIn("files_created", result)
+
+
 class TestSessionStatePersistence(unittest.TestCase):
     def test_state_persists_across_cells(self):
         with _kernel_config():
@@ -181,6 +292,18 @@ class TestKernelLifecycle(unittest.TestCase):
 
 
 class TestSchemaSurface(unittest.TestCase):
+    def test_output_files_parameter_is_optional(self):
+        schema = build_execute_code_schema(mode="project")
+        properties = schema["parameters"]["properties"]
+        self.assertEqual(properties["output_files"]["type"], "array")
+        self.assertNotIn("output_files", schema["parameters"]["required"])
+
+    def test_project_outputs_are_taught_as_media_paths(self):
+        schema = build_execute_code_schema(mode="project")
+        self.assertIn("returned canonical path", schema["description"])
+        self.assertIn("MEDIA:", schema["description"])
+        self.assertNotIn("MEDIA:sandbox:", schema["description"])
+
     def test_reset_parameter_is_declared(self):
         with _kernel_config():
             schema = build_execute_code_schema(mode="strict")
@@ -354,10 +477,10 @@ class TestKernelOwnershipAndLifecycle(unittest.TestCase):
         self.assertEqual([r["status"] for r in results], ["success"] * 6)
         self.assertEqual(len(_KERNELS), 1)
         live = subprocess.run(
-            ["pgrep", "-fc", "-P", str(os.getpid()), "lemon_kernel_runner"],
+            ["pgrep", "-f", "-P", str(os.getpid()), "lemon_kernel_runner"],
             capture_output=True, text=True,
-        ).stdout.strip()
-        self.assertEqual(live, "1")
+        )
+        self.assertEqual(len(live.stdout.splitlines()), 1, live.stderr)
 
 
 class TestPerCellRpcAuthority(unittest.TestCase):

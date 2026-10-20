@@ -7702,12 +7702,38 @@ def test_run_prompt_submit_prefers_origin_ui_session_id(monkeypatch, tmp_path):
 
 
 
-    """session.create must NOT eagerly write a DB row.
+def test_session_create_does_not_prewarm_desktop_agent(monkeypatch):
+    calls = []
+    monkeypatch.setenv("LEMON_DESKTOP", "1")
+    monkeypatch.delenv("LEMON_DESKTOP_TERMINAL", raising=False)
+    monkeypatch.setattr(server, "_get_db", lambda: None)
+    monkeypatch.setattr(server, "_schedule_agent_build", lambda sid: calls.append(sid))
 
-    Every TUI/desktop launch opens a session here just to paint the composer;
-    eagerly creating a row left an empty "Untitled" session behind for every
-    launch the user never typed into. The row is created lazily on first prompt.
-    """
+    resp = server.handle_request({"id": "1", "method": "session.create", "params": {"cols": 80}})
+    sid = resp["result"]["session_id"]
+    try:
+        assert calls == []
+    finally:
+        server._sessions.pop(sid, None)
+
+
+def test_session_create_still_prewarms_tui_agent(monkeypatch):
+    calls = []
+    monkeypatch.delenv("LEMON_DESKTOP", raising=False)
+    monkeypatch.delenv("LEMON_DESKTOP_TERMINAL", raising=False)
+    monkeypatch.setattr(server, "_get_db", lambda: None)
+    monkeypatch.setattr(server, "_schedule_agent_build", lambda sid: calls.append(sid))
+
+    resp = server.handle_request({"id": "1", "method": "session.create", "params": {"cols": 80}})
+    sid = resp["result"]["session_id"]
+    try:
+        assert calls == [sid]
+    finally:
+        server._sessions.pop(sid, None)
+
+
+def test_session_create_does_not_eagerly_write_db_row(monkeypatch):
+    """The row is created lazily on first prompt, not for every abandoned draft."""
     created = []
 
     class _FakeDB:

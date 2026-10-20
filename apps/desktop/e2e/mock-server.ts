@@ -26,24 +26,34 @@ export const MOCK_REPLY = 'Hello from the mock inference server! The full boot c
 export interface MockServerOptions {
   /** Pause the matching stream after its first token for session-switch E2E coverage. */
   holdFirstStreamForPrompt?: string
-/** Pause the first completion whose request JSON contains this text. */
-holdFirstCompletionContaining?: string
-/** Absolute sandbox path written by the verify-on-stop scripted tool call. */
-verificationWritePath?: string
-/**
- * Sentinel path that ends the E2E_SIDEBAR_CROSS background process.
- *
- * Without it that process is a bare `sleep 5`, which races the agent turn and
- * the 4s auto-dismiss linger — see `createBackgroundReleaseHandle`. Pass a
- * handle's `path` to let the test decide when the process exits.
- */
-backgroundReleasePath?: string
+  /** Pause the first completion whose request JSON contains this text. */
+  holdFirstCompletionContaining?: string
+  /** Script tool calls for a matching user prompt in focused integration tests. */
+  toolCallPrompt?: string
+  /** Require these tools to appear in the model request before scripting calls. */
+  toolCallAdvertisedTools?: string[]
+  /** Scripted calls and expected results. */
+  toolCallScript?: ScriptedTurn['toolCalls']
+  toolCallResultTools?: string[]
+  /** Return execute_code's output_file as a final MEDIA link. */
+  toolCallFinalMediaFromOutput?: boolean
+  /** Absolute sandbox path written by the verify-on-stop scripted tool call. */
+  verificationWritePath?: string
+  /**
+   * Sentinel path that ends the E2E_SIDEBAR_CROSS background process.
+   *
+   * Without it that process is a bare `sleep 5`, which races the agent turn and
+   * the 4s auto-dismiss linger — see `createBackgroundReleaseHandle`. Pass a
+   * handle's `path` to let the test decide when the process exits.
+   */
+  backgroundReleasePath?: string
 }
 
 export interface MockServer {
   port: number
   url: string
   receivedPrompts: string[]
+  receivedToolNames: string[][]
   waitForHeldStream: () => Promise<void>
   waitForHeldCompletion: () => Promise<void>
   releaseHeldStream: () => void
@@ -79,27 +89,27 @@ export interface ScriptedTurn {
 const INTERIM_SCRIPT: ScriptedTurn[] = [
   {
     text: 'Let me start by planning the approach.',
-    toolCalls: [{ name: 'todo', args: { todos: [{ id: '1', content: 'Plan', status: 'in_progress' }] } }],
+    toolCalls: [{ name: 'todo', args: { todos: [{ id: '1', content: 'Plan', status: 'in_progress' }] } }]
   },
   {
     text: 'Now checking the details before answering.',
-    toolCalls: [{ name: 'todo', args: { todos: [{ id: '2', content: 'Check details', status: 'in_progress' }] } }],
+    toolCalls: [{ name: 'todo', args: { todos: [{ id: '2', content: 'Check details', status: 'in_progress' }] } }]
   },
   {
     // No visible text alongside this tool call — should NOT produce an
     // interim message. The agent fires _emit_interim_assistant_message
     // but _interim_assistant_visible_text returns "" so it's a no-op.
     text: '',
-    toolCalls: [{ name: 'todo', args: { todos: [{ id: '3', content: 'Silent step', status: 'completed' }] } }],
+    toolCalls: [{ name: 'todo', args: { todos: [{ id: '3', content: 'Silent step', status: 'completed' }] } }]
   },
   {
     text: 'Found something interesting worth noting.',
-    toolCalls: [{ name: 'todo', args: { todos: [{ id: '4', content: 'Note finding', status: 'completed' }] } }],
+    toolCalls: [{ name: 'todo', args: { todos: [{ id: '4', content: 'Note finding', status: 'completed' }] } }]
   },
   {
     // Final answer — different from all interim texts.
-    text: 'All done! Here is the complete summary of what I found.',
-  },
+    text: 'All done! Here is the complete summary of what I found.'
+  }
 ]
 
 /** Per-server request counter so we can walk through the script turns. */
@@ -163,21 +173,21 @@ const SIDEBAR_SCRIPT: ScriptedTurn[] = [
         args: {
           command: 'echo "background process output" && sleep 1 && echo "done"',
           background: true,
-          notify_on_complete: true,
-        },
+          notify_on_complete: true
+        }
       },
       {
         name: 'delegate_task',
         args: {
           goal: 'Summarize the test results',
-          context: 'This is a test subagent for the sidebar states E2E test.',
-        },
-      },
-    ],
+          context: 'This is a test subagent for the sidebar states E2E test.'
+        }
+      }
+    ]
   },
   {
-    text: 'All tasks complete. The background process finished and the subagent returned its summary.',
-  },
+    text: 'All tasks complete. The background process finished and the subagent returned its summary.'
+  }
 ]
 
 // ─── Sidebar cross-session script ──────────────────────────────────────
@@ -211,7 +221,7 @@ function sidebarCrossBgCommand(releasePath?: string): string {
   return [
     'echo "long bg output"',
     `for _ in $(seq 1 600); do [ -e ${quoted} ] && break; sleep 0.1; done`,
-    'echo "finished"',
+    'echo "finished"'
   ].join(' && ')
 }
 
@@ -225,21 +235,21 @@ function sidebarCrossScript(releasePath?: string): ScriptedTurn[] {
           args: {
             command: sidebarCrossBgCommand(releasePath),
             background: true,
-            notify_on_complete: true,
-          },
+            notify_on_complete: true
+          }
         },
         {
           name: 'delegate_task',
           args: {
             goal: 'Analyze cross-session state',
-            context: 'Testing that the background dot updates across sessions.',
-          },
-        },
-      ],
+            context: 'Testing that the background dot updates across sessions.'
+          }
+        }
+      ]
     },
     {
-      text: 'Both tasks are running in the background now.',
-    },
+      text: 'Both tasks are running in the background now.'
+    }
   ]
 }
 
@@ -248,9 +258,9 @@ const SIDEBAR_CROSS_SCRIPT: ScriptedTurn[] = sidebarCrossScript()
 const QUEUE_STOP_SCRIPT: ScriptedTurn[] = [
   {
     text: 'Starting a task that will keep this turn active.',
-    toolCalls: [{ name: 'clarify', args: { question: 'Keep working?', choices: ['Yes', 'No'] } }],
+    toolCalls: [{ name: 'clarify', args: { question: 'Keep working?', choices: ['Yes', 'No'] } }]
   },
-  { text: 'The paused task completed.' },
+  { text: 'The paused task completed.' }
 ]
 
 // The reported correction arrived while a foreground tool was still running.
@@ -259,9 +269,9 @@ const QUEUE_STOP_SCRIPT: ScriptedTurn[] = [
 const CORRECTION_SWITCH_SCRIPT: ScriptedTurn[] = [
   {
     text: 'Checking the long-running task before I continue.',
-    toolCalls: [{ name: 'terminal', args: { command: 'sleep 5' } }],
+    toolCalls: [{ name: 'terminal', args: { command: 'sleep 5' } }]
   },
-  { text: 'The corrected task finished.' },
+  { text: 'The corrected task finished.' }
 ]
 
 export const CORRECTION_SWITCH_TRIGGER = 'E2E_CORRECTION_SWITCH_TRIGGER'
@@ -274,18 +284,20 @@ export const CORRECTION_SWITCH_TRIGGER = 'E2E_CORRECTION_SWITCH_TRIGGER'
  */
 function verificationStopScript(writePath: string): ScriptedTurn[] {
   return [
-  {
-    text: 'I will make the requested code change.',
-    toolCalls: [{
-      name: 'write_file',
-      args: {
-        path: writePath,
-        content: 'def changed_by_e2e():\n    return "changed"\n',
-      },
-    }],
-  },
-  { text: 'The code edit is complete.' },
-  { text: 'I cannot provide fresh verification evidence for that edit.' },
+    {
+      text: 'I will make the requested code change.',
+      toolCalls: [
+        {
+          name: 'write_file',
+          args: {
+            path: writePath,
+            content: 'def changed_by_e2e():\n    return "changed"\n'
+          }
+        }
+      ]
+    },
+    { text: 'The code edit is complete.' },
+    { text: 'I cannot provide fresh verification evidence for that edit.' }
   ]
 }
 
@@ -307,7 +319,7 @@ export const BLOCKING_CLARIFY_QUESTION = 'Keep this test turn running?'
 export const TASK_PANEL_RESUME_TRIGGER = 'E2E_TASK_PANEL_RESUME_TRIGGER'
 export const TASK_PANEL_RESUME_TEXT = Array.from(
   { length: 24 },
-  (_, index) => `Task-panel clearance line ${index + 1}: inspect the restored working session geometry.`,
+  (_, index) => `Task-panel clearance line ${index + 1}: inspect the restored working session geometry.`
 ).join('\n\n')
 
 const TASK_PANEL_RESUME_SCRIPT: ScriptedTurn[] = [
@@ -322,21 +334,21 @@ const TASK_PANEL_RESUME_SCRIPT: ScriptedTurn[] = [
             { id: 'implement', content: 'Implement the measured clearance', status: 'in_progress' },
             { id: 'verify', content: 'Verify the latest message stays visible', status: 'pending' },
             { id: 'review', content: 'Review the visual regression', status: 'pending' },
-            { id: 'ship', content: 'Ship the focused fix', status: 'pending' },
-          ],
-        },
+            { id: 'ship', content: 'Ship the focused fix', status: 'pending' }
+          ]
+        }
       },
       {
         name: 'terminal',
-        args: { command: 'sleep 60' },
-      },
-    ],
-  },
+        args: { command: 'sleep 60' }
+      }
+    ]
+  }
 ]
 
 const BLOCKING_CLARIFY_TURN: ScriptedTurn = {
   text: '',
-  toolCalls: [{ name: 'clarify', args: { question: BLOCKING_CLARIFY_QUESTION, choices: ['Yes', 'No'] } }],
+  toolCalls: [{ name: 'clarify', args: { question: BLOCKING_CLARIFY_QUESTION, choices: ['Yes', 'No'] } }]
 }
 
 /**
@@ -349,12 +361,12 @@ const BLOCKING_CLARIFY_TURN: ScriptedTurn = {
 export const BATCH_CLARIFY_TRIGGER = 'E2E_BATCH_CLARIFY_TRIGGER'
 export const BATCH_CLARIFY_QUESTIONS = [
   { question: 'Pick a batch drink?', choices: ['Coffee', 'Tea'] },
-  { question: 'Pick a batch time?', choices: ['Morning', 'Night'] },
+  { question: 'Pick a batch time?', choices: ['Morning', 'Night'] }
 ]
 
 const BATCH_CLARIFY_TURN: ScriptedTurn = {
   text: '',
-  toolCalls: [{ name: 'clarify', args: { questions: BATCH_CLARIFY_QUESTIONS } }],
+  toolCalls: [{ name: 'clarify', args: { questions: BATCH_CLARIFY_QUESTIONS } }]
 }
 
 function includesBatchClarifyTrigger(value: unknown): boolean {
@@ -397,6 +409,7 @@ function includesBlockingClarifyTrigger(value: unknown): boolean {
 export function startMockServer(options: MockServerOptions = {}): Promise<MockServer> {
   return new Promise((resolve, reject) => {
     const receivedPrompts: string[] = []
+    const receivedToolNames: string[][] = []
     let resolveHeldStreamStarted: (() => void) | null = null
     let releaseHeldStream: (() => void) | null = null
     let heldCompletionCount = 0
@@ -430,10 +443,10 @@ export function startMockServer(options: MockServerOptions = {}): Promise<MockSe
                 id: 'mock-model',
                 object: 'model',
                 created: 0,
-                owned_by: 'mock',
-              },
-            ],
-          }),
+                owned_by: 'mock'
+              }
+            ]
+          })
         )
         return
       }
@@ -465,10 +478,53 @@ export function startMockServer(options: MockServerOptions = {}): Promise<MockSe
 
           const stream = parsed.stream === true
           const model = parsed.model || 'mock-model'
+          const messages: any[] = Array.isArray(parsed.messages) ? parsed.messages : []
+          const lastUserMsg = [...messages].reverse().find(m => m?.role === 'user')
+          const userText = typeof lastUserMsg?.content === 'string' ? lastUserMsg.content : ''
+          if (userText) {
+            _receivedUserTexts.push(userText)
+          }
+          const advertisedNames = new Set(
+            Array.isArray(parsed.tools)
+              ? parsed.tools
+                  .map((tool: any) => tool?.function?.name)
+                  .filter((name: unknown): name is string => typeof name === 'string')
+              : []
+          )
+          if (typeof lastUserMessage?.content === 'string') {
+            receivedToolNames.push(Array.from(advertisedNames) as string[])
+          }
+          const requiredNames = options.toolCallAdvertisedTools ?? []
+          const script = options.toolCallScript ?? []
+          const requested = Boolean(options.toolCallPrompt && userText.includes(options.toolCallPrompt))
+          const expectedResults = options.toolCallResultTools ?? script.map(call => call.name)
+          const previousCalls: Array<{ id: string; function: { name?: string } }> = messages.flatMap(message =>
+            message?.role === 'assistant' && Array.isArray(message.tool_calls) ? message.tool_calls : []
+          )
+          const returnedNames = new Set(
+            messages
+              .filter(message => message?.role === 'tool')
+              .map(message => previousCalls.find(call => call.id === message.tool_call_id)?.function?.name)
+              .filter((name): name is string => typeof name === 'string')
+          )
+          const allToolResultsArrived =
+            requested && expectedResults.length > 0 && expectedResults.every(name => returnedNames.has(name))
+          if (allToolResultsArrived) {
+            const output = findE2eOutputFile(messages)
+            const response = options.toolCallFinalMediaFromOutput && output ? `MEDIA:${output}` : MOCK_REPLY
+            if (stream) {
+              streamTextResponse(res, model, response)
+            } else {
+              nonStreamingTextResponse(res, model, response)
+            }
+            return
+          }
+          const scriptToolTurn =
+            requested && script.length > 0 && requiredNames.every(name => advertisedNames.has(name))
           const holdThisCompletion = Boolean(
             options.holdFirstCompletionContaining &&
             heldCompletionCount === 0 &&
-            JSON.stringify(parsed).includes(options.holdFirstCompletionContaining),
+            JSON.stringify(parsed).includes(options.holdFirstCompletionContaining)
           )
 
           // Detect the interim-message test trigger: the user's message
@@ -477,22 +533,25 @@ export function startMockServer(options: MockServerOptions = {}): Promise<MockSe
           //
           // The trigger keyword is chosen so normal chat tests (which send
           // "Hello, can you hear me?" etc.) never hit this path.
-          const messages: any[] = Array.isArray(parsed.messages) ? parsed.messages : []
-          const lastUserMsg = [...messages].reverse().find(m => m?.role === 'user')
-          const userText = typeof lastUserMsg?.content === 'string' ? lastUserMsg.content : ''
-          if (userText) {
-            _receivedUserTexts.push(userText)
-          }
           const isInterimTrigger = userText.includes('E2E_INTERIM_TRIGGER')
+          if (scriptToolTurn) {
+            const turn: ScriptedTurn = { text: '', toolCalls: script }
+            if (stream) {
+              streamScriptedTurn(res, model, turn)
+            } else {
+              nonStreamingScriptedTurn(res, model, turn)
+            }
+            return
+          }
           const isSidebarTrigger = userText.includes('E2E_SIDEBAR_TRIGGER')
           const isSidebarCrossTrigger = userText.includes('E2E_SIDEBAR_CROSS')
           const isQueueStopTrigger = userText.includes('E2E_QUEUE_STOP_TRIGGER')
           const isTaskPanelResumeTrigger = userText.includes(TASK_PANEL_RESUME_TRIGGER)
           const isVerificationStopTrigger = messages.some(
-            message => typeof message?.content === 'string' && message.content.includes(VERIFICATION_STOP_TRIGGER),
+            message => typeof message?.content === 'string' && message.content.includes(VERIFICATION_STOP_TRIGGER)
           )
           const isCorrectionSwitchTrigger = messages.some(
-            message => typeof message?.content === 'string' && message.content.includes(CORRECTION_SWITCH_TRIGGER),
+            message => typeof message?.content === 'string' && message.content.includes(CORRECTION_SWITCH_TRIGGER)
           )
 
           if (isTaskPanelResumeTrigger) {
@@ -523,8 +582,9 @@ export function startMockServer(options: MockServerOptions = {}): Promise<MockSe
             // clarify. The trigger text stays in message history, so once the
             // answered tool result is present the turn falls through to the
             // canned reply — otherwise the mock loops the quiz forever.
-            const hasToolResult = Array.isArray(parsed.messages)
-              && parsed.messages.some((message: { role?: string }) => message?.role === 'tool')
+            const hasToolResult =
+              Array.isArray(parsed.messages) &&
+              parsed.messages.some((message: { role?: string }) => message?.role === 'tool')
 
             if (!hasToolResult) {
               if (stream) {
@@ -569,7 +629,9 @@ export function startMockServer(options: MockServerOptions = {}): Promise<MockSe
           }
 
           if (isCorrectionSwitchTrigger) {
-            const turn = CORRECTION_SWITCH_SCRIPT[_correctionSwitchIndex] ?? CORRECTION_SWITCH_SCRIPT[CORRECTION_SWITCH_SCRIPT.length - 1]
+            const turn =
+              CORRECTION_SWITCH_SCRIPT[_correctionSwitchIndex] ??
+              CORRECTION_SWITCH_SCRIPT[CORRECTION_SWITCH_SCRIPT.length - 1]
             _correctionSwitchIndex++
             if (stream) {
               streamScriptedTurn(res, model, turn)
@@ -617,16 +679,24 @@ export function startMockServer(options: MockServerOptions = {}): Promise<MockSe
 
           if (stream) {
             const holdThisStream = Boolean(
-              options.holdFirstStreamForPrompt && typeof lastUserMessage?.content === 'string' &&
-                lastUserMessage.content.includes(options.holdFirstStreamForPrompt),
+              options.holdFirstStreamForPrompt &&
+              typeof lastUserMessage?.content === 'string' &&
+              lastUserMessage.content.includes(options.holdFirstStreamForPrompt)
             )
-            streamTextResponse(res, model, MOCK_REPLY, holdThisStream || holdThisCompletion ? () => {
-              if (holdThisCompletion) {
-                heldCompletionCount++
-              }
-              resolveHeldStreamStarted?.()
-              return heldStreamReleased
-            } : undefined)
+            streamTextResponse(
+              res,
+              model,
+              MOCK_REPLY,
+              holdThisStream || holdThisCompletion
+                ? () => {
+                    if (holdThisCompletion) {
+                      heldCompletionCount++
+                    }
+                    resolveHeldStreamStarted?.()
+                    return heldStreamReleased
+                  }
+                : undefined
+            )
           } else {
             if (holdThisCompletion) {
               heldCompletionCount++
@@ -666,26 +736,45 @@ export function startMockServer(options: MockServerOptions = {}): Promise<MockSe
         port,
         url,
         receivedPrompts,
+        receivedToolNames,
         waitForHeldStream: () => heldStreamStarted,
         waitForHeldCompletion: () => heldStreamStarted,
         releaseHeldStream: () => releaseHeldStream?.(),
         heldCompletionCount: () => heldCompletionCount,
         close: () =>
           new Promise((resolveClose, rejectClose) => {
-            server.close((err) => {
+            server.close(err => {
               if (err) {
                 rejectClose(err)
               } else {
                 resolveClose()
               }
             })
-          }),
+          })
       })
     })
   })
 }
 
 // ─── Response helpers ──────────────────────────────────────────────────
+
+function findE2eOutputFile(messages: any[]): string | null {
+  for (const message of messages) {
+    if (message?.role !== 'tool' || typeof message.content !== 'string') {
+      continue
+    }
+
+    try {
+      const result = JSON.parse(message.content)
+      if (typeof result?.output_file === 'string') {
+        return result.output_file
+      }
+    } catch {
+      // Ignore unrelated tool results.
+    }
+  }
+  return null
+}
 
 /** SSE chunk shape for a streaming chat completion. */
 function sseChunk(model: string, delta: Record<string, unknown>, finishReason: string | null = null): string {
@@ -694,7 +783,7 @@ function sseChunk(model: string, delta: Record<string, unknown>, finishReason: s
     object: 'chat.completion.chunk',
     created: 0,
     model,
-    choices: [{ index: 0, delta, finish_reason: finishReason }],
+    choices: [{ index: 0, delta, finish_reason: finishReason }]
   })}\n\n`
 }
 
@@ -706,12 +795,12 @@ function streamTextResponse(
   res: ServerResponse,
   model: string,
   text: string,
-  waitForRelease?: () => Promise<void>,
+  waitForRelease?: () => Promise<void>
 ): void {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
-    Connection: 'keep-alive',
+    Connection: 'keep-alive'
   })
 
   const words = text.split(' ')
@@ -751,11 +840,11 @@ function nonStreamingTextResponse(res: ServerResponse, model: string, text: stri
         {
           index: 0,
           message: { role: 'assistant', content: text },
-          finish_reason: 'stop',
-        },
+          finish_reason: 'stop'
+        }
       ],
-      usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
-    }),
+      usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 }
+    })
   )
 }
 
@@ -768,15 +857,11 @@ function nonStreamingTextResponse(res: ServerResponse, model: string, text: stri
  * If it has text but no tool calls, it's a final answer (finish_reason: stop).
  * If it has tool calls (with or without text), finish_reason is "tool_calls".
  */
-function streamScriptedTurn(
-  res: ServerResponse,
-  model: string,
-  turn: ScriptedTurn,
-): void {
+function streamScriptedTurn(res: ServerResponse, model: string, turn: ScriptedTurn): void {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
-    Connection: 'keep-alive',
+    Connection: 'keep-alive'
   })
 
   const hasToolCalls = turn.toolCalls && turn.toolCalls.length > 0
@@ -786,14 +871,18 @@ function streamScriptedTurn(
   if (!turn.text) {
     if (hasToolCalls) {
       res.write(
-        sseChunk(model, {
-          tool_calls: turn.toolCalls!.map((tc, idx) => ({
-            index: idx,
-            id: `call_e2e_${_scriptIndex}_${idx}`,
-            type: 'function',
-            function: { name: tc.name, arguments: JSON.stringify(tc.args) },
-          })),
-        }, finishReason),
+        sseChunk(
+          model,
+          {
+            tool_calls: turn.toolCalls!.map((tc, idx) => ({
+              index: idx,
+              id: `call_e2e_${_scriptIndex}_${idx}`,
+              type: 'function',
+              function: { name: tc.name, arguments: JSON.stringify(tc.args) }
+            }))
+          },
+          finishReason
+        )
       )
     } else {
       res.write(sseChunk(model, {}, finishReason))
@@ -812,14 +901,18 @@ function streamScriptedTurn(
       // All text streamed — emit tool_calls if present, then finish.
       if (hasToolCalls) {
         res.write(
-          sseChunk(model, {
-            tool_calls: turn.toolCalls!.map((tc, idx) => ({
-              index: idx,
-              id: `call_e2e_${_scriptIndex}_${idx}`,
-              type: 'function',
-              function: { name: tc.name, arguments: JSON.stringify(tc.args) },
-            })),
-          }, finishReason),
+          sseChunk(
+            model,
+            {
+              tool_calls: turn.toolCalls!.map((tc, idx) => ({
+                index: idx,
+                id: `call_e2e_${_scriptIndex}_${idx}`,
+                type: 'function',
+                function: { name: tc.name, arguments: JSON.stringify(tc.args) }
+              }))
+            },
+            finishReason
+          )
         )
       } else {
         res.write(sseChunk(model, {}, finishReason))
@@ -839,11 +932,7 @@ function streamScriptedTurn(
 }
 
 /** Non-streaming version of a scripted turn. */
-function nonStreamingScriptedTurn(
-  res: ServerResponse,
-  model: string,
-  turn: ScriptedTurn,
-): void {
+function nonStreamingScriptedTurn(res: ServerResponse, model: string, turn: ScriptedTurn): void {
   const hasToolCalls = turn.toolCalls && turn.toolCalls.length > 0
   const finishReason = hasToolCalls ? 'tool_calls' : 'stop'
 
@@ -855,7 +944,7 @@ function nonStreamingScriptedTurn(
     message.tool_calls = turn.toolCalls!.map((tc, idx) => ({
       id: `call_e2e_${_scriptIndex}_${idx}`,
       type: 'function',
-      function: { name: tc.name, arguments: JSON.stringify(tc.args) },
+      function: { name: tc.name, arguments: JSON.stringify(tc.args) }
     }))
   }
 
@@ -867,8 +956,8 @@ function nonStreamingScriptedTurn(
       created: 0,
       model,
       choices: [{ index: 0, message, finish_reason: finishReason }],
-      usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
-    }),
+      usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 }
+    })
   )
 }
 
@@ -917,7 +1006,7 @@ export interface BackgroundReleaseHandle {
 export function createBackgroundReleaseHandle(): BackgroundReleaseHandle {
   const path = nodePath.join(
     os.tmpdir(),
-    `lemon-e2e-bg-release-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    `lemon-e2e-bg-release-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   )
   return {
     path,
@@ -935,7 +1024,7 @@ export function createBackgroundReleaseHandle(): BackgroundReleaseHandle {
       } catch {
         // Best-effort — the sentinel lives in the OS temp dir.
       }
-    },
+    }
   }
 }
 
@@ -946,13 +1035,11 @@ export function createBackgroundReleaseHandle(): BackgroundReleaseHandle {
  */
 export const INTERIM_TEXTS = {
   /** All interim texts that should appear as sealed messages when the flag is ON. */
-  interims: INTERIM_SCRIPT
-    .filter((t) => t.text && t.toolCalls)
-    .map((t) => t.text),
+  interims: INTERIM_SCRIPT.filter(t => t.text && t.toolCalls).map(t => t.text),
   /** The final answer text. */
   finalText: INTERIM_SCRIPT[INTERIM_SCRIPT.length - 1].text,
   /** Text that should NOT produce an interim (empty-text tool turn). */
-  silentTurnIndex: INTERIM_SCRIPT.findIndex((t) => !t.text && t.toolCalls),
+  silentTurnIndex: INTERIM_SCRIPT.findIndex(t => !t.text && t.toolCalls)
 } as const
 
 /** The sidebar-states script's text constants, exported for test assertions. */
@@ -964,7 +1051,7 @@ export const SIDEBAR_TEXTS = {
   /** The background process command (for asserting process.list entries). */
   bgCommand: 'echo "background process output" && sleep 1 && echo "done"',
   /** The subagent's goal (for asserting subagent panel state). */
-  subagentGoal: 'Summarize the test results',
+  subagentGoal: 'Summarize the test results'
 } as const
 
 /** The cross-session sidebar script's text constants. */
@@ -980,5 +1067,5 @@ export const SIDEBAR_CROSS_TEXTS = {
    */
   bgCommand: sidebarCrossBgCommand(),
   /** The subagent's goal. */
-  subagentGoal: 'Analyze cross-session state',
+  subagentGoal: 'Analyze cross-session state'
 } as const

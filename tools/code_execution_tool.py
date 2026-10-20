@@ -18,11 +18,13 @@ import os
 import re
 import secrets
 import shlex
+import stat
 import subprocess
 import tempfile
 import threading
 import time
 import uuid
+from pathlib import Path, PureWindowsPath
 from typing import Any, Dict, List, Optional, Tuple
 
 from tools.thread_context import propagate_context_to_thread
@@ -48,6 +50,114 @@ MAX_STDOUT_BYTES = 50_000    # 50 KB
 MAX_STDERR_BYTES = 10_000    # 10 KB
 # Hard ceiling on the spilled file (as web_tools' MAX_STORED_TEXT_CHARS): a runaway print loop must not fill the disk.
 MAX_SPILLED_STDOUT_BYTES = 5_000_000
+_MANAGED_FILE_MAX_BYTES = 100 * 1024 * 1024
+
+
+def _is_symlink_or_junction(path: Path) -> bool:
+    try:
+        info = path.lstat()
+    except OSError:
+        return False
+    if stat.S_ISLNK(info.st_mode):
+        return True
+    reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    return os.name == "nt" and bool(getattr(info, "st_file_attributes", 0) & reparse_flag)
+
+
+def _open_output_file(root: Path, candidate: Path, declared: str) -> Tuple[int, str]:
+    """Open beneath root without following links; return fd and canonical host path."""
+    parts = candidate.parts
+    if os.name == "nt":
+        path = root.joinpath(*parts)
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOINHERIT", 0), 0)
+        try:
+            import ctypes
+            import msvcrt
+
+            get_final_path = ctypes.WinDLL("kernel32", use_last_error=True).GetFinalPathNameByHandleW
+            get_final_path.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_uint32, ctypes.c_uint32]
+            get_final_path.restype = ctypes.c_uint32
+            buffer = ctypes.create_unicode_buffer(32768)
+            length = get_final_path(msvcrt.get_osfhandle(fd), buffer, len(buffer), 0)
+            if not length or length >= len(buffer):
+                raise ctypes.WinError(ctypes.get_last_error())
+            resolved = buffer.value
+            if resolved.startswith("\\\\?\\UNC\\"):
+                resolved = "\\\\" + resolved[8:]
+            elif resolved.startswith("\\\\?\\"):
+                resolved = resolved[4:]
+            expected = os.path.normcase(os.path.normpath(str(path.resolve(strict=True))))
+            actual = os.path.normcase(os.path.normpath(resolved))
+            canonical_root = os.path.normcase(os.path.normpath(str(root)))
+            if os.path.commonpath((canonical_root, actual)) != canonical_root:
+                raise ValueError(f"output_files path is outside the project cwd: {declared!r}")
+            if actual != expected:
+                raise ValueError(f"output_files path changed or traversed a junction: {declared!r}")
+            return fd, resolved
+        except BaseException:
+            os.close(fd)
+            raise
+
+    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    file_flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    parent_fd = os.open(root, directory_flags)
+    try:
+        for part in parts[:-1]:
+            child_fd = os.open(part, directory_flags, dir_fd=parent_fd)
+            os.close(parent_fd)
+            parent_fd = child_fd
+        try:
+            fd = os.open(parts[-1], file_flags, dir_fd=parent_fd) if parts else os.dup(parent_fd)
+        except IsADirectoryError as exc:
+            raise ValueError(f"output_files must be regular files: {declared!r}") from exc
+        return fd, str(root.joinpath(*parts))
+    finally:
+        os.close(parent_fd)
+
+
+def _validate_output_files(output_files: Any, cwd: str) -> List[str]:
+    """Return canonical readable regular files declared inside the project cwd."""
+    if not isinstance(output_files, list) or any(not isinstance(path, str) or not path for path in output_files):
+        raise ValueError("output_files must be a list of non-empty relative paths")
+    root = Path(cwd).resolve(strict=True)
+    canonical = []
+    for declared in output_files:
+        candidate = Path(declared)
+        windows_path = PureWindowsPath(declared)
+        if (candidate.is_absolute() or windows_path.is_absolute() or windows_path.drive or windows_path.root
+                or ".." in candidate.parts or ".." in windows_path.parts):
+            raise ValueError("output_files declarations must be relative paths without '..'")
+        try:
+            for component in (root.joinpath(*candidate.parts[:index + 1]) for index in range(len(candidate.parts))):
+                if _is_symlink_or_junction(component):
+                    raise ValueError(f"output_files cannot include symlinks or junctions: {declared!r}")
+            if root.joinpath(*candidate.parts).is_dir():
+                raise ValueError(f"output_files must be regular files: {declared!r}")
+            fd, path = _open_output_file(root, candidate, declared)
+            with os.fdopen(fd, "rb") as stream:
+                info = os.fstat(stream.fileno())
+                if not stat.S_ISREG(info.st_mode):
+                    raise ValueError(f"output_files must be regular files: {declared!r}")
+                if os.name == "nt" and _is_symlink_or_junction(Path(path)):
+                    raise ValueError(f"output_files cannot include symlinks or junctions: {declared!r}")
+                for component in (root.joinpath(*candidate.parts[:index + 1]) for index in range(len(candidate.parts))):
+                    if _is_symlink_or_junction(component):
+                        raise ValueError(f"output_files cannot include symlinks or junctions: {declared!r}")
+                if not info.st_mode & (stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH):
+                    raise ValueError(f"output_files file is missing or unreadable: {declared!r}")
+                if info.st_size > _MANAGED_FILE_MAX_BYTES:
+                    raise ValueError(f"output_files exceeds 100 MiB: {declared!r}")
+                stream.read(1)
+        except OSError as exc:
+            if any(
+                _is_symlink_or_junction(root.joinpath(*candidate.parts[:index + 1]))
+                for index in range(len(candidate.parts))
+            ):
+                raise ValueError(f"output_files cannot include symlinks or junctions: {declared!r}") from exc
+            raise ValueError(f"output_files file is missing or unreadable: {declared!r}") from exc
+        if path not in canonical:
+            canonical.append(path)
+    return canonical
 
 
 def _truncate_stdout_text(stdout_text: str) -> Tuple[str, Dict[str, Any]]:
@@ -664,6 +774,7 @@ def execute_code(
     task_id: Optional[str] = None,
     enabled_tools: Optional[List[str]] = None,
     reset: bool = False,
+    output_files: Optional[List[str]] = None,
 ) -> str:
     """Run Python in the session's persistent kernel (local) or on the remote terminal backend,
     with RPC access to a subset of Lemon AI tools; returns the JSON result string. "Sandbox" means
@@ -685,6 +796,11 @@ def execute_code(
     if not code or not code.strip():
         return tool_error("No code provided. execute_code requires a non-empty 'code' "
                           "parameter containing Python source. To run shell commands, use terminal(command=...) instead.")
+    if output_files is not None and (not isinstance(output_files, list)
+                                     or any(not isinstance(path, str) or not path for path in output_files)):
+        return _error_result("output_files must be a list of non-empty relative paths")
+    if output_files and any(Path(path).is_absolute() or ".." in Path(path).parts for path in output_files):
+        return _error_result("output_files declarations must be relative paths without '..'")
     # Hard-block gateway-lifecycle commands (mirrors the terminal_tool guard — otherwise
     # `os.system("launchctl bootout ...")` here bypasses it and SIGTERMs the gateway mid-task).
     # Gated on PID-file ownership, not the inherited env marker.
@@ -719,6 +835,8 @@ def execute_code(
         from tools.interrupt import clear_current_thread_interrupt
         clear_current_thread_interrupt()
     if env_type != "local":
+        if output_files is not None:
+            return _error_result("output_files declarations require the local project kernel; remote execution cannot return project paths")
         return _execute_remote(code, task_id, enabled_tools, reset=bool(reset))
     from tools.interrupt import is_interrupted as _is_interrupted
     # Session kernels are always on locally (one interpreter per conversation); the guards above
@@ -726,14 +844,29 @@ def execute_code(
     from tools.code_kernel import execute_in_session_kernel
     _cfg = _load_config()
     _mode = _get_execution_mode()
-    return execute_in_session_kernel(
+    if output_files is not None and _mode != "project":
+        return _error_result("output_files declarations require project mode; strict mode has no project output paths")
+    cwd = _resolve_child_cwd(_mode, "", task_id=task_id or "")
+    kernel_result = execute_in_session_kernel(
         code, task_id=task_id or "", mode=_mode, child_python=_resolve_child_python(_mode),
-        child_cwd=_resolve_child_cwd(_mode, "", task_id=task_id or ""),
+        child_cwd=cwd,
         sandbox_tools=frozenset(_sandbox_tools_for(enabled_tools)),
         timeout=_cfg.get("timeout", DEFAULT_TIMEOUT),
         max_tool_calls=_cfg.get("max_tool_calls", DEFAULT_MAX_TOOL_CALLS),
         reset=bool(reset), is_interrupted=_is_interrupted,
     )
+    if not output_files:
+        return kernel_result
+    try:
+        result = json.loads(kernel_result)
+        if result.get("status") == "success":
+            files = _validate_output_files(output_files, cwd)
+            result["files_created"] = files
+            if len(files) == 1:
+                result["output_file"] = files[0]
+        return json.dumps(result, ensure_ascii=False)
+    except (OSError, ValueError) as exc:
+        return _error_result(str(exc))
 
 
 def _kill_process_group(proc, escalate: bool = False):
@@ -855,7 +988,10 @@ def build_execute_code_schema(enabled_sandbox_tools: set = None,
         "Limits: 5-minute timeout, max 50 tool calls per call. Stdout over "
         "50KB shows head/tail inline; the FULL text is auto-saved to a file whose path rides in the result.\n\n"
         f"{cwd_note}\n\n"
-        "Built-in helpers (no import): json_parse(text) — tolerant "
+        + ("In local project mode, declare expected files with output_files=[relative paths]. "
+           "After success, use the returned canonical path with MEDIA:<path> when attaching a file; "
+           "do not use sandbox: paths.\n\n" if mode == "project" else "")
+        + "Built-in helpers (no import): json_parse(text) — tolerant "
         "json.loads for terminal() output; shell_quote(s) — shlex.quote for "
         "dynamic shell args; retry(fn, max_attempts=3, delay=2) — exponential backoff."
     )
@@ -871,6 +1007,9 @@ def build_execute_code_schema(enabled_sandbox_tools: set = None,
                     "and print your final result to stdout.")},
                 "reset": {"type": "boolean", "description": (
                     "Discard the kernel's persistent state and start fresh before running this code.")},
+                "output_files": {"type": "array", "items": {"type": "string"}, "description": (
+                    "Optional relative paths of files this cell is expected to create under the project CWD. "
+                    "Only supported in local project mode; valid files return canonical absolute paths.")},
             },
             "required": ["code"],
         },
@@ -894,7 +1033,8 @@ def _execute_code_handler(args: dict, **kwargs) -> str:
         return tool_error(f"execute_code received a {type(code).__name__} in 'code', but it "
                           "requires Python source as a string. Retry as execute_code(code=\"...\").")
     return execute_code(code=code or "", task_id=kwargs.get("task_id"),
-                        enabled_tools=kwargs.get("enabled_tools"), reset=bool(args.get("reset", False)))
+                        enabled_tools=kwargs.get("enabled_tools"), reset=bool(args.get("reset", False)),
+                        output_files=args.get("output_files"))
 
 
 registry.register(

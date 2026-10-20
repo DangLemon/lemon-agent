@@ -124,11 +124,6 @@ def _start_desktop_cron_ticker(stop_event: "threading.Event", interval: int = 60
     provider.start(stop_event, **start_kwargs)
 
 
-# Desktop `serve` only (start_server(start_mcp_discovery_after_bind=True)):
-# seconds after the READY sentinel before the MCP discovery thread starts.
-_DESKTOP_MCP_DISCOVERY_DELAY_S = 1.0
-
-
 @asynccontextmanager
 async def _lifespan(app: "FastAPI"):
     app.state.event_channels = {}  # dict[str, set]
@@ -1177,13 +1172,11 @@ def _on_server_started(
     headless: bool,
     open_browser: bool,
     initial_profile: str,
-    start_mcp_discovery_after_bind: bool,
 ) -> None:
-    """Post-bind arming on the serving loop right after ``server.startup()``.
+    """Post-bind setup on the serving loop right after ``server.startup()``.
 
     Reap prior corpses, parent-death watchdog, process identity, READY
-    announcement, browser open, deferred MCP discovery, loop-noise filter,
-    loop heartbeat.
+    announcement, browser open, loop-noise filter, loop heartbeat.
     """
     # Clear corpses from a previous unclean Desktop exit (crash/SIGKILL/update
     # handoff leaves an orphaned backend + its MCP subtree) before stacking a
@@ -1239,22 +1232,6 @@ def _on_server_started(
     else:
         print(f"  Lemon AI Web UI → http://{host}:{actual_port}")
     _maybe_open_browser(host, actual_port, open_browser, initial_profile)
-
-    if start_mcp_discovery_after_bind:
-        # Desktop `serve`: the ~350ms `mcp` SDK import holds the GIL while the
-        # renderer does its WS handshake + first hydration reads, so arm it one
-        # second later when the shell is painted and idle. An agent build inside
-        # that second fires the deferred start itself (wait_for_mcp_discovery).
-        try:
-            from lemon_cli.mcp_startup import defer_background_mcp_discovery
-
-            defer_background_mcp_discovery(
-                logger=_log,
-                thread_name="dashboard-mcp-discovery",
-                delay=_DESKTOP_MCP_DISCOVERY_DELAY_S,
-            )
-        except Exception:
-            _log.debug("Deferred MCP discovery arm failed", exc_info=True)
 
     # Collapse the peer-hangup teardown flood (#50005): 50+ identical WinError
     # 10054 tracebacks per Desktop disconnect become one debug line.
@@ -1335,7 +1312,6 @@ def start_server(
     headless: bool = False,
     ssh_session_token: Optional[str] = None,
     ssh_owner_nonce: Optional[str] = None,
-    start_mcp_discovery_after_bind: bool = False,
 ):
     """Start the web UI server.
 
@@ -1344,9 +1320,6 @@ def start_server(
     JSON-RPC/WS backend, no UI build, no SPA mount (``LEMON_SERVE_HEADLESS``).
     ``ssh_session_token``/``ssh_owner_nonce`` are process-local Desktop SSH
     bootstrap state, never persisted or exported to children.
-    ``start_mcp_discovery_after_bind`` (Desktop ``serve``) defers MCP discovery
-    until the ready sentinel is written so its SDK import can't hold the GIL
-    against the pre-bind path.
     """
     _apply_ssh_session_token(ssh_session_token or "")
     _apply_ssh_owner_nonce(ssh_owner_nonce)
@@ -1410,7 +1383,6 @@ def start_server(
                 headless=headless,
                 open_browser=open_browser,
                 initial_profile=initial_profile,
-                start_mcp_discovery_after_bind=start_mcp_discovery_after_bind,
             )
 
             await server.main_loop()

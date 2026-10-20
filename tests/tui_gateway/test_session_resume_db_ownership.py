@@ -211,13 +211,44 @@ def test_resume_closes_profile_db_on_live_session_fast_path(profile_dbs, monkeyp
     assert profile_dbs[0].closed == 1
 
 
-def test_resume_closes_profile_db_on_deferred_cold_resume(profile_dbs, monkeypatch):
-    """The DEFAULT resume path returns before any transfer — and must close.
+def test_desktop_cold_resume_does_not_prewarm_agent(profile_dbs, monkeypatch):
+    calls = []
+    monkeypatch.setattr(server, "_schedule_agent_build", lambda sid: calls.append(sid))
+    monkeypatch.setattr(server, "_stored_session_runtime_overrides", lambda _found: {})
 
-    A cold resume without ``eager_build`` registers a deferred session record
-    (no agent, no db reference) and builds the agent later off the response
-    path, so the handle opened here is never handed to anyone.
-    """
+    def _factory(db_path=None, **kwargs):
+        db = _RecordingDB(db_path=db_path, **kwargs)
+        db.rows["s1"] = {"id": "s1", "cwd": ""}
+        profile_dbs.append(db)
+        return db
+
+    monkeypatch.setattr("lemon_state_registry.acquire", _factory)
+    resp = _resume(session_id="s1", profile="work", source="desktop")
+
+    assert resp["result"]["session_key"] == "s1"
+    assert calls == []
+
+
+def test_tui_cold_resume_still_prewarm_agent(profile_dbs, monkeypatch):
+    calls = []
+    monkeypatch.setattr(server, "_schedule_agent_build", lambda sid: calls.append(sid))
+    monkeypatch.setattr(server, "_stored_session_runtime_overrides", lambda _found: {})
+
+    def _factory(db_path=None, **kwargs):
+        db = _RecordingDB(db_path=db_path, **kwargs)
+        db.rows["s1"] = {"id": "s1", "cwd": ""}
+        profile_dbs.append(db)
+        return db
+
+    monkeypatch.setattr("lemon_state_registry.acquire", _factory)
+    resp = _resume(session_id="s1", profile="work", source="tui")
+
+    assert resp["result"]["session_key"] == "s1"
+    assert len(calls) == 1
+
+
+def test_resume_closes_profile_db_on_deferred_cold_resume(profile_dbs, monkeypatch):
+    """The cold-resume path returns before any transfer — and must close."""
 
     def _factory(db_path=None, **kwargs):
         db = _RecordingDB(db_path=db_path, **kwargs)
