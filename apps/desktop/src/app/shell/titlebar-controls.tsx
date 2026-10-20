@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from 'react-router'
 import { hudTargetSessionId } from '@/app/hud/handoff'
 import { $internalCompanyCapabilities } from '@/app/internal-company/store'
 import { toggleLayoutEditMode } from '@/components/pane-shell/edit-mode'
-import { resetLayoutTree } from '@/components/pane-shell/tree/store'
+import { resetLayoutTree, setSidebarPreviewSide } from '@/components/pane-shell/tree/store'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tip, TipKeybindLabel } from '@/components/ui/tooltip'
@@ -175,6 +175,7 @@ export function TitlebarControls({ leftTools = [], tools = [], onOpenSettings }:
       label: `${leftLabel}${panesFlipped ? '' : unreadHint}`,
       onSelect: () => {
         triggerHaptic('tap')
+        setSidebarPreviewSide(null)
         leftEdge.toggle()
       }
     },

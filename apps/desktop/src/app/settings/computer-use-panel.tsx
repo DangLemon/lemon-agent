@@ -378,18 +378,18 @@ export function ComputerUsePanel({ onConfiguredChange }: ComputerUsePanelProps) 
           </p>
         </div>
 
-        <div className="grid gap-1.5" role="radiogroup" aria-label="Computer Use privilege">
+        <div aria-label="Computer Use privilege" className="grid gap-1.5" role="radiogroup">
           {PRIVILEGE_OPTIONS.map(opt => {
             const selected = mode === opt.mode
             return (
               <button
-                key={opt.mode}
-                type="button"
-                role="radio"
                 aria-checked={selected}
-                disabled={savingPrivilege}
-                tabIndex={0}
                 aria-label={opt.label}
+                className={`rounded-lg px-2.5 py-2 text-left transition-colors ${
+                  selected ? 'bg-primary/15 ring-1 ring-primary/40' : 'bg-background/55 hover:bg-background/80'
+                }`}
+                disabled={savingPrivilege}
+                key={opt.mode}
                 onClick={() => void handlePrivilegeMode(opt.mode)}
                 onKeyDown={event => {
                   if (event.key === 'Enter' || event.key === ' ') {
@@ -397,9 +397,9 @@ export function ComputerUsePanel({ onConfiguredChange }: ComputerUsePanelProps) 
                     void handlePrivilegeMode(opt.mode)
                   }
                 }}
-                className={`rounded-lg px-2.5 py-2 text-left transition-colors ${
-                  selected ? 'bg-primary/15 ring-1 ring-primary/40' : 'bg-background/55 hover:bg-background/80'
-                }`}
+                role="radio"
+                tabIndex={0}
+                type="button"
               >
                 <span className="text-sm font-medium">{opt.label}</span>
                 <p className="mt-0.5 text-[0.68rem] text-muted-foreground">{opt.hint}</p>
@@ -419,11 +419,11 @@ export function ComputerUsePanel({ onConfiguredChange }: ComputerUsePanelProps) 
               )}
               {privilege.trusted_apps.map(app => (
                 <button
-                  key={app}
-                  type="button"
-                  className="inline-flex items-center gap-1 rounded-md bg-background px-2 py-0.5 text-[0.7rem]"
                   aria-label={`Remove ${app}`}
+                  className="inline-flex items-center gap-1 rounded-md bg-background px-2 py-0.5 text-[0.7rem]"
+                  key={app}
                   onClick={() => void handleRemoveTrustedApp(app)}
+                  type="button"
                 >
                   {app}
                   <X className="size-3" />
@@ -432,10 +432,8 @@ export function ComputerUsePanel({ onConfiguredChange }: ComputerUsePanelProps) 
             </div>
             <div className="flex flex-wrap gap-2">
               <input
-                className="min-w-[10rem] flex-1 rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
-                placeholder="App name or bundle id"
-                value={draftApp}
                 aria-label="Trusted app name"
+                className="min-w-[10rem] flex-1 rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
                 onChange={event => setDraftApp(event.target.value)}
                 onKeyDown={event => {
                   if (event.key === 'Enter') {
@@ -443,6 +441,8 @@ export function ComputerUsePanel({ onConfiguredChange }: ComputerUsePanelProps) 
                     void handleAddTrustedApp()
                   }
                 }}
+                placeholder="App name or bundle id"
+                value={draftApp}
               />
               <Button disabled={savingPrivilege || !draftApp.trim()} onClick={() => void handleAddTrustedApp()} size="sm">
                 Add
@@ -463,12 +463,12 @@ export function ComputerUsePanel({ onConfiguredChange }: ComputerUsePanelProps) 
         </div>
         <label className="flex cursor-pointer items-start gap-2.5 rounded-lg bg-background/55 px-2.5 py-2">
           <input
-            type="checkbox"
-            className="mt-0.5 size-3.5 accent-primary"
-            checked={Boolean(history?.history_enabled)}
-            disabled={savingHistory || history == null}
             aria-label="Enable Computer Use session history"
+            checked={Boolean(history?.history_enabled)}
+            className="mt-0.5 size-3.5 accent-primary"
+            disabled={savingHistory || history == null}
             onChange={event => void handleHistoryEnabled(event.target.checked)}
+            type="checkbox"
           />
           <span className="min-w-0">
             <span className="text-sm font-medium">Log Computer Use actions</span>

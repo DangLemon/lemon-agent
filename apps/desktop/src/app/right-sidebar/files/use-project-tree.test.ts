@@ -161,6 +161,102 @@ describe('useProjectTree', () => {
     expect(readDir).toHaveBeenCalledTimes(1)
   })
 
+  it('removes folders deleted outside the app when the window regains focus', async () => {
+    readDir.mockResolvedValueOnce(
+      ok([
+        { name: 'src', path: '/p/src', isDirectory: true },
+        { name: 'deleted', path: '/p/deleted', isDirectory: true }
+      ])
+    )
+    readDir.mockResolvedValueOnce(ok([{ name: 'nested-deleted', path: '/p/src/nested-deleted', isDirectory: true }]))
+    readDir.mockImplementation(async path =>
+      path === '/p' ? ok([{ name: 'src', path: '/p/src', isDirectory: true }]) : ok([])
+    )
+
+    const { result } = renderHook(() => useProjectTree('/p'))
+
+    await waitFor(() => expect(result.current.data).toHaveLength(2))
+    await act(async () => {
+      await result.current.loadChildren('/p/src')
+    })
+    expect(result.current.data[0].children?.map(node => node.name)).toEqual(['nested-deleted'])
+
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+
+    await waitFor(() => {
+      expect(result.current.data.map(node => node.name)).toEqual(['src'])
+      expect(result.current.data[0].children).toEqual([])
+    })
+  })
+
+  it('ignores an older focus read that finishes after a newer one', async () => {
+    readDir.mockResolvedValueOnce(ok([{ name: 'deleted', path: '/p/deleted', isDirectory: true }]))
+    let releaseOldRead: ((value: LemonReadDirResult) => void) | undefined
+    readDir.mockImplementationOnce(
+      () =>
+        new Promise<LemonReadDirResult>(resolve => {
+          releaseOldRead = resolve
+        })
+    )
+    readDir.mockResolvedValueOnce(ok([]))
+
+    const { result } = renderHook(() => useProjectTree('/p'))
+
+    await waitFor(() => expect(result.current.data.map(node => node.name)).toEqual(['deleted']))
+    act(() => window.dispatchEvent(new Event('focus')))
+    await waitFor(() => expect(readDir).toHaveBeenCalledTimes(2))
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    expect(result.current.data).toEqual([])
+
+    await act(async () => {
+      releaseOldRead?.(ok([{ name: 'deleted', path: '/p/deleted', isDirectory: true }]))
+    })
+    expect(result.current.data).toEqual([])
+  })
+
+  it('keeps existing folders if the focus refresh cannot read the disk', async () => {
+    readDir.mockResolvedValueOnce(ok([{ name: 'src', path: '/p/src', isDirectory: true }]))
+    readDir.mockResolvedValueOnce(ok([{ name: 'nested', path: '/p/src/nested', isDirectory: true }]))
+    readDir.mockResolvedValue({ entries: [], error: 'EACCES' })
+
+    const { result } = renderHook(() => useProjectTree('/p'))
+
+    await waitFor(() => expect(result.current.data).toHaveLength(1))
+    await act(async () => {
+      await result.current.loadChildren('/p/src')
+    })
+
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+
+    await waitFor(() => expect(readDir).toHaveBeenCalledTimes(3))
+    expect(result.current.data[0].children?.map(node => node.name)).toEqual(['nested'])
+  })
+
+  it('keeps the tree and allows a later focus refresh when reading rejects', async () => {
+    readDir.mockResolvedValueOnce(ok([{ name: 'src', path: '/p/src', isDirectory: true }]))
+    readDir.mockRejectedValueOnce(new Error('read interrupted'))
+    readDir.mockResolvedValueOnce(ok([]))
+
+    const { result } = renderHook(() => useProjectTree('/p'))
+
+    await waitFor(() => expect(result.current.data.map(node => node.name)).toEqual(['src']))
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    expect(result.current.data.map(node => node.name)).toEqual(['src'])
+
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    expect(result.current.data).toEqual([])
+  })
+
   it('reads gitignore from the real path while caching per connection', async () => {
     const readFileDataUrl = vi.fn(async () => `data:text/plain;base64,${btoa('ignored.log\n')}`)
     const gitRoot = vi.fn(async () => '/repo')

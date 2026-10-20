@@ -110,7 +110,7 @@ describe('enforced dock (stacked Bots pane → sessions-zone tab, every boot)', 
     return setupTree(stackedTree)
   }
 
-  it('prunes a persisted Bots pane in the internal harness so sessions remains the only sidebar tab', async () => {
+  it('keeps Bots beside Sessions in the internal harness', async () => {
     vi.stubGlobal('__LEMON_DESKTOP_HARNESS__', 'internal')
     const { model, tree } = await setupTree(tabbedTreeWithForcedStrip)
 
@@ -118,10 +118,11 @@ describe('enforced dock (stacked Bots pane → sessions-zone tab, every boot)', 
 
     const sessionsGroup = model.findGroupOfPane(tree.$layoutTree.get()!, 'sessions')!
 
-    expect(model.allPaneIds(tree.$layoutTree.get()!)).toEqual(['sessions', 'workspace'])
-    expect(sessionsGroup.active).toBe('sessions')
-    expect(sessionsGroup.tabStrip).toBeUndefined()
-    expect(JSON.stringify(JSON.parse(window.localStorage.getItem(TREE_KEY)!))).not.toContain('lemon-bots:pane')
+    expect(model.allPaneIds(tree.$layoutTree.get()!)).toEqual(['sessions', 'lemon-bots:pane', 'workspace'])
+    expect(sessionsGroup.panes).toEqual(['sessions', 'lemon-bots:pane'])
+    expect(sessionsGroup.active).toBe('lemon-bots:pane')
+    expect(sessionsGroup.tabStrip).toBe('always')
+    expect(JSON.stringify(JSON.parse(window.localStorage.getItem(TREE_KEY)!))).toContain('lemon-bots:pane')
 
     vi.unstubAllGlobals()
   })

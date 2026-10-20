@@ -914,7 +914,10 @@ export function ContribController() {
             />
           </div>
 
-          <LayoutTreeRoot />
+          <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+            <WiredPane part="navRail" />
+            <LayoutTreeRoot />
+          </div>
 
           {/* "Close running tab?" — the busy/input-blocked tile close gate. */}
           <SessionTileCloseConfirm />

@@ -7,7 +7,7 @@
 import { atom, computed, type ReadableAtom } from 'nanostores'
 
 import { internalCompanyPaneAllowed } from '@/app/internal-company/capabilities'
-import { internalCompanyExpectedFromBuild } from '@/app/internal-company/store'
+import { internalCompanyExpectedFromBuild, internalCompanyUiFlagsFromBuild } from '@/app/internal-company/store'
 import { SIDEBAR_COLLAPSE_MEDIA_QUERY } from '@/app/layout-constants'
 import { setPluginEnabled } from '@/contrib/plugins-store'
 import { registry } from '@/contrib/registry'
@@ -259,35 +259,10 @@ function rememberPaneShare(tree: LayoutNode, paneId: string) {
 /** The [target, added] weight pair a re-inserted pane's edge split should get,
  *  or undefined for the even default. Persisted state is untrusted. */
 function currentPaneAllowed(paneId: string): boolean {
-  return internalCompanyPaneAllowed(paneId, { mode: internalCompanyExpectedFromBuild ? 'harness' : 'upstream' })
-}
-
-function clearSingletonSessionsTabStrip(node: LayoutNode): LayoutNode {
-  if (node.type === 'group') {
-    if (node.panes.length === 1 && node.panes[0] === 'sessions' && node.tabStrip) {
-      const { tabStrip: _tabStrip, ...rest } = node
-
-      return rest
-    }
-
-    return node
-  }
-
-  return { ...node, children: node.children.map(clearSingletonSessionsTabStrip) }
-}
-
-function pruneDisallowedPanes(tree: LayoutNode): LayoutNode {
-  let next: LayoutNode | null = tree
-  let pruned = false
-
-  for (const paneId of allPaneIds(tree)) {
-    if (!currentPaneAllowed(paneId)) {
-      pruned = true
-      next = next ? removePane(next, paneId) : null
-    }
-  }
-
-  return pruned && next ? clearSingletonSessionsTabStrip(next) : (next ?? tree)
+  return internalCompanyPaneAllowed(paneId, {
+    mode: internalCompanyExpectedFromBuild ? 'harness' : 'upstream',
+    ui: internalCompanyUiFlagsFromBuild
+  })
 }
 
 function recalledEdgeWeights(paneId: string): [number, number] | undefined {
@@ -970,6 +945,35 @@ export type TreeSide = 'left' | 'right'
 
 export const $collapsedTreeSides = atom<ReadonlySet<TreeSide>>(new Set())
 
+/** Transient pointer preview; does not affect persisted side visibility. */
+export const $sidebarPreviewSide = atom<TreeSide | null>(null)
+let sidebarPreviewTimer: ReturnType<typeof setTimeout> | undefined
+
+export function setSidebarPreviewPointer(side: TreeSide, inside: boolean) {
+  if (sidebarPreviewTimer) {
+    clearTimeout(sidebarPreviewTimer)
+    sidebarPreviewTimer = undefined
+  }
+
+  if (inside) {
+    $sidebarPreviewSide.set(side)
+  } else {
+    sidebarPreviewTimer = setTimeout(() => {
+      $sidebarPreviewSide.set(null)
+      sidebarPreviewTimer = undefined
+    }, 120)
+  }
+}
+
+export function setSidebarPreviewSide(side: TreeSide | null) {
+  if (sidebarPreviewTimer) {
+    clearTimeout(sidebarPreviewTimer)
+    sidebarPreviewTimer = undefined
+  }
+
+  $sidebarPreviewSide.set(side)
+}
+
 // Side visibility is DERIVED from an app store (the binding owns persistence
 // + button state). Reveals un-collapse the column directly instead of writing
 // back through the setter — the right side's store IS the file tree's toggle,
@@ -978,16 +982,25 @@ export const $collapsedTreeSides = atom<ReadonlySet<TreeSide>>(new Set())
 const sideOpeners: Partial<Record<TreeSide, (open: boolean) => void>> = {}
 
 export function setTreeSideCollapsed(side: TreeSide, collapsed: boolean) {
+  if (collapsed && $sidebarPreviewSide.get() === side) {
+    setSidebarPreviewSide(null)
+  }
+
   const next = toggledSet($collapsedTreeSides.get(), side, collapsed)
 
   if (next) {
     $collapsedTreeSides.set(next)
   }
 
-  // Opening a side is an intent to SEE it — heal any pane of that side that a
-  // stale dismissal record removed from the tree, so ⌘B/⌘J can never press on
-  // nothing. Closing chrome panes is NEVER permanent (main parity).
+  // Opening the side becomes persistent; it must beat any pending hover-preview
+  // leave timer, or that timer can re-open the overlay after the next close.
   if (!collapsed) {
+    if (sidebarPreviewTimer) {
+      clearTimeout(sidebarPreviewTimer)
+      sidebarPreviewTimer = undefined
+    }
+
+    $sidebarPreviewSide.set(null)
     restoreDismissedSidePanes(side)
   }
 }
@@ -1383,8 +1396,7 @@ function adoptContributedPanes(): void {
     return
   }
 
-  const prunedTree = pruneDisallowedPanes(tree)
-  const panes = registry.getArea('panes').filter(pane => currentPaneAllowed(pane.id))
+  const panes = registry.getArea('panes')
 
   const dataOf = (paneId: string) =>
     panes.find(c => c.id === paneId)?.data as
@@ -1392,13 +1404,13 @@ function adoptContributedPanes(): void {
 
   const placementOf = (paneId: string) => dataOf(paneId)?.placement
   const mainId = panes.find(c => placementOf(c.id) === 'main')?.id
-  const inTree = new Set(allPaneIds(prunedTree))
 
   const dismissed = $dismissedPanes.get()
 
   // Enforced dock invariants run FIRST: they re-home panes that are ALREADY
   // in the tree, so the missing-pane adoption below never sees them.
-  const healed = enforceDockedPanes(prunedTree, dataOf)
+  const healed = enforceDockedPanes(tree, dataOf)
+  const inTree = new Set(allPaneIds(healed))
 
   // `placement: 'floating'` opts OUT of the tree entirely — those panes render
   // as fixed cards above it (renderer/floating-panes.tsx). Adopting one would

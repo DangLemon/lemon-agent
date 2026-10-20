@@ -81,7 +81,7 @@ test.describe('session compression', () => {
     await composer.click()
     await page.keyboard.insertText('/compress preserve the three test turns')
     await expect.poll(() => composer.textContent()).toContain('preserve the three test turns')
-    await page.getByRole('button', { name: 'Send', exact: true }).click()
+    await page.getByRole('button', { name: /^(Send|Gửi)$/ }).click()
     await expect
       .poll(() => page.locator('[data-slot="aui_thread-viewport"]').textContent(), { timeout: 90_000 })
       .toMatch(/Compressed|No changes from compression/)

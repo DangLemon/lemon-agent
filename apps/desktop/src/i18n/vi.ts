@@ -62,13 +62,16 @@ export const vi = defineLocale({
       },
       lite: {
         title: 'Gỡ ứng dụng và agent, giữ dữ liệu',
-        description: 'Gỡ ứng dụng và agent Lemon AI, nhưng giữ cấu hình, cuộc trò chuyện và khóa truy cập để cài lại sau.',
+        description:
+          'Gỡ ứng dụng và agent Lemon AI, nhưng giữ cấu hình, cuộc trò chuyện và khóa truy cập để cài lại sau.',
         consequence: 'ứng dụng desktop Lemon AI và agent Lemon AI (giữ cấu hình, cuộc trò chuyện và khóa truy cập)'
       },
       full: {
         title: 'Gỡ tất cả',
-        description: 'Gỡ ứng dụng, agent và toàn bộ dữ liệu người dùng: cấu hình, cuộc trò chuyện, lịch công việc, khóa truy cập, log.',
-        consequence: 'TOÀN BỘ: ứng dụng desktop Lemon AI, agent Lemon AI, cấu hình, cuộc trò chuyện, khóa truy cập và log'
+        description:
+          'Gỡ ứng dụng, agent và toàn bộ dữ liệu người dùng: cấu hình, cuộc trò chuyện, lịch công việc, khóa truy cập, log.',
+        consequence:
+          'TOÀN BỘ: ứng dụng desktop Lemon AI, agent Lemon AI, cấu hình, cuộc trò chuyện, khóa truy cập và log'
       }
     }
   },
@@ -192,7 +195,8 @@ export const vi = defineLocale({
     copy: 'Sao chép',
     copied: 'Đã sao chép',
     done: 'Xong',
-    applyingBody: 'Trình cập nhật sẽ mở cửa sổ riêng và tự mở lại Lemon AI khi hoàn tất. Đừng tự mở lại Lemon AI trong lúc cập nhật.',
+    applyingBody:
+      'Trình cập nhật sẽ mở cửa sổ riêng và tự mở lại Lemon AI khi hoàn tất. Đừng tự mở lại Lemon AI trong lúc cập nhật.',
     applyingBodyBackend: 'Backend từ xa đang cập nhật và sẽ khởi động lại. Lemon AI sẽ tự kết nối lại.',
     applyingClose: 'Cửa sổ này sẽ đóng trong lúc cập nhật, rồi Lemon AI tự mở lại.',
     errorTitle: 'Cập nhật chưa hoàn tất',
@@ -200,8 +204,10 @@ export const vi = defineLocale({
     blockerTitle: 'Đóng preview local để cập nhật Lemon AI?',
     blockerBody: 'Lemon AI cần dừng các preview local này trước khi cập nhật. File của bạn không bị sửa hoặc xóa.',
     foreignBlockerTitle: 'Đóng tiến trình khác để cập nhật Lemon AI',
-    foreignBlockerBody: 'Lemon AI không thể tự đóng các tiến trình này an toàn. Đóng app, terminal hoặc service đang giữ từng tiến trình, rồi thử cập nhật lại.',
-    mixedBlockerBody: 'Lemon AI có thể đóng các preview local bên dưới. Các tiến trình khác cần đóng thủ công trước khi cập nhật.',
+    foreignBlockerBody:
+      'Lemon AI không thể tự đóng các tiến trình này an toàn. Đóng app, terminal hoặc service đang giữ từng tiến trình, rồi thử cập nhật lại.',
+    mixedBlockerBody:
+      'Lemon AI có thể đóng các preview local bên dưới. Các tiến trình khác cần đóng thủ công trước khi cập nhật.',
     closePreviewsAndUpdate: 'Đóng preview và cập nhật',
     closePreviewsAndCheckAgain: 'Đóng preview và kiểm tra lại',
     localPreview: 'Preview local',
@@ -210,7 +216,8 @@ export const vi = defineLocale({
     technicalDetails: 'Chi tiết kỹ thuật',
     notNow: 'Không phải bây giờ',
     clientAlsoBehindTitle: 'App desktop đã cũ',
-    clientAlsoBehindMessage: 'Backend đã mới nhất, nhưng app desktop vẫn ở phiên bản cũ. Cập nhật app để nhận bản sửa mới nhất.',
+    clientAlsoBehindMessage:
+      'Backend đã mới nhất, nhưng app desktop vẫn ở phiên bản cũ. Cập nhật app để nhận bản sửa mới nhất.',
     clientAlsoBehindAction: 'Cập nhật app desktop',
     everythingDispatched: 'Đã gửi lệnh cập nhật',
     everythingSkipped: 'Đã bỏ qua',
@@ -357,6 +364,7 @@ export const vi = defineLocale({
 
   sidebar: {
     nav: {
+      chat: 'Trò chuyện',
       'new-session': 'Cuộc trò chuyện mới',
       skills: 'Kỹ năng',
       messaging: 'Tin nhắn',

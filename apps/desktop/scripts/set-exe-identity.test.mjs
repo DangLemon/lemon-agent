@@ -13,6 +13,7 @@ const validHarnessResource = {
   profile: 'internal',
   ui: {
     agents: false,
+    bots: false,
     cron: true,
     messaging: false,
     terminal: true,

@@ -34,10 +34,11 @@ const real = (p: string): string | null => {
   }
 }
 
-const HARNESS_UI_KEYS = ['agents', 'cron', 'messaging', 'terminal', 'webhooks'] as const
+const HARNESS_UI_KEYS = ['agents', 'bots', 'cron', 'messaging', 'terminal', 'webhooks'] as const
 
 const HARNESS_DEFINE_BY_UI_KEY = {
   agents: '__LEMON_HARNESS_SHOW_AGENTS__',
+  bots: '__LEMON_HARNESS_SHOW_BOTS__',
   cron: '__LEMON_HARNESS_SHOW_CRON__',
   messaging: '__LEMON_HARNESS_SHOW_MESSAGING__',
   terminal: '__LEMON_HARNESS_SHOW_TERMINAL__',
@@ -48,6 +49,7 @@ export const RENDERER_HARNESS_MARKER_FILENAME = 'lemon-ai-renderer-harness.json'
 
 const DEFAULT_HARNESS_UI = {
   agents: false,
+  bots: false,
   cron: true,
   messaging: false,
   terminal: true,
@@ -58,6 +60,7 @@ function defaultHarnessViteDefines() {
   return {
     __LEMON_DESKTOP_HARNESS__: JSON.stringify(''),
     __LEMON_HARNESS_SHOW_AGENTS__: JSON.stringify(String(DEFAULT_HARNESS_UI.agents)),
+    __LEMON_HARNESS_SHOW_BOTS__: JSON.stringify(String(DEFAULT_HARNESS_UI.bots)),
     __LEMON_HARNESS_SHOW_CRON__: JSON.stringify(String(DEFAULT_HARNESS_UI.cron)),
     __LEMON_HARNESS_SHOW_MESSAGING__: JSON.stringify(String(DEFAULT_HARNESS_UI.messaging)),
     __LEMON_HARNESS_SHOW_TERMINAL__: JSON.stringify(String(DEFAULT_HARNESS_UI.terminal)),

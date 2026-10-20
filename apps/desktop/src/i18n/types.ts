@@ -308,6 +308,7 @@ export interface Translations {
     hideSidebar: string
     showSidebar: string
     search: string
+    navigation: string
     searchTitle: string
     swapSidebarSides: string
     hideRightSidebar: string

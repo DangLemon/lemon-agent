@@ -138,6 +138,7 @@ const initialState: ProjectTreeState = {
 const inflight = new Set<string>()
 const $projectTree = atom<ProjectTreeState>(initialState)
 let nextRootRequestId = 0
+let revalidationGeneration = 0
 let lastConnectionKey = ''
 
 // While the root is errored (ENOENT during a session's cwd race, a folder that
@@ -295,6 +296,7 @@ async function revalidateTree(
   }
 
   const rootPath = state.resolvedCwd || cwd
+  const generation = ++revalidationGeneration
 
   if (!change.full && change.dirs.length) {
     // Only re-read changed dirs that are actually loaded (root, or an expanded
@@ -305,10 +307,21 @@ async function revalidateTree(
       return
     }
 
-    const reads = await Promise.all(targets.map(async dir => ({ dir, ...(await readProjectDir(dir, rootPath)) })))
+    const reads = await Promise.all(targets.map(async dir => {
+      try {
+        return { dir, ...(await readProjectDir(dir, rootPath)) }
+      } catch {
+        return { dir, entries: [], error: 'read-error' }
+      }
+    }))
 
     setProjectTree(latest => {
-      if (latest.cwd !== cwd || !latest.loaded || desktopFsCacheKey() !== connectionKey) {
+      if (
+        generation !== revalidationGeneration ||
+        latest.cwd !== cwd ||
+        !latest.loaded ||
+        desktopFsCacheKey() !== connectionKey
+      ) {
         return latest
       }
 
@@ -336,9 +349,17 @@ async function revalidateTree(
   // Opaque fallback: reconcile every loaded dir. Siblings read concurrently
   // (Promise.all keeps order); loaded subfolders recurse.
   const reconcile = async (dirPath: string, existing: TreeNode[]): Promise<TreeNode[]> => {
-    const { entries, error } = await readProjectDir(dirPath, rootPath)
+    let entries: ProjectTreeEntry[]
 
-    if (error) {
+    try {
+      const result = await readProjectDir(dirPath, rootPath)
+
+      if (result.error) {
+        return existing
+      }
+
+      entries = result.entries
+    } catch {
       return existing
     }
 
@@ -360,7 +381,10 @@ async function revalidateTree(
   const nextData = await reconcile(rootPath, state.data)
 
   setProjectTree(latest =>
-    latest.cwd === cwd && latest.loaded && desktopFsCacheKey() === connectionKey
+    generation === revalidationGeneration &&
+    latest.cwd === cwd &&
+    latest.loaded &&
+    desktopFsCacheKey() === connectionKey
       ? { ...latest, data: nextData }
       : latest
   )
@@ -472,6 +496,27 @@ export function useProjectTree(cwd: string): UseProjectTreeResult {
       void revalidateTree(cwd, consumeWorkspaceChange(), connectionKey)
     }
   }, [connectionKey, cwd, workspaceTick])
+
+  useEffect(() => {
+    if (!cwd) {
+      return
+    }
+
+    // ponytail: refresh on return, without watching every open folder.
+    const onFocus = () => {
+      if (document.visibilityState !== 'hidden') {
+        void revalidateTree(cwd, { dirs: [], full: true }, connectionKey)
+      }
+    }
+
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onFocus)
+
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onFocus)
+    }
+  }, [connectionKey, cwd])
 
   useEffect(() => {
     const connectionChanged = lastConnectionKey !== '' && lastConnectionKey !== connectionKey

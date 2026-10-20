@@ -156,7 +156,7 @@ import { useSessionTileDelegate } from './hooks/use-session-tile-delegate'
 import { McpInstallDeepLinkDialog } from './mcp-install-deeplink-dialog'
 import { $restartPreviewServer, useTitlebarToolContributions } from './panes'
 import { createSessionRpcDispatcher } from './session-rpc-dispatcher'
-import { ChatRoutesSurface, SidebarSurface, StatusbarSurface, TerminalSurface } from './surfaces'
+import { ChatRoutesSurface, SidebarNavRailSurface, SidebarSurface, StatusbarSurface, TerminalSurface } from './surfaces'
 import type { WiringActions, WiringApi } from './types'
 
 // Overlay views the controller mounts over the shell — lazy, load on demand.
@@ -1100,6 +1100,11 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     [actions, currentView]
   )
 
+  const navRailNode = useMemo(
+    () => <SidebarNavRailSurface actions={actions} currentView={currentView} />,
+    [actions, currentView]
+  )
+
   const terminalNode = useMemo(() => <TerminalSurface />, [])
 
   const statusbarNode = useMemo(
@@ -1124,11 +1129,12 @@ export function ContribWiring({ children }: { children: ReactNode }) {
   const api = useMemo<WiringApi>(
     () => ({
       chatRoutes: chatRoutesNode,
+      navRail: navRailNode,
       sidebar: sidebarNode,
       statusbar: statusbarNode,
       terminal: terminalNode
     }),
-    [chatRoutesNode, sidebarNode, statusbarNode, terminalNode]
+    [chatRoutesNode, navRailNode, sidebarNode, statusbarNode, terminalNode]
   )
 
   // The REAL titlebar tool clusters (sidebar/flip toggles, haptics, keybinds,

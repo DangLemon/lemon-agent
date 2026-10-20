@@ -24,13 +24,8 @@ type Page = MockBackendFixture['page']
 let fixture: MockBackendFixture | null = null
 
 async function openBots(page: Page): Promise<void> {
-  const tab = page
-    .getByRole('button', { name: 'Bots', exact: true })
-    .or(page.getByRole('tab', { name: 'Bots', exact: true }))
-    .first()
-
-  await tab.click()
-  await expect(page.getByRole('button', { name: 'New bot or group chat' })).toBeVisible()
+  await page.locator('[data-tree-tab="lemon-bots:pane"]').click()
+  await expect(page.getByRole('button', { name: /New bot or group chat/ })).toBeVisible()
 }
 
 async function openUntil(action: () => Promise<void>, expected: () => Promise<void>, attempts = 3): Promise<void> {
@@ -122,7 +117,7 @@ test("an open Bot Chat's tab reads the bot's name, not the canonical 'Bot Chat' 
 
   // A `+` side thread beside the Bot Chat gives the main zone a tab strip —
   // the surface where every bot chat used to read "Bot Chat".
-  await page.keyboard.press('Control+t')
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+T' : 'Control+T')
   const composer = page.locator('[data-slot="composer-root"] [contenteditable="true"]').filter({ visible: true }).first()
   await expect(composer).toBeVisible({ timeout: 15_000 })
   await composer.click()

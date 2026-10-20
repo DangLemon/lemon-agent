@@ -1,11 +1,18 @@
-import { cleanup, render } from '@testing-library/react'
+import { act, cleanup, render } from '@testing-library/react'
+import { atom } from 'nanostores'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { registry } from '@/contrib/registry'
 import { stubResizeObserver } from '@/test/jsdom'
 
 import { group, split } from '../model'
-import { $hiddenTreePanes, $layoutTree } from '../store'
+import {
+  $hiddenTreePanes,
+  $layoutTree,
+  $sidebarPreviewSide,
+  bindTreeSideVisibility,
+  declareDefaultTree
+} from '../store'
 
 import { subtreeGone, type TrackContext } from './track-model'
 import { TreeSplit } from './tree-split'
@@ -40,6 +47,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   $hiddenTreePanes.set(new Set())
+  $sidebarPreviewSide.set(null)
   $layoutTree.set(null)
   disposers.splice(0).forEach(dispose => dispose())
 })
@@ -47,7 +55,7 @@ afterEach(() => {
 /** The split-child WRAPPER the renderer sizes — `display:none` on it is what
  *  hands a zone's space to its siblings. */
 const zoneWrapper = (groupId: string) =>
-  document.querySelector<HTMLElement>(`[data-tree-group="${groupId}"]`)?.closest<HTMLElement>('[style]')
+  globalThis.document.querySelector<HTMLElement>(`[data-tree-group="${groupId}"]`)?.closest<HTMLElement>('[style]')
 
 const ctx = (gone: string[]): TrackContext => ({
   overrides: {},
@@ -74,6 +82,44 @@ describe('subtreeGone', () => {
 })
 
 describe('the main placement floor in the renderer', () => {
+  it('shows the collapsed sessions subtree as an overlay without taking width from main', () => {
+    const tree = split('row', [group(['sessions'], { id: 'grp-sessions' }), group(['workspace'], { id: 'grp-main' })])
+
+    declareDefaultTree(tree)
+    bindTreeSideVisibility('left', { get: () => false, listen: () => () => {} }, vi.fn())
+    $sidebarPreviewSide.set('left')
+    render(<TreeSplit node={$layoutTree.get() as typeof tree} root rootRow />)
+
+    const sessions = zoneWrapper('grp-sessions')
+
+    expect(sessions).toBeTruthy()
+    expect(sessions!.classList.contains('absolute')).toBe(true)
+    expect(sessions!.style.width).toBe('237px')
+    expect(sessions!.style.display).not.toBe('none')
+    expect(globalThis.document.querySelectorAll('[data-tree-group="grp-sessions"]')).toHaveLength(1)
+    expect(zoneWrapper('grp-main')!.style.display).not.toBe('none')
+  })
+
+  it('clears a hover preview when the persisted side closes', () => {
+    const tree = split('row', [group(['sessions'], { id: 'grp-sessions' }), group(['workspace'], { id: 'grp-main' })])
+    const $open = atom(false)
+
+    declareDefaultTree(tree)
+    bindTreeSideVisibility('left', $open, vi.fn())
+    $sidebarPreviewSide.set('left')
+    render(<TreeSplit node={tree} root rootRow />)
+
+    expect(zoneWrapper('grp-sessions')?.style.display).not.toBe('none')
+
+    act(() => {
+      $open.set(true)
+      $open.set(false)
+    })
+
+    expect($sidebarPreviewSide.get()).toBeNull()
+    expect(zoneWrapper('grp-sessions')?.style.display).toBe('none')
+  })
+
   it('renders the main zone with every main tab hidden, and leaves tool zones absorbable', () => {
     const tree = split('row', [
       group(['sessions'], { id: 'grp-sessions' }),
@@ -92,7 +138,7 @@ describe('the main placement floor in the renderer', () => {
 
     expect(main).toBeTruthy()
     expect(main!.style.display).not.toBe('none')
-    expect(zoneWrapper('grp-sessions')?.style.display).not.toBe('none')
+    expect(zoneWrapper('grp-sessions')?.style.display).toBe('none')
     expect(zoneWrapper('grp-tools')?.style.display).toBe('none')
   })
 })
