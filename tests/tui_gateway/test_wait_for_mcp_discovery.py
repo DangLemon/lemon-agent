@@ -10,18 +10,28 @@ the startup hang, and a no-op once discovery has finished.
 import threading
 import time
 
+import pytest
+
 import tui_gateway.entry as entry
 import tui_gateway.server as server
 
 
-def test_desktop_prompt_retries_tools_refresh_until_discovery_finishes(monkeypatch):
+def test_desktop_prompt_waits_for_tools_refresh_until_discovery_finishes(monkeypatch):
     import lemon_cli.mcp_startup as mcp_startup
     import tools.mcp_tool_agent as mcp_tool_agent
 
     events = []
     in_flight = iter((True, False))
-    monkeypatch.setattr(mcp_startup, "ensure_mcp_discovery_before_agent_build", lambda **kwargs: events.append("discover"))
+    joined = []
+    monkeypatch.setattr(
+        mcp_startup,
+        "ensure_mcp_discovery_before_agent_build",
+        lambda **kwargs: events.append(("discover", kwargs.get("single_query"))),
+    )
     monkeypatch.setattr(mcp_startup, "mcp_discovery_in_flight", lambda: next(in_flight))
+    monkeypatch.setattr(
+        mcp_startup, "join_mcp_discovery", lambda **kwargs: joined.append(kwargs.get("timeout")) or True
+    )
     monkeypatch.setattr(server, "_load_enabled_toolsets", lambda platform: [platform, "mcp-local"])
     monkeypatch.setattr(
         mcp_tool_agent, "refresh_agent_mcp_tools",
@@ -31,15 +41,36 @@ def test_desktop_prompt_retries_tools_refresh_until_discovery_finishes(monkeypat
     agent = object()
 
     server._prepare_desktop_mcp_tools(session, agent)
-    assert events == ["discover"]
-    assert "_mcp_prompt_discovery_done" not in session
-
-    server._prepare_desktop_mcp_tools(session, agent)
-    assert events == ["discover", "discover", ("refresh", ["desktop", "mcp-local"], True)]
+    assert events == [("discover", True), ("refresh", ["desktop", "mcp-local"], True)]
+    assert joined == [120.0]
     assert session["_mcp_prompt_discovery_done"] is True
 
     server._prepare_desktop_mcp_tools(session, agent)
-    assert events == ["discover", "discover", ("refresh", ["desktop", "mcp-local"], True)]
+    assert events == [("discover", True), ("refresh", ["desktop", "mcp-local"], True)]
+    assert session["_mcp_prompt_discovery_done"] is True
+
+
+def test_desktop_first_prompt_discovers_with_profile_toolsets_and_single_query_bound(monkeypatch):
+    import lemon_cli.mcp_startup as mcp_startup
+    import tools.mcp_tool_agent as mcp_tool_agent
+
+    events = []
+    monkeypatch.setattr(
+        mcp_startup,
+        "ensure_mcp_discovery_before_agent_build",
+        lambda **kwargs: events.append(("discover", kwargs.get("timeout"), kwargs.get("single_query"))),
+    )
+    monkeypatch.setattr(mcp_startup, "mcp_discovery_in_flight", lambda: False)
+    monkeypatch.setattr(server, "_load_enabled_toolsets", lambda platform: ["mcp-local"])
+    monkeypatch.setattr(
+        mcp_tool_agent,
+        "refresh_agent_mcp_tools",
+        lambda *args, **kwargs: events.append(("refresh", kwargs.get("enabled_override"))),
+    )
+
+    server._prepare_desktop_mcp_tools({"source": "desktop", "profile_home": "/profile"}, object())
+
+    assert events == [("discover", None, True), ("refresh", ["mcp-local"])]
 
 
 def _restore_thread_slot(saved):

@@ -1,6 +1,6 @@
 ---
 name: browser-native-orchestration
-description: "Choose browser_* vs computer_use; demo web form + native app."
+description: "Choose browser_* vs computer_use; demo form + native app."
 version: 1.0.0
 author: Lemon AI
 license: MIT

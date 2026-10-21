@@ -187,8 +187,20 @@ def get_provider(name: str, *, allow_network: bool = True) -> Optional[ProviderD
     """Look up a built-in provider by id or alias: models.dev catalog merged with the Lemon AI overlay;
     Lemon AI-only overlay (nous, openai-codex, …); plugin provider profiles with a concrete endpoint."""
     canonical = normalize_provider(name)
-    mdev_info = _models_dev_info(canonical, allow_network)
     overlay = LEMON_OVERLAYS.get(canonical)
+    if overlay is None:
+        try:
+            from providers import get_provider_profile as _profile
+            _prof = _profile(canonical)
+            if _prof is not None and (_prof.base_url or "").strip():
+                _api_mode_to_transport = {v: k for k, v in TRANSPORT_TO_API_MODE.items()}
+                return ProviderDef(id=canonical, name=_prof.display_name or _prof.name or canonical,
+                                   transport=_api_mode_to_transport.get(_prof.api_mode, "openai_chat"),
+                                   api_key_env_vars=tuple(_prof.env_vars or ()), base_url=_prof.base_url or "",
+                                   auth_type=_prof.auth_type or "api_key", source="plugin-profile")
+        except Exception:
+            pass
+    mdev_info = _models_dev_info(canonical, allow_network)
     if mdev_info is not None:
         ov = overlay or LemonOverlay()
         env_vars = list(mdev_info.env)
@@ -200,23 +212,6 @@ def get_provider(name: str, *, allow_network: bool = True) -> Optional[ProviderD
     if overlay is not None:
         return _overlay_pdef(canonical, overlay, _LABEL_OVERRIDES.get(canonical, canonical), overlay.extra_env_vars,
                              overlay.base_url_override, "", "lemon")
-    # Plugin-registered profiles (plugins/model-providers/<name>/) absent from models.dev and
-    # LEMON_OVERLAYS would otherwise be "Unknown provider" in /model, --provider and model-switch
-    # even though the picker lists them. Only profiles with a concrete endpoint resolve here:
-    # placeholder profiles like ``custom`` (aliases ollama/local/vllm) ship an empty base_url and
-    # are completed by config.yaml custom_providers — resolving them would preempt
-    # resolve_provider_full's custom step and collapse keyed ``custom:<name>`` ids to bare custom.
-    try:
-        from providers import get_provider_profile as _profile
-        _prof = _profile(canonical)
-        if _prof is not None and (_prof.base_url or "").strip():
-            _api_mode_to_transport = {v: k for k, v in TRANSPORT_TO_API_MODE.items()}
-            return ProviderDef(id=canonical, name=_prof.display_name or _prof.name or canonical,
-                               transport=_api_mode_to_transport.get(_prof.api_mode, "openai_chat"),
-                               api_key_env_vars=tuple(_prof.env_vars or ()), base_url=_prof.base_url or "",
-                               auth_type=_prof.auth_type or "api_key", source="plugin-profile")
-    except Exception:
-        pass
     return None
 
 

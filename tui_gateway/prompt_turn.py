@@ -440,15 +440,20 @@ def _prepare_desktop_mcp_tools(session: dict, agent) -> None:
     if _session_source(session) != "desktop" or session.get("_mcp_prompt_discovery_done"):
         return
     try:
-        from lemon_cli.mcp_startup import ensure_mcp_discovery_before_agent_build, mcp_discovery_in_flight
-        ensure_mcp_discovery_before_agent_build(logger=logger)
-        if mcp_discovery_in_flight():
-            return
+        from lemon_cli.mcp_startup import (
+            ensure_mcp_discovery_before_agent_build, join_mcp_discovery, mcp_discovery_in_flight,
+        )
+        ensure_mcp_discovery_before_agent_build(logger=logger, single_query=True)
+        # The one-shot wait can expire before a slow stdio server finishes connecting.
+        # Keep the first request off the stale, pre-discovery tool snapshot.
+        if mcp_discovery_in_flight() and not join_mcp_discovery(timeout=120.0):
+            raise TimeoutError("Desktop MCP discovery is still running; retry the prompt")
         from tools.mcp_tool_agent import refresh_agent_mcp_tools
         refresh_agent_mcp_tools(
             agent, enabled_override=_load_enabled_toolsets("desktop"), quiet_mode=True, preserve_prefix=True)
     except Exception:
         logger.warning("Desktop prompt MCP discovery/refresh failed", exc_info=True)
+        raise
     else:
         session["_mcp_prompt_discovery_done"] = True
 

@@ -648,7 +648,7 @@ PLATFORM_HINTS = {
         "flavor (tables, syntax-highlighted code, math via $...$, task lists, callouts). Deliver files by writing "
         "MEDIA:/absolute/path/to/file — any file type: images/audio/video render inline, everything else becomes a "
         "card with Download and preview buttons. When execute_code returns files_created/output_file, use that exact "
-        "canonical path after MEDIA:; never invent sandbox: links. Remote image URLs render via ![alt](url); local files "
+        "canonical path after MEDIA:; never invent attachment links. Remote image URLs render via ![alt](url); local files "
         "ONLY via MEDIA: (local markdown images are blocked). Inline widget/chart (living IN the chat): write an HTML "
         "file, then put "
         "::preview{file=\"path.html\"} alone on its own line (plugins can register more ::name{...} directives). The "
