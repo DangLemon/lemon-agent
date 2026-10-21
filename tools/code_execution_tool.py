@@ -989,8 +989,8 @@ def build_execute_code_schema(enabled_sandbox_tools: set = None,
         "50KB shows head/tail inline; the FULL text is auto-saved to a file whose path rides in the result.\n\n"
         f"{cwd_note}\n\n"
         + ("In local project mode, declare expected files with output_files=[relative paths]. "
-           "After success, use the returned canonical path with MEDIA:<path> when attaching a file; "
-           "do not use sandbox: paths.\n\n" if mode == "project" else "")
+           "After success, attach files with MEDIA: and the exact returned canonical path; "
+           "never invent attachment links.\n\n" if mode == "project" else "")
         + "Built-in helpers (no import): json_parse(text) — tolerant "
         "json.loads for terminal() output; shell_quote(s) — shlex.quote for "
         "dynamic shell args; retry(fn, max_attempts=3, delay=2) — exponential backoff."
