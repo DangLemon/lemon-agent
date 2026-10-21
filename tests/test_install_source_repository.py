@@ -236,7 +236,12 @@ def test_install_sh_checkout_manifest_defaults_to_lemon_repository(tmp_path: Pat
 
 def test_install_sh_checkout_manifest_reports_lemon_stage_titles(tmp_path: Path) -> None:
     env = os.environ.copy()
-    env.update({"HOME": str(tmp_path / "home")})
+    env.update({
+        "HOME": str(tmp_path / "home"),
+        "LEMON_DESKTOP_INTERNAL": "1",
+    })
+    for key in ("HERMES_DESKTOP_INTERNAL", "LEMON_DESKTOP_HARNESS_CONFIG", "HERMES_DESKTOP_HARNESS_CONFIG"):
+        env.pop(key, None)
 
     result = subprocess.run(
         ["bash", str(INSTALL_SH), "--manifest", "--include-desktop"],

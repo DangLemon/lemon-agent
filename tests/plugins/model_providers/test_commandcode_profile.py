@@ -265,9 +265,17 @@ class TestCommandCodeFetchModelsPickerContract:
         "Unknown provider" on /model switches even though the picker listed
         them.
         """
+        from unittest.mock import patch
+
+        from agent.models_dev import ProviderInfo
         from lemon_cli.providers import resolve_provider_full
 
-        chat = resolve_provider_full("commandcode", {}, [])
+        catalog = ProviderInfo(
+            id="commandcode", name="CommandCode", env=("CMD_API_KEY",), api="https://catalog.invalid/v1",
+        )
+        with patch("lemon_cli.providers._models_dev_info", return_value=catalog):
+            chat = resolve_provider_full("commandcode", {}, [])
+
         assert chat is not None and chat.id == "commandcode"
         assert chat.transport == "openai_chat"
         assert "COMMANDCODE_API_KEY" in chat.api_key_env_vars
