@@ -34,7 +34,7 @@ try {
     $script:GitCalls = @()
     function global:git {
         $script:GitCalls += ,@($args)
-        if ($args -contains "FETCH_HEAD") {
+        if (($args -contains "rev-parse") -and ($args -contains "FETCH_HEAD")) {
             $global:LASTEXITCODE = 0
             return "0123456789abcdef0123456789abcdef01234567"
         }
