@@ -94,7 +94,7 @@ $baitRan = $false
 $actual = {
     $script:actualRan = $true
     $script:insideEap = [string]$ErrorActionPreference
-    & $env:PYTHON_EXECUTABLE -c 'import sys; sys.stderr.write("native stderr" + chr(10)); sys.exit(17)'
+    & $env:PYTHON_EXECUTABLE -c 'import sys; sys.stderr.buffer.write(b''native stderr\n''); sys.exit(17)'
     $script:exitCodeInside = $LASTEXITCODE
     'block output'
 }
