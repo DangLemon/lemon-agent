@@ -244,6 +244,7 @@ contextBridge.exposeInMainWorld('lemonDesktop', {
   writeClipboard: text => ipcRenderer.invoke('lemon:writeClipboard', text),
   readClipboard: () => ipcRenderer.invoke('lemon:readClipboard'),
   saveGatewayFile: payload => ipcRenderer.invoke('lemon:saveGatewayFile', payload),
+  saveProviderArtifact: payload => ipcRenderer.invoke('lemon:saveProviderArtifact', payload),
   saveImageFromUrl: url => ipcRenderer.invoke('lemon:saveImageFromUrl', url),
   contextMenuEdit: command => ipcRenderer.invoke('lemon:context-menu:edit', command),
   contextMenuCopyImage: () => ipcRenderer.invoke('lemon:context-menu:copy-image'),

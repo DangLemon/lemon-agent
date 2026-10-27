@@ -570,7 +570,17 @@ export interface SessionInfo {
   connection_id?: string
 }
 
+export interface ProviderArtifactDescriptor {
+  content_type: string
+  expires_at: number
+  id: string
+  filename: string
+  sha256: string
+  size_bytes: number
+}
+
 export type TimelineDisplayMetadata =
+  | { provider_artifacts: ProviderArtifactDescriptor[] }
   | { model: string; provider?: string }
   | {
       delegation_id: string

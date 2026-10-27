@@ -2,7 +2,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import type { MutableRefObject } from 'react'
 
 import type { GatewayEventPayload } from '@/lib/chat-messages'
-import type { RpcEvent } from '@/types/lemon'
+import type { ProviderArtifactDescriptor, RpcEvent } from '@/types/lemon'
 
 import type { ClientSessionState } from '../../../../types'
 
@@ -18,8 +18,9 @@ export interface GatewayEventDeps {
     sessionId: string,
     text: string,
     responsePreviewed?: boolean,
-    failure?: { error: string; partial: boolean },
-    occurredAt?: number
+    failure?: { error: string; partial: boolean; surface?: import('@/lib/error-surface').ErrorSurface | null },
+    occurredAt?: number,
+    artifacts?: ProviderArtifactDescriptor[]
   ) => void
   failAssistantMessage: (sessionId: string, errorMessage: string, occurredAt?: number) => void
   flushQueuedDeltas: (sessionId?: string) => void

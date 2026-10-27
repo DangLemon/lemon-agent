@@ -27,10 +27,12 @@ import { AGENT_MESSAGE_RE } from '@/components/assistant-ui/thread/user-message'
 import { TooltipIconButton } from '@/components/assistant-ui/tooltip-icon-button'
 import { formatElapsed } from '@/components/chat/activity-timer'
 import { PreviewAttachment } from '@/components/chat/preview-attachment'
+import { ProviderArtifactCard } from '@/components/chat/provider-artifact-card'
 import { Codicon } from '@/components/ui/codicon'
 import { CopyButton } from '@/components/ui/copy-button'
 import { useI18n } from '@/i18n'
 import { type ErrorSurface, formatErrorDiagnostics } from '@/lib/error-surface'
+import { downloadProviderArtifact } from '@/lib/provider-artifacts'
 import { triggerHaptic } from '@/lib/haptics'
 import {
   AudioLines,
@@ -50,6 +52,8 @@ import { playSpeechText, stopVoicePlayback } from '@/lib/voice-playback'
 import { notifyError } from '@/store/notifications'
 import { requestSendDiagnostics } from '@/store/send-diagnostics'
 import { $connection, $currentModel } from '@/store/session'
+import type { ProviderArtifactDescriptor } from '@/types/lemon'
+import type { SessionOwnerScope } from '@/store/session-request-router'
 import { $voicePlayback } from '@/store/voice-playback'
 
 // Stable empty identity for the settled-parts selector — a fresh [] per render
@@ -178,6 +182,13 @@ const AssistantMessageBody: FC<AssistantMessageProps & { collapsedNotice?: null 
   const messageId = useAuiState(s => s.message.id)
   const messageRuntime = useMessageRuntime()
   const { t } = useI18n()
+  const sessionView = useSessionView()
+  const runtimeSessionId = useStore(sessionView.$runtimeId)
+  const storedSessionId = useStore(sessionView.$storedId)
+  const storedOwner = useStore(sessionView.$storedOwner)
+  const providerArtifacts = useAuiState(s =>
+    (s.message.metadata?.custom?.providerArtifacts as ProviderArtifactDescriptor[] | undefined) ?? []
+  )
 
   // PERF: this component must NOT subscribe to the streaming text, and no
   // longer subscribes to the streaming STATUS either. Every selector here
@@ -272,6 +283,11 @@ const AssistantMessageBody: FC<AssistantMessageProps & { collapsedNotice?: null 
           )}
           {/* Last thing in the turn — under the action bar, the way Cursor ends a
           turn on its summary rather than burying it above the controls. */}
+          <div className="mt-2 flex flex-col gap-1.5">
+            {providerArtifacts.map(artifact => (
+              <ProviderArtifactCard artifact={artifact} key={artifact.id} owner={storedOwner} sessionId={storedSessionId || runtimeSessionId || ''} />
+            ))}
+          </div>
           <SettledChangedFiles />
           <StreamingMarker />
         </>

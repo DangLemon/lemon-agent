@@ -649,6 +649,8 @@ def _complete_turn_payload(session: dict, st: _TurnRun, status_note: str | None,
     result, agent = st.result, st.agent
     raw, status, last_reasoning = _turn_outcome(result)
     payload = {"text": raw, "usage": _get_usage(agent), "status": status}
+    if status == "complete" and result.get("provider_artifacts"):
+        payload["artifacts"] = result["provider_artifacts"]
     if last_reasoning:
         payload["reasoning"] = last_reasoning
     if status_note:

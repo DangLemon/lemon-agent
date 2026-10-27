@@ -12,6 +12,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from agent.message_metadata import append_message
+from agent.provider_artifacts import materialize_provider_citations
 from agent.turn_empty_response import recover_empty_response
 from agent.turn_stop_gates import apply_stop_gates
 
@@ -222,6 +223,19 @@ def finish_text_response(
     if _sg.continue_turn:
         final_response = None
         return _verdict("continue")
+
+    if (
+        finish_reason == "stop" and final_response and getattr(agent, "provider", None) == "openai-api"
+        and getattr(agent, "api_mode", None) == "codex_responses"
+    ):
+        citations = getattr(assistant_message, "provider_artifact_citations", None) or []
+        if citations:
+            refs = materialize_provider_citations(agent, citations)
+            if refs:
+                metadata = final_msg.get("display_metadata")
+                metadata = dict(metadata) if isinstance(metadata, dict) else {}
+                metadata["provider_artifacts"] = [ref.to_dict() for ref in refs]
+                final_msg["display_metadata"] = metadata
 
     append_message(messages, final_msg)
     # Make the answer durable before leaving the loop (_DB_PERSISTED_MARKER keeps

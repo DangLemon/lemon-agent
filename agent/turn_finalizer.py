@@ -533,8 +533,19 @@ def finalize_turn(
     if isinstance(final_response, str):
         final_response = _sanitize_surrogates(final_response)
 
+    provider_artifacts = []
+    if not failed and not interrupted:
+        for message in reversed(messages):
+            if isinstance(message, dict) and message.get("role") == "assistant":
+                metadata = message.get("display_metadata")
+                refs = metadata.get("provider_artifacts") if isinstance(metadata, dict) else None
+                if isinstance(refs, list):
+                    provider_artifacts = refs
+                break
+
     result = {
         "final_response": final_response,
+        "provider_artifacts": provider_artifacts,
         "last_reasoning": _last_turn_reasoning(messages),
         "messages": messages,
         "api_calls": api_call_count,

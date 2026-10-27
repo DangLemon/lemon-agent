@@ -2,7 +2,7 @@ import { skillInvocationText } from '@lemon-ai/shared'
 
 import { extractImageRefs } from '@/lib/embedded-images'
 import { dedupeGeneratedImageEchoesInParts } from '@/lib/generated-images'
-import type { MessageReaction, SessionMessage } from '@/types/lemon'
+import type { MessageReaction, ProviderArtifactDescriptor, SessionMessage } from '@/types/lemon'
 
 import { assistantTextPart, chatMessageText, dedupeRepeatedTextInParts, reasoningPart, textPart } from './parts'
 import {
@@ -217,6 +217,18 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
     const imageRefExtraction = displayRole === 'user' && rawDisplayContent ? extractImageRefs(rawDisplayContent) : null
     const displayContent = imageRefExtraction ? imageRefExtraction.cleanedText : rawDisplayContent
     const extractedAttachmentRefs = imageRefExtraction?.refs.length ? imageRefExtraction.refs : undefined
+    const providerArtifactsRaw = parseDisplayMetadata(message.display_metadata)?.provider_artifacts
+    const providerArtifacts = Array.isArray(providerArtifactsRaw)
+      ? providerArtifactsRaw.filter((item): item is ProviderArtifactDescriptor => {
+          if (!item || typeof item !== 'object') return false
+          const artifact = item as Partial<ProviderArtifactDescriptor>
+
+          return typeof artifact.id === 'string' && /^[0-9a-f]{32}$/.test(artifact.id) &&
+            typeof artifact.filename === 'string' && typeof artifact.content_type === 'string' &&
+            typeof artifact.size_bytes === 'number' && typeof artifact.sha256 === 'string' &&
+            typeof artifact.expires_at === 'number'
+        })
+      : undefined
 
     const parts: ChatMessagePart[] = []
 
@@ -243,7 +255,7 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
       )
     }
 
-    if (!parts.length && !extractedAttachmentRefs?.length) {
+    if (!parts.length && !extractedAttachmentRefs?.length && !providerArtifacts?.length) {
       if (message.role !== 'assistant') {
         flushPendingTools(index)
         activeAssistantIndex = null
@@ -281,6 +293,15 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
 
       if (activeAssistant && (currentHasToolCall || activeHasToolCall)) {
         activeAssistant.parts = [...activeAssistant.parts, ...parts]
+        if (providerArtifacts?.length) {
+          const existingArtifacts = activeAssistant.providerArtifacts ?? []
+          const knownArtifactIds = new Set(existingArtifacts.map(artifact => artifact.id))
+
+          activeAssistant.providerArtifacts = [
+            ...existingArtifacts,
+            ...providerArtifacts.filter(artifact => !knownArtifactIds.has(artifact.id))
+          ]
+        }
         activeAssistant.timestamp = earliestTimestamp(
           activeAssistant.timestamp,
           message.timestamp,
@@ -306,6 +327,7 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
       timestamp: earliestTimestamp(message.timestamp, ...parts.map(part => part.timestamp)),
       ...(rowId !== undefined ? { rowId } : {}),
       ...(reactions.length ? { reactions } : {}),
+      ...(providerArtifacts?.length ? { providerArtifacts } : {}),
       ...(extractedAttachmentRefs ? { attachmentRefs: extractedAttachmentRefs } : {})
     })
 
@@ -321,7 +343,7 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
 
   return withUniqueToolCallIds(
     withoutGeneratedImageEchoes.filter(
-      m => chatMessageText(m).trim() || m.parts.some(part => part.type !== 'text') || m.attachmentRefs?.length
+      m => chatMessageText(m).trim() || m.parts.some(part => part.type !== 'text') || m.attachmentRefs?.length || m.providerArtifacts?.length
     )
   )
 }

@@ -825,6 +825,52 @@ def _preflight_codex_api_kwargs(
 
 # --- Response extraction helpers ----------------------------------------------
 
+_PROVIDER_ARTIFACT_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+_MAX_PROVIDER_ARTIFACT_CITATIONS = 32
+
+
+def _extract_provider_artifact_citations(response: Any) -> List[Dict[str, str]]:
+    """Read supported file references only from completed assistant text annotations."""
+    if _lower_or_none(_field(response, "status")) != "completed":
+        return []
+
+    citations, seen = [], set()
+    for item in _as_list(_field(response, "output")):
+        if (
+            _field(item, "type") != "message"
+            or _field(item, "role") != "assistant"
+            or _lower_or_none(_field(item, "status")) != "completed"
+            or _lower_or_none(_field(item, "phase")) in {"analysis", "commentary"}
+        ):
+            continue
+        for part in _as_list(_field(item, "content")):
+            if _field(part, "type") not in _OUTPUT_TEXT_TYPES:
+                continue
+            for annotation in _as_list(_field(part, "annotations")):
+                if _field(annotation, "type") != "container_file_citation":
+                    continue
+                container_id = _field(annotation, "container_id")
+                file_id = _field(annotation, "file_id")
+                filename = _field(annotation, "filename")
+                if not (
+                    isinstance(container_id, str) and _PROVIDER_ARTIFACT_ID_RE.fullmatch(container_id)
+                    and isinstance(file_id, str) and _PROVIDER_ARTIFACT_ID_RE.fullmatch(file_id)
+                    and isinstance(filename, str) and filename.strip() and len(filename) <= 255
+                    and "\x00" not in filename
+                ):
+                    continue
+                key = (container_id, file_id)
+                if key in seen:
+                    continue
+                seen.add(key)
+                citations.append({
+                    "container_id": container_id, "file_id": file_id, "filename": filename.strip(),
+                })
+                if len(citations) >= _MAX_PROVIDER_ARTIFACT_CITATIONS:
+                    return citations
+    return citations
+
+
 def _text_chunks(parts: Any, types: Optional[set] = None) -> List[str]:
     """Non-empty ``.text`` of each part (optionally filtered by ``.type``); [] if not a list."""
     selected = [part for part in _as_list(parts) if types is None or getattr(part, "type", None) in types]
@@ -1012,6 +1058,7 @@ def _normalize_codex_response(response: Any, *, issuer_kind: Optional[str] = Non
         reasoning="\n\n".join(reasoning_parts).strip() if reasoning_parts else None,
         reasoning_content=None, reasoning_details=None,
         codex_reasoning_items=scan.reasoning_items_raw or None, codex_message_items=scan.message_items_raw or None,
+        provider_artifact_citations=_extract_provider_artifact_citations(response),
     )
     # Reasoning-only: for Codex/xAI/GitHub, status=completed means "still thinking" → incomplete so the continuation
     # retries. Other backends trust response.status — forcing incomplete there stalls for minutes on a final state.
