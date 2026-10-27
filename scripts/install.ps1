@@ -782,6 +782,7 @@ function Checkout-FetchedBranchOrRef {
 }
 
 function Invoke-NativeWithRelaxedErrorAction {
+    param([Parameter(Mandatory = $true)][scriptblock]$Script)
 
     $prevEAP = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
