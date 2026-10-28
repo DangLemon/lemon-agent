@@ -1845,6 +1845,55 @@ function New-GitBashAslrFailureReason {
     ) -join [Environment]::NewLine
 }
 
+function Wait-PortableGitExtraction {
+    param(
+        [Parameter(Mandatory = $true)][System.Diagnostics.Process]$Process,
+        [ValidateRange(1, 2147483647)][int]$TimeoutMilliseconds = 600000
+    )
+
+    if ($Process.WaitForExit($TimeoutMilliseconds)) {
+        if ($Process.ExitCode -ne 0) {
+            throw "PortableGit extraction failed (exit code $($Process.ExitCode))"
+        }
+        return
+    }
+
+    if ($Process.HasExited) {
+        if ($Process.ExitCode -ne 0) {
+            throw "PortableGit extraction failed (exit code $($Process.ExitCode))"
+        }
+        return
+    }
+
+    $timeoutSeconds = $TimeoutMilliseconds / 1000
+    $cleanupTimeoutMilliseconds = 10000
+    $taskkill = Start-Process -FilePath "$env:SystemRoot\System32\taskkill.exe" `
+        -ArgumentList "/PID", $Process.Id, "/T", "/F" `
+        -NoNewWindow -PassThru
+    try {
+        if (-not $taskkill.WaitForExit($cleanupTimeoutMilliseconds)) {
+            try { $taskkill.Kill() } catch { }
+            throw [System.TimeoutException]::new("PortableGit extraction timed out after $timeoutSeconds seconds. Could not confirm extractor process-tree termination because taskkill did not finish within 10 seconds.")
+        }
+        if ($taskkill.ExitCode -ne 0) {
+            if ($Process.HasExited) {
+                if ($Process.ExitCode -ne 0) {
+                    throw "PortableGit extraction failed (exit code $($Process.ExitCode))"
+                }
+                return
+            }
+            throw [System.TimeoutException]::new("PortableGit extraction timed out after $timeoutSeconds seconds. Could not confirm extractor process-tree termination (PID $($Process.Id), taskkill exit code $($taskkill.ExitCode)).")
+        }
+    } finally {
+        $taskkill.Dispose()
+    }
+
+    if (-not $Process.WaitForExit($cleanupTimeoutMilliseconds)) {
+        throw [System.TimeoutException]::new("PortableGit extraction timed out after $timeoutSeconds seconds. Could not confirm extractor process-tree termination within 10 seconds.")
+    }
+    throw [System.TimeoutException]::new("PortableGit extraction timed out after $timeoutSeconds seconds; the extractor process tree was terminated.")
+}
+
 function Install-Git {
     <#
     .SYNOPSIS
@@ -1971,9 +2020,11 @@ function Install-Git {
             Write-Info "Extracting PortableGit to $gitDir ..."
             $extractProc = Start-Process -FilePath $tmpFile `
                 -ArgumentList "-o`"$gitDir`"", "-y" `
-                -NoNewWindow -Wait -PassThru
-            if ($extractProc.ExitCode -ne 0) {
-                throw "PortableGit extraction failed (exit code $($extractProc.ExitCode))"
+                -NoNewWindow -PassThru
+            try {
+                Wait-PortableGitExtraction -Process $extractProc
+            } finally {
+                $extractProc.Dispose()
             }
         }
         Remove-Item -Force $tmpFile -ErrorAction SilentlyContinue

@@ -28,6 +28,15 @@ function Assert-True {
         Write-Host "OK: $Label" -ForegroundColor Green
     }
 }
+function Wait-ForPath {
+    param([string]$Path, [int]$TimeoutMilliseconds = 5000)
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    while (-not (Test-Path -LiteralPath $Path)) {
+        if ($stopwatch.ElapsedMilliseconds -ge $TimeoutMilliseconds) { return $false }
+        Start-Sleep -Milliseconds 50
+    }
+    return $true
+}
 
 $tokens = $null
 $parseErrors = $null
@@ -43,6 +52,7 @@ foreach ($name in @(
     "Test-MandatoryAslrEnabled",
     "Get-GitRootFromBashPath",
     "New-GitBashAslrFailureReason",
+    "Wait-PortableGitExtraction",
     "Stage-Git"
 )) {
     $fnAst = $ast.FindAll(
@@ -101,6 +111,95 @@ if ($gitBash) {
         "installed Git Bash launches external MSYS programs"
 } else {
     Write-Host "SKIP: no Git Bash found next to git.exe" -ForegroundColor Yellow
+}
+
+Write-Host ""
+Write-Host "-- PortableGit extraction --"
+$tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("lemon git extraction " + [guid]::NewGuid())
+$rootProcess = $null
+$childProcess = $null
+try {
+    New-Item -ItemType Directory -Path $tempRoot | Out-Null
+    $powershellExe = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+
+    $exitScript = Join-Path $tempRoot "exit.ps1"
+    Set-Content -LiteralPath $exitScript -Value "exit 7" -Encoding UTF8
+    $exitProcess = Start-Process -FilePath $powershellExe `
+        -ArgumentList "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", "`"$exitScript`"" `
+        -NoNewWindow -PassThru
+    $exitError = $null
+    try {
+        Wait-PortableGitExtraction -Process $exitProcess -TimeoutMilliseconds 5000
+    } catch {
+        $exitError = $_.Exception.Message
+    } finally {
+        $exitProcess.Dispose()
+    }
+    Assert-Equal "PortableGit extraction failed (exit code 7)" $exitError `
+        "nonzero extractor exit remains distinct from timeout"
+
+    $childPidPath = Join-Path $tempRoot "child.pid"
+    $childReadyPath = Join-Path $tempRoot "child.ready"
+    $rootReadyPath = Join-Path $tempRoot "root.ready"
+    $childScript = Join-Path $tempRoot "child.ps1"
+    $rootScript = Join-Path $tempRoot "root.ps1"
+    Set-Content -LiteralPath $childScript -Encoding UTF8 -Value @'
+param([string]$PidPath, [string]$ReadyPath)
+Set-Content -LiteralPath $PidPath -Value $PID
+Set-Content -LiteralPath $ReadyPath -Value "ready"
+while ($true) { Start-Sleep -Seconds 1 }
+'@
+    Set-Content -LiteralPath $rootScript -Encoding UTF8 -Value @'
+param(
+    [string]$PowerShellExe,
+    [string]$ChildScript,
+    [string]$ChildPidPath,
+    [string]$ChildReadyPath,
+    [string]$RootReadyPath
+)
+$childArguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$ChildScript`" `"$ChildPidPath`" `"$ChildReadyPath`""
+$child = Start-Process -FilePath $PowerShellExe `
+    -ArgumentList $childArguments -NoNewWindow -PassThru
+Set-Content -LiteralPath $RootReadyPath -Value $child.Id
+while ($true) { Start-Sleep -Seconds 1 }
+'@
+
+    $rootArguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$rootScript`" `"$powershellExe`" `"$childScript`" `"$childPidPath`" `"$childReadyPath`" `"$rootReadyPath`""
+    $rootProcess = Start-Process -FilePath $powershellExe `
+        -ArgumentList $rootArguments -NoNewWindow -PassThru
+    Assert-True (Wait-ForPath -Path $rootReadyPath) "extractor fixture starts root process"
+    Assert-True (Wait-ForPath -Path $childReadyPath) "extractor fixture starts child process"
+    if (Test-Path -LiteralPath $childPidPath) {
+        $childProcess = Get-Process -Id ([int](Get-Content -LiteralPath $childPidPath)) -ErrorAction Stop
+    }
+
+    $timeoutError = $null
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    try {
+        Wait-PortableGitExtraction -Process $rootProcess -TimeoutMilliseconds 1000
+    } catch [System.TimeoutException] {
+        $timeoutError = $_.Exception.Message
+    }
+    $stopwatch.Stop()
+
+    Assert-True ($timeoutError -match "timed out after 1 second") `
+        "extractor reports its bounded timeout"
+    Assert-True ($timeoutError -match "process tree was terminated") `
+        "extractor reports process-tree cleanup"
+    Assert-True ($stopwatch.ElapsedMilliseconds -lt 15000) `
+        "extractor timeout returns within cleanup budget"
+    $rootProcess.Refresh()
+    if ($childProcess) { $childProcess.Refresh() }
+    Assert-True $rootProcess.HasExited "extractor root is terminated"
+    Assert-True ($childProcess -and $childProcess.HasExited) "extractor child is terminated"
+} finally {
+    foreach ($process in @($childProcess, $rootProcess)) {
+        if ($process) {
+            try { if (-not $process.HasExited) { $process.Kill() } } catch { }
+            $process.Dispose()
+        }
+    }
+    Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 Write-Host ""
