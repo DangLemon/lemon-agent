@@ -37,6 +37,19 @@ def test_store_round_trips_immutable_artifact_and_expires_after_thirty_days(tmp_
     assert not (store.root / ref.artifact_id).exists()
 
 
+def test_store_accepts_excel_workbook_content_type(tmp_path):
+    store = ProviderArtifactStore(tmp_path)
+
+    ref = store.store(
+        b"workbook",
+        filename="report.xlsx",
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+    assert ref.filename == "report.xlsx"
+    assert ref.content_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
 def test_store_stream_enforces_cap_and_removes_partial_object(tmp_path):
     store = ProviderArtifactStore(tmp_path, max_bytes=3)
 

@@ -1,6 +1,9 @@
+import json
+import os
 import sys
 import types
 from types import SimpleNamespace
+from urllib.parse import quote
 
 import pytest
 
@@ -11,7 +14,7 @@ sys.modules.setdefault("fal_client", types.SimpleNamespace())
 
 import run_agent
 from agent.conversation_loop import _CODEX_INCOMPLETE_NUDGE
-from agent.turn_final_response import finish_text_response
+from agent.turn_final_response import _repair_local_sandbox_links, finish_text_response
 
 
 @pytest.fixture(autouse=True)
@@ -134,6 +137,278 @@ def test_direct_openai_final_citation_is_materialized_only_after_stop_gate_accep
     assert verdict.action == "break"
     assert messages[-1]["content"] == "answer"
     assert messages[-1]["display_metadata"]["provider_artifacts"] == [{"id": "0" * 32, "filename": "safe.zip"}]
+
+
+def test_direct_openai_empty_text_still_materializes_citation(monkeypatch, tmp_path):
+    _patch_agent_bootstrap(monkeypatch)
+    agent = run_agent.AIAgent(
+        model="gpt-5.4", provider="openai-api", api_mode="codex_responses",
+        base_url="https://api.openai.com/v1", api_key="direct-key", quiet_mode=True,
+        max_iterations=2, skip_context_files=True, skip_memory=True,
+    )
+    agent._build_assistant_message = lambda _message, finish_reason: {
+        "role": "assistant", "content": "", "finish_reason": finish_reason,
+    }
+    agent._has_content_after_think_block = lambda _text: True
+    agent._strip_think_blocks = lambda text: text
+    agent._flush_messages_to_session_db = lambda *_args: None
+    refs = [SimpleNamespace(to_dict=lambda: {"id": "0" * 32, "filename": "safe.zip"})]
+    monkeypatch.setattr("agent.turn_final_response.materialize_provider_citations", lambda *_args: refs)
+    messages = []
+
+    verdict = finish_text_response(
+        agent, assistant_message=SimpleNamespace(
+            content="", tool_calls=None, provider_artifact_citations=[
+                {"container_id": "cntr_1", "file_id": "file_1", "filename": "safe.zip"}],
+        ), response=SimpleNamespace(), finish_reason="stop", messages=messages,
+        api_messages=[], conversation_history=[], api_call_count=1, user_message="make zip",
+        active_system_prompt="", final_response="", _turn_exit_reason="text_response(stop)",
+        _preflight_compression_blocked=False, codex_ack_continuations=0, truncated_response_parts=[],
+        length_continue_retries=0, _pending_verification_response=None,
+        _pending_verification_response_previewed=False,
+    )
+
+    assert verdict.action == "break"
+    assert messages[-1]["content"] == ""
+    assert messages[-1]["display_metadata"]["provider_artifacts"] == [
+        {"id": "0" * 32, "filename": "safe.zip"}
+    ]
+
+
+def test_local_sandbox_link_is_repaired_only_with_tool_provenance(tmp_path):
+    report = tmp_path / "report.xlsx"
+    report.write_bytes(b"workbook")
+    response = f"[Download](sandbox:{report})"
+    messages = [{
+        "role": "tool",
+        "tool_name": "execute_code",
+        "content": json.dumps({"status": "success", "output_file": str(report)}),
+    }]
+
+    assert _repair_local_sandbox_links(
+        response,
+        messages,
+        platform="desktop",
+    ) == f"[Download](#media:{quote(str(report), safe='')})"
+    assert _repair_local_sandbox_links(response, [], platform="desktop") == response
+    assert _repair_local_sandbox_links(response, messages, platform="tui") == response
+
+
+def test_local_sandbox_link_repair_rejects_unproven_sibling(tmp_path):
+    proven = tmp_path / "report.xlsx"
+    unproven = tmp_path / "secret.xlsx"
+    proven.write_bytes(b"workbook")
+    unproven.write_bytes(b"secret")
+    response = f"[Download](sandbox:{unproven})"
+    messages = [{
+        "role": "tool",
+        "tool_name": "execute_code",
+        "content": json.dumps({"status": "success", "output": str(proven)}),
+    }]
+
+    assert _repair_local_sandbox_links(response, messages, platform="desktop") == response
+
+
+def test_local_sandbox_link_repair_rejects_touched_stdout_path(tmp_path):
+    report = tmp_path / "report.xlsx"
+    report.write_bytes(b"existing workbook")
+    os.utime(report, None)
+    response = f"[Download](sandbox:{report})"
+    messages = [{
+        "role": "tool",
+        "tool_name": "execute_code",
+        "content": json.dumps({"status": "success", "output": str(report)}),
+    }]
+
+    assert _repair_local_sandbox_links(response, messages, platform="desktop") == response
+
+
+def test_non_direct_citation_does_not_suppress_local_sandbox_retry(monkeypatch, tmp_path):
+    _patch_agent_bootstrap(monkeypatch)
+    agent = run_agent.AIAgent(
+        model="gpt-5.4", provider="custom", api_mode="codex_responses",
+        base_url="https://agent.example/v1", api_key="custom-key", quiet_mode=True,
+        max_iterations=2, skip_context_files=True, skip_memory=True, platform="desktop",
+    )
+    agent.valid_tool_names.add("execute_code")
+    report = tmp_path / "report.xlsx"
+    report.write_bytes(b"workbook")
+    response = f"[Download](sandbox:{report})"
+    agent._build_assistant_message = lambda _message, finish_reason: {
+        "role": "assistant", "content": response, "finish_reason": finish_reason,
+    }
+    agent._has_content_after_think_block = lambda _text: True
+    agent._strip_think_blocks = lambda text: text
+    agent._flush_messages_to_session_db = lambda *_args: None
+    messages = []
+
+    verdict = finish_text_response(
+        agent, assistant_message=SimpleNamespace(
+            content=response, tool_calls=None, provider_artifact_citations=[
+                {"container_id": "cntr_1", "file_id": "file_1", "filename": "report.xlsx"}
+            ],
+        ), response=SimpleNamespace(), finish_reason="stop", messages=messages,
+        api_messages=[], conversation_history=[], api_call_count=1, user_message="make workbook",
+        active_system_prompt="", final_response=response, _turn_exit_reason="text_response(stop)",
+        _preflight_compression_blocked=False, codex_ack_continuations=0,
+        truncated_response_parts=[], length_continue_retries=0,
+        _pending_verification_response=None, _pending_verification_response_previewed=False,
+    )
+
+    assert verdict.action == "continue"
+    assert messages[-1]["_local_file_delivery_nudge"] is True
+
+
+def test_finish_text_response_retries_mixed_proven_and_unproven_sandbox_links(monkeypatch, tmp_path):
+    _patch_agent_bootstrap(monkeypatch)
+    agent = run_agent.AIAgent(
+        model="gpt-5.4", provider="custom", api_mode="chat_completions",
+        base_url="https://agent.example/v1", api_key="custom-key", quiet_mode=True,
+        max_iterations=2, skip_context_files=True, skip_memory=True, platform="desktop",
+    )
+    agent.valid_tool_names.add("execute_code")
+    proven = tmp_path / "report.xlsx"
+    unproven = tmp_path / "secret.xlsx"
+    proven.write_bytes(b"workbook")
+    unproven.write_bytes(b"secret")
+    response = f"[Report](sandbox:{proven}) [Secret](sandbox:{unproven})"
+    agent._build_assistant_message = lambda _message, finish_reason: {
+        "role": "assistant", "content": response, "finish_reason": finish_reason,
+    }
+    agent._has_content_after_think_block = lambda _text: True
+    agent._strip_think_blocks = lambda text: text
+    agent._flush_messages_to_session_db = lambda *_args: None
+    messages = [{
+        "role": "tool",
+        "tool_name": "execute_code",
+        "content": json.dumps({"status": "success", "output_file": str(proven)}),
+    }]
+
+    verdict = finish_text_response(
+        agent, assistant_message=SimpleNamespace(content=response, tool_calls=None),
+        response=SimpleNamespace(), finish_reason="stop", messages=messages,
+        api_messages=[], conversation_history=[], api_call_count=1, user_message="make workbook",
+        active_system_prompt="", final_response=response, _turn_exit_reason="text_response(stop)",
+        _preflight_compression_blocked=False, codex_ack_continuations=0,
+        truncated_response_parts=[], length_continue_retries=0,
+        _pending_verification_response=None, _pending_verification_response_previewed=False,
+    )
+
+    assert verdict.action == "continue"
+    assert messages[-1]["_local_file_delivery_nudge"] is True
+
+
+def test_finish_text_response_retries_unproven_local_sandbox_link(monkeypatch, tmp_path):
+    _patch_agent_bootstrap(monkeypatch)
+    agent = run_agent.AIAgent(
+        model="gpt-5.4", provider="custom", api_mode="chat_completions",
+        base_url="https://agent.example/v1", api_key="custom-key", quiet_mode=True,
+        max_iterations=2, skip_context_files=True, skip_memory=True, platform="desktop",
+    )
+    agent.valid_tool_names.add("execute_code")
+    report = tmp_path / "report.xlsx"
+    report.write_bytes(b"workbook")
+    response = f"[Download](sandbox:{report})"
+    agent._build_assistant_message = lambda _message, finish_reason: {
+        "role": "assistant", "content": response, "finish_reason": finish_reason,
+    }
+    agent._has_content_after_think_block = lambda _text: True
+    agent._strip_think_blocks = lambda text: text
+    flushed = []
+    agent._flush_messages_to_session_db = lambda *_args: flushed.append(True)
+    messages = [{
+        "role": "tool",
+        "tool_name": "execute_code",
+        "content": json.dumps({"status": "success", "output": str(report)}),
+    }]
+
+    verdict = finish_text_response(
+        agent, assistant_message=SimpleNamespace(content=response, tool_calls=None),
+        response=SimpleNamespace(), finish_reason="stop", messages=messages,
+        api_messages=[], conversation_history=[], api_call_count=1, user_message="make workbook",
+        active_system_prompt="", final_response=response, _turn_exit_reason="text_response(stop)",
+        _preflight_compression_blocked=False, codex_ack_continuations=0,
+        truncated_response_parts=[], length_continue_retries=0,
+        _pending_verification_response=None, _pending_verification_response_previewed=False,
+    )
+
+    assert verdict.action == "continue"
+    assert verdict.final_response is None
+    assert messages[-2]["_local_file_delivery_nudge"] is True
+    assert messages[-1]["_local_file_delivery_nudge"] is True
+    assert "output_files" in messages[-1]["content"]
+    assert flushed == []
+
+
+def test_local_sandbox_link_repair_rejects_failed_write_file(tmp_path):
+    report = tmp_path / "report.xlsx"
+    report.write_bytes(b"old workbook")
+    response = f"[Download](sandbox:{report})"
+    messages = [{
+        "role": "tool",
+        "tool_name": "write_file",
+        "content": json.dumps({
+            "error": "write failed",
+            "resolved_path": str(report),
+        }),
+    }]
+
+    assert _repair_local_sandbox_links(response, messages, platform="desktop") == response
+
+
+def test_local_sandbox_link_repair_ignores_tool_output_from_prior_turn(tmp_path):
+    report = tmp_path / "report.xlsx"
+    report.write_bytes(b"workbook")
+    response = f"[Download](sandbox:{report})"
+    messages = [
+        {
+            "role": "tool",
+            "tool_name": "execute_code",
+            "content": json.dumps({"status": "success", "output": str(report)}),
+        },
+        {"role": "assistant", "content": "Created it."},
+        {"role": "user", "content": "Show another file."},
+    ]
+
+    assert _repair_local_sandbox_links(response, messages, platform="desktop") == response
+
+
+def test_finish_text_response_persists_repaired_local_sandbox_link(monkeypatch, tmp_path):
+    _patch_agent_bootstrap(monkeypatch)
+    agent = run_agent.AIAgent(
+        model="gpt-5.4", provider="custom", api_mode="chat_completions",
+        base_url="https://agent.example/v1", api_key="custom-key", quiet_mode=True,
+        max_iterations=2, skip_context_files=True, skip_memory=True, platform="desktop",
+    )
+    response_path = tmp_path / "report with spaces.xlsx"
+    response_path.write_bytes(b"workbook")
+    response = f"[Download](sandbox:{response_path})"
+    agent._build_assistant_message = lambda _message, finish_reason: {
+        "role": "assistant", "content": response, "finish_reason": finish_reason,
+    }
+    agent._has_content_after_think_block = lambda _text: True
+    agent._strip_think_blocks = lambda text: text
+    agent._flush_messages_to_session_db = lambda *_args: None
+    messages = [{
+        "role": "tool",
+        "tool_name": "execute_code",
+        "content": json.dumps({"status": "success", "output_file": str(response_path)}),
+    }]
+
+    verdict = finish_text_response(
+        agent, assistant_message=SimpleNamespace(content=response, tool_calls=None),
+        response=SimpleNamespace(), finish_reason="stop", messages=messages,
+        api_messages=[], conversation_history=[], api_call_count=1, user_message="make workbook",
+        active_system_prompt="", final_response=response, _turn_exit_reason="text_response(stop)",
+        _preflight_compression_blocked=False, codex_ack_continuations=0,
+        truncated_response_parts=[], length_continue_retries=0,
+        _pending_verification_response=None, _pending_verification_response_previewed=False,
+    )
+
+    expected = f"[Download](#media:{quote(str(response_path), safe='')})"
+    assert verdict.action == "break"
+    assert verdict.final_response == expected
+    assert messages[-1]["content"] == expected
 
 
 def _codex_message_response(text: str):
