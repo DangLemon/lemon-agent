@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { DesktopConnectionsRegistry } from '@/global'
 import { createClientSessionState } from '@/lib/chat-runtime'
+import { BACKEND_BOOT_WAIT_TIMEOUT_MS } from '@/lib/with-timeout'
 import { $desktopBoot } from '@/store/boot'
 import {
   $connectionsRegistry,
@@ -1205,12 +1206,9 @@ describe('useGatewayBoot remote reconnect loop (real hook, fake socket)', () => 
     expect($connection.get()).toBeNull()
   })
 
-  it('a getConnection() that hangs on INITIAL boot rejects on its own after the reconnect-attempt timeout, not only when main eventually gives up (#93454)', async () => {
-    // boot()'s getConnection() had no bound of its own — only main's own
-    // eventual timeout (e.g. waitForLemon, ~45s) ever settled it. A wedge
-    // that main never resolves (not even a rejection) must not hang
-    // "Starting Lemon AI…" forever; the renderer needs to own its own bound
-    // here too, same as attemptReconnect() and softSwitch().
+  it('keeps waiting through a slow initial boot, then rejects a wedged getConnection() at the cold-boot deadline', async () => {
+    // The renderer owns a final bound because a wedged IPC call may never
+    // settle. That bound must still allow a healthy slow Windows cold boot.
     const desktop = fakeDesktop()
     desktop.getConnection = vi.fn(() => new Promise(() => undefined))
     ;(window as { lemonDesktop?: unknown }).lemonDesktop = desktop
@@ -1220,13 +1218,17 @@ describe('useGatewayBoot remote reconnect loop (real hook, fake socket)', () => 
 
     expect($desktopBoot.get().error).toBeNull()
 
-    // Advance past the shared backend-boot budget (45s) — the
-    // stalled await must reject on its own so boot()'s catch runs instead of
-    // waiting indefinitely on main.
+    // A slow cold boot may still be healthy after 45s on Windows. Keep waiting
+    // instead of replacing the real startup result with a renderer timeout.
     await act(async () => {
       await vi.advanceTimersByTimeAsync(45_000)
     })
+    expect($desktopBoot.get().error).toBeNull()
 
+    // A genuinely wedged IPC call still stops at the shared cold-boot budget.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(BACKEND_BOOT_WAIT_TIMEOUT_MS - 45_000)
+    })
     expect($desktopBoot.get().error).toBeTruthy()
   })
 
@@ -1258,11 +1260,11 @@ describe('useGatewayBoot remote reconnect loop (real hook, fake socket)', () => 
 
     expect($gatewaySwitching.get()).toBe(true)
 
-    // Advance past the shared backend-boot budget (45s) — the
-    // stalled await must reject so the `finally` clears $gatewaySwitching
-    // instead of latching the switch UI frozen forever.
+    // Advance past the shared backend-boot budget — the stalled await must
+    // reject so the `finally` clears $gatewaySwitching instead of latching the
+    // switch UI frozen forever.
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(45_000)
+      await vi.advanceTimersByTimeAsync(BACKEND_BOOT_WAIT_TIMEOUT_MS)
     })
 
     expect($gatewaySwitching.get()).toBe(false)
