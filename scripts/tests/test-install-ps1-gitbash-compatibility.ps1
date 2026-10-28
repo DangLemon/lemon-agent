@@ -124,9 +124,10 @@ try {
 
     $exitScript = Join-Path $tempRoot "exit.ps1"
     Set-Content -LiteralPath $exitScript -Value "exit 7" -Encoding UTF8
-    $exitProcess = Start-Process -FilePath $powershellExe `
-        -ArgumentList "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", "`"$exitScript`"" `
-        -NoNewWindow -PassThru
+    $exitProcess = [System.Diagnostics.Process]::Start(
+        $powershellExe,
+        "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$exitScript`""
+    )
     $exitError = $null
     try {
         Wait-PortableGitExtraction -Process $exitProcess -TimeoutMilliseconds 5000
@@ -165,8 +166,7 @@ while ($true) { Start-Sleep -Seconds 1 }
 '@
 
     $rootArguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$rootScript`" `"$powershellExe`" `"$childScript`" `"$childPidPath`" `"$childReadyPath`" `"$rootReadyPath`""
-    $rootProcess = Start-Process -FilePath $powershellExe `
-        -ArgumentList $rootArguments -NoNewWindow -PassThru
+    $rootProcess = [System.Diagnostics.Process]::Start($powershellExe, $rootArguments)
     Assert-True (Wait-ForPath -Path $rootReadyPath) "extractor fixture starts root process"
     Assert-True (Wait-ForPath -Path $childReadyPath) "extractor fixture starts child process"
     if (Test-Path -LiteralPath $childPidPath) {
