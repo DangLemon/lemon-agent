@@ -1852,6 +1852,7 @@ function Wait-PortableGitExtraction {
     )
 
     if ($Process.WaitForExit($TimeoutMilliseconds)) {
+        $Process.WaitForExit()
         if ($Process.ExitCode -ne 0) {
             throw "PortableGit extraction failed (exit code $($Process.ExitCode))"
         }
@@ -1859,6 +1860,7 @@ function Wait-PortableGitExtraction {
     }
 
     if ($Process.HasExited) {
+        $Process.WaitForExit()
         if ($Process.ExitCode -ne 0) {
             throw "PortableGit extraction failed (exit code $($Process.ExitCode))"
         }
@@ -1877,6 +1879,7 @@ function Wait-PortableGitExtraction {
         }
         if ($taskkill.ExitCode -ne 0) {
             if ($Process.HasExited) {
+                $Process.WaitForExit()
                 if ($Process.ExitCode -ne 0) {
                     throw "PortableGit extraction failed (exit code $($Process.ExitCode))"
                 }
