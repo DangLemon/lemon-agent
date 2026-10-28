@@ -1,4 +1,7 @@
 import hashlib
+import os
+from contextlib import closing
+from pathlib import Path
 
 import pytest
 
@@ -41,6 +44,51 @@ def test_store_stream_enforces_cap_and_removes_partial_object(tmp_path):
         store.store_stream(iter([b"ab", b"cd"]), filename="report.zip", content_type="application/zip")
 
     assert sorted(path.name for path in tmp_path.iterdir()) == [".store.lock", "lemon_test"]
+
+
+def test_open_verified_returns_the_same_rewound_handle_after_checksum(tmp_path):
+    store = ProviderArtifactStore(tmp_path)
+    payload = b"zip-payload"
+    ref = store.store(payload, filename="report.zip", content_type="application/zip")
+
+    with store.open_verified(ref.artifact_id, ref=ref) as handle:
+        assert handle.tell() == 0
+        assert handle.read() == payload
+
+
+def test_open_verified_checks_large_artifacts_without_loading_them_whole(tmp_path, monkeypatch):
+    store = ProviderArtifactStore(tmp_path)
+    payload = b"zip-payload"
+    ref = store.store(payload, filename="report.zip", content_type="application/zip")
+
+    def reject_read_bytes(_self):
+        raise AssertionError("verification must stream file content")
+
+    monkeypatch.setattr(Path, "read_bytes", reject_read_bytes)
+
+    with store.open_verified(ref.artifact_id, ref=ref) as handle:
+        assert handle.read() == payload
+
+
+@pytest.mark.skipif(not hasattr(os, "O_NOFOLLOW"), reason="platform lacks O_NOFOLLOW")
+def test_open_verified_rejects_symlink_replacement_after_validation(tmp_path, monkeypatch):
+    store = ProviderArtifactStore(tmp_path)
+    ref = store.store(b"zip-payload", filename="report.zip", content_type="application/zip")
+    artifact = store.root / ref.artifact_id
+    target = tmp_path / "replacement"
+    target.write_bytes(b"zip-payload")
+    original_validate = store._validated_path
+
+    def replace_after_validation(*args, **kwargs):
+        path = original_validate(*args, **kwargs)
+        path.unlink()
+        path.symlink_to(target)
+        return path
+
+    monkeypatch.setattr(store, "_validated_path", replace_after_validation)
+
+    with pytest.raises(ProviderArtifactError, match="artifact not found"):
+        store.open_verified(ref.artifact_id, ref=ref)
 
 
 def test_store_caps_bytes_and_sanitizes_untrusted_filename(tmp_path):

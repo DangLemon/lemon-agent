@@ -22,7 +22,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from starlette.background import BackgroundTask
 
 from lemon_cli.web_server_cron import _cron_profile_home
 from lemon_cli._subprocess_compat import windows_hide_flags
@@ -35,6 +36,27 @@ from lemon_cli.web_models import (
 )
 
 _open_session_db_for_profile = late("_open_session_db_for_profile", "lemon_cli.web_server_sessions")
+
+
+class _ProviderArtifactStreamingResponse(StreamingResponse):
+    def __init__(self, artifact_handle, content, **kwargs):
+        self._artifact_handle = artifact_handle
+        super().__init__(content, **kwargs)
+
+    async def _close_artifact(self):
+        try:
+            close = getattr(self.body_iterator, "aclose", None)
+            if close is not None:
+                await close()
+        finally:
+            if not self._artifact_handle.closed:
+                self._artifact_handle.close()
+
+    async def __call__(self, scope, receive, send):
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            await self._close_artifact()
 
 
 def _provider_artifact_store_for_profile(profile: Optional[str]):
@@ -719,6 +741,7 @@ async def download_provider_artifact(artifact_id: str, session_id: str, profile:
 
     if not re.fullmatch(r"[0-9a-f]{32}", artifact_id):
         raise HTTPException(status_code=404, detail="Artifact not found")
+    artifact_handle = None
     try:
         db = _open_session_db_for_profile(profile, read_only=True)
         try:
@@ -740,26 +763,37 @@ async def download_provider_artifact(artifact_id: str, session_id: str, profile:
         finally:
             db.close()
         store = _provider_artifact_store_for_profile(profile)
-        try:
-            store.read(artifact_id, ref=ref)
-        except Exception as exc:
-            if "expired" in str(exc):
-                raise HTTPException(status_code=410, detail="Artifact expired") from None
-            raise HTTPException(status_code=404, detail="Artifact not found") from None
+        artifact_handle = store.open_verified(artifact_id, ref=ref)
     except HTTPException:
+        if artifact_handle is not None:
+            artifact_handle.close()
         raise
     except Exception as exc:
+        if artifact_handle is not None:
+            artifact_handle.close()
         if "expired" in str(exc):
             raise HTTPException(status_code=410, detail="Artifact expired") from None
         raise HTTPException(status_code=404, detail="Artifact not found") from None
-    path = store.root / artifact_id
-    return FileResponse(
-        path=str(path),
+    async def stream_artifact():
+        try:
+            while chunk := await asyncio.to_thread(artifact_handle.read, 64 * 1024):
+                yield chunk
+        finally:
+            artifact_handle.close()
+
+    stream = stream_artifact()
+
+    return _ProviderArtifactStreamingResponse(
+        artifact_handle,
+        stream,
         media_type=ref.content_type,
-        filename=ref.filename,
-        content_disposition_type="attachment",
-        headers={"X-Content-Type-Options": "nosniff", "X-Artifact-Sha256": ref.sha256,
-                 "Cache-Control": "no-store"},
+        headers={
+            "Content-Disposition": f'attachment; filename="{ref.filename}"',
+            "Content-Length": str(ref.size_bytes),
+            "X-Content-Type-Options": "nosniff",
+            "X-Artifact-Sha256": ref.sha256,
+            "Cache-Control": "no-store",
+        },
     )
 
 

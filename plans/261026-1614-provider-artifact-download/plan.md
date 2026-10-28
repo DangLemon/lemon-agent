@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation approved. Desktop artifact card uses an opaque ID and profile-scoped durable object store. 30-day retention approved. Existing untracked Desktop ZIP E2E remains untouched.
+Implementation is committed on `fix/fileblocks`. Desktop artifact card uses an opaque ID and profile-scoped durable object store. 30-day retention approved. Existing untracked Desktop ZIP E2E remains untouched.
 
 ## Problem and evidence
 
@@ -89,6 +89,6 @@ Candidate A uses assistant-row `display_metadata` as descriptor owner plus profi
 
 Implemented in `fix/fileblocks`. Provider citations stay in turn metadata; bytes use durable profile-scoped storage; assistant rows retain opaque descriptors for reload and branch display. Desktop renders a separate card and downloads through the authenticated ID route. Final assistant text and the existing `MEDIA:` path remain unchanged. Retrieval is gated to direct OpenAI API-key Responses runtime.
 
-Focused checks pass: 220 Python tests, Desktop typecheck, 9 UI tests, Desktop build, Electron artifact-card download E2E, Python compile, and `git diff --check`. The user-owned untracked ZIP E2E fails on this branch; it passed before feature work, but no clean-base rerun was possible because the spec is untracked. ESLint is unavailable because the workspace lacks `eslint` and `@eslint/js`. A simulated Windows test checks lock-file growth; actual Windows execution remains unverified on this macOS host. Independent review found a custom-`LEMON_HOME` route mismatch; the route now resolves the same store as materialization, with a regression test.
+The route opens artifacts without following symlinks, validates the opened regular file, bounds checksum reads, then streams that same handle in 64 KiB chunks. This avoids full-file buffering and path replacement between validation, verification, and download. Response cleanup closes the async stream generator and file handle on startup failure or cancellation; the generator also closes the handle on completion and read errors. The user-owned untracked ZIP E2E failed on this branch; it passed before feature work, but no clean-base rerun was possible because the spec is untracked. ESLint is unavailable because the workspace lacks `eslint` and `@eslint/js`. Simulated Windows lock and custom-`LEMON_HOME` regressions pass. Latest backend, Desktop, and Electron verification passes.
 
-No commit or push yet. Reverify current patch and obtain a final independent review before commit/PR.
+Commit `34fa111460` contains the original implementation. The follow-up hardening opens artifacts without following symlinks, bounds checksum reads, and closes response resources on every exit path. Final exact-packet review found no remaining issues. The branch is ready for push and PR.

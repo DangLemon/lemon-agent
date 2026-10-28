@@ -10,9 +10,9 @@ Implementation units:
 - [x] Add provider retrieval and durable opaque-ID object storage.
 - [x] Add transcript descriptor persistence and authenticated scoped download route.
 - [x] Add Desktop live/history hydration and separate file card.
-- [x] Rerun focused verification after latest review fixes. 221 Python tests, Desktop typecheck, 9 UI tests, build, and artifact-card Electron E2E pass. Legacy untracked ZIP E2E failure remains unresolved.
-- [ ] Obtain independent review. Earlier isolated reviewers could not inspect the patch; last review found and fixed custom-home route mismatch. Final current-patch review is pending.
-- [ ] Commit and create PR after an independent verdict.
+- [x] Rerun Electron build and artifact-card E2E after the latest response cleanup. Build and artifact download E2E pass; legacy untracked ZIP E2E remains unresolved.
+- [x] Obtain independent review of the current response cleanup implementation. Final exact-packet review found an open-after-validation symlink race; the fix now opens with `O_NOFOLLOW`, validates the opened regular file, and bounds checksum reads. The regression suite passes.
+- [x] Commit staged response lifecycle fixes and open a PR from `fix/fileblocks` into `main`.
 
 Unit 1 baseline: isolated citation tests first exposed missing `provider_artifact_citations`. After fixing test imports, failure showed `assert [] == [{...citation...}]` for completed Responses messages. Existing test files were restored after accidental replacement attempts; final regressions live in new files.
 

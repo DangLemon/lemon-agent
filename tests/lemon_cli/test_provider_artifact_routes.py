@@ -47,6 +47,73 @@ def test_provider_artifact_download_requires_descriptor_in_session_lineage(clien
     assert denied.status_code == 404
 
 
+def test_provider_artifact_download_streams_the_verified_file_handle(client, monkeypatch, tmp_path):
+    from agent.provider_artifacts import ProviderArtifactStore
+
+    store = ProviderArtifactStore(tmp_path / "profile-default" / "cache" / "provider-artifacts")
+    ref = store.store(b"zip-payload", filename="report.zip", content_type="application/zip")
+    db = _FakeSessionDb([ref.to_dict()])
+    monkeypatch.setattr(files_router, "_provider_artifact_store_for_profile", lambda _profile: store)
+    monkeypatch.setattr(web_server_sessions, "_open_session_db_for_profile", lambda _profile, read_only: db)
+    original_open = store.open_verified
+
+    def replace_path_after_verify(artifact_id, *, ref):
+        handle = original_open(artifact_id, ref=ref)
+        path = store.root / artifact_id
+        path.rename(path.with_suffix(".replaced"))
+        path.write_bytes(b"replacement")
+        return handle
+
+    monkeypatch.setattr(store, "open_verified", replace_path_after_verify)
+    response = client.get(
+        "/api/provider-artifacts/" + ref.artifact_id, params={"session_id": "session-a"},
+    )
+
+    assert response.status_code == 200
+    assert response.content == b"zip-payload"
+    assert (store.root / ref.artifact_id).read_bytes() == b"replacement"
+
+
+def test_provider_artifact_stream_closes_handle_when_streaming_raises(client, monkeypatch, tmp_path):
+    from agent.provider_artifacts import ProviderArtifactStore
+
+    store = ProviderArtifactStore(tmp_path / "profile-default" / "cache" / "provider-artifacts")
+    ref = store.store(b"zip-payload", filename="report.zip", content_type="application/zip")
+    db = _FakeSessionDb([ref.to_dict()])
+    handles = []
+    original_open = store.open_verified
+
+    class InterruptingHandle:
+        def __init__(self, handle):
+            self.handle = handle
+            self.calls = 0
+            self.closed = False
+
+        def read(self, size):
+            self.calls += 1
+            if self.calls > 1:
+                raise OSError("stream interrupted")
+            return self.handle.read(4)
+
+        def close(self):
+            self.closed = True
+            self.handle.close()
+
+    def tracked_open(*args, **kwargs):
+        handle = InterruptingHandle(original_open(*args, **kwargs))
+        handles.append(handle)
+        return handle
+
+    monkeypatch.setattr(files_router, "_provider_artifact_store_for_profile", lambda _profile: store)
+    monkeypatch.setattr(web_server_sessions, "_open_session_db_for_profile", lambda _profile, read_only: db)
+    monkeypatch.setattr(store, "open_verified", tracked_open)
+
+    with pytest.raises(OSError, match="stream interrupted"):
+        client.get("/api/provider-artifacts/" + ref.artifact_id, params={"session_id": "session-a"})
+
+    assert handles[0].closed
+
+
 def test_provider_artifact_download_requires_auth(client, tmp_path):
     client.headers.clear()
     response = client.get("/api/provider-artifacts/0123456789abcdef0123456789abcdef", params={"session_id": "s"})

@@ -7,6 +7,7 @@ import mimetypes
 import os
 import re
 import secrets
+import stat
 import threading
 import time
 from contextlib import contextmanager
@@ -210,7 +211,7 @@ class ProviderArtifactStore:
             artifact_id, safe_name, normalized_type, size_bytes, digest.hexdigest(), now + self.ttl_seconds,
         )
 
-    def read(self, artifact_id: str, *, ref: ProviderArtifactRef) -> bytes:
+    def _validated_path(self, artifact_id: str, *, ref: ProviderArtifactRef) -> Path:
         if not _ARTIFACT_ID_RE.fullmatch(str(artifact_id or "")) or artifact_id != ref.artifact_id:
             raise ProviderArtifactError("invalid artifact id")
         if ref.expires_at <= self.clock():
@@ -219,12 +220,46 @@ class ProviderArtifactStore:
         try:
             if path.parent.resolve() != self.root or path.is_symlink() or not path.is_file():
                 raise ProviderArtifactError("artifact not found")
-            if path.stat().st_size > self.max_bytes:
-                raise ProviderArtifactError("artifact exceeds the byte cap")
+            if path.stat().st_size != ref.size_bytes or path.stat().st_size > self.max_bytes:
+                raise ProviderArtifactError("artifact size mismatch")
+        except OSError as exc:
+            raise ProviderArtifactError("artifact not found") from exc
+        return path
+
+    def open_verified(self, artifact_id: str, *, ref: ProviderArtifactRef):
+        """Return the open handle after verifying it, positioned at byte zero."""
+        path = self._validated_path(artifact_id, ref=ref)
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            handle = os.fdopen(os.open(path, flags), "rb")
+        except OSError as exc:
+            raise ProviderArtifactError("artifact not found") from exc
+        try:
+            file_stat = os.fstat(handle.fileno())
+            if not stat.S_ISREG(file_stat.st_mode) or file_stat.st_size != ref.size_bytes:
+                raise ProviderArtifactError("artifact size mismatch")
+            digest = hashlib.sha256()
+            size_bytes = 0
+            for chunk in iter(lambda: handle.read(64 * 1024), b""):
+                size_bytes += len(chunk)
+                if size_bytes > self.max_bytes or size_bytes > ref.size_bytes:
+                    raise ProviderArtifactError("artifact size mismatch")
+                digest.update(chunk)
+            if size_bytes != ref.size_bytes or digest.hexdigest() != ref.sha256:
+                raise ProviderArtifactError("artifact checksum mismatch")
+            handle.seek(0)
+            return handle
+        except Exception:
+            handle.close()
+            raise
+
+    def read(self, artifact_id: str, *, ref: ProviderArtifactRef) -> bytes:
+        path = self._validated_path(artifact_id, ref=ref)
+        try:
             data = path.read_bytes()
         except OSError as exc:
             raise ProviderArtifactError("artifact not found") from exc
-        if len(data) != ref.size_bytes or hashlib.sha256(data).hexdigest() != ref.sha256:
+        if hashlib.sha256(data).hexdigest() != ref.sha256:
             raise ProviderArtifactError("artifact checksum mismatch")
         return data
 
