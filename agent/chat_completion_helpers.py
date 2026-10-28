@@ -1662,6 +1662,8 @@ def build_assistant_message(agent, assistant_message, finish_reason: str) -> dic
     msg = stamp_message_timestamp({"role": "assistant",
         "content": _assistant_content_for_storage(agent, assistant_message), "reasoning": reasoning_text,
         "finish_reason": finish_reason})
+    if citations := getattr(assistant_message, "provider_artifact_citations", None):
+        msg["display_metadata"] = {"provider_artifact_citations": citations}
 
     raw_reasoning_content = getattr(assistant_message, "reasoning_content", None)
     if raw_reasoning_content is None:

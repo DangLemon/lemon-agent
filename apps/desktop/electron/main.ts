@@ -8343,6 +8343,14 @@ interface GatewayFileSavePayload {
   suggestedName?: unknown
 }
 
+interface ProviderArtifactSavePayload {
+  artifactId?: unknown
+  connectionId?: unknown
+  profile?: unknown
+  sessionId?: unknown
+  suggestedName?: unknown
+}
+
 async function gatedFileAuth(connection: GatewayFileConnection) {
   const nativeAt =
     connection.authMode === 'oauth' ? await ensureNativeAccessToken(connection.baseUrl).catch(() => null) : null
@@ -8359,6 +8367,39 @@ function gatewayFileRequestPath(
   return connectionId
     ? pathForRegistryBackendRequest(requestPath, profile, connection)
     : pathWithGlobalRemoteProfile(requestPath, profile, profileRouteOptions(profile))
+}
+
+async function saveProviderArtifact(payload: ProviderArtifactSavePayload = {}) {
+  const artifactId = String(payload.artifactId || '').trim()
+  const sessionId = String(payload.sessionId || '').trim()
+
+  if (!/^[0-9a-f]{32}$/.test(artifactId) || !sessionId) {
+    throw new Error('Invalid provider artifact reference')
+  }
+
+  const { connection, connectionId, profile } = await resolveGatewayFileBackend<GatewayFileConnection>(payload, {
+    ensureLegacy: ensureBackend,
+    ensureRegistry: ensureRegistryBackend
+  })
+
+  const requestPath = gatewayFileRequestPath(
+    connection, connectionId, profile,
+    `/api/provider-artifacts/${encodeURIComponent(artifactId)}?session_id=${encodeURIComponent(sessionId)}`
+  )
+
+  const url = `${connection.baseUrl}${requestPath}`
+  const ctx = { suggested: String(payload.suggestedName || '').trim(), fallbackName: 'download' }
+  const auth = await gatedFileAuth(connection)
+
+  if (auth.kind === 'bearer') {
+    return downloadViaTokenToFile(url, auth.token, ctx, { bearer: auth.token })
+  }
+
+  if (auth.kind === 'cookie') {
+    return downloadViaOauthSessionToFile(url, ctx)
+  }
+
+  return downloadViaTokenToFile(url, auth.token, ctx)
 }
 
 async function saveGatewayFile(payload: GatewayFileSavePayload = {}) {
@@ -17183,6 +17224,7 @@ ipcMain.handle('lemon:selectSavePath', async (_event, options: any = {}) => {
 ipcMain.handle('lemon:readClipboard', () => clipboard.readText())
 
 ipcMain.handle('lemon:saveGatewayFile', (_event, payload) => saveGatewayFile(payload))
+ipcMain.handle('lemon:saveProviderArtifact', (_event, payload) => saveProviderArtifact(payload))
 
 ipcMain.handle('lemon:saveImageFromUrl', (_event, url) => saveImageFromUrl(String(url || '')))
 

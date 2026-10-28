@@ -17,6 +17,7 @@ import { providerWaitText, setSessionProviderWait } from '@/store/provider-wait'
 import { setCurrentUsage, setTurnStartedAt } from '@/store/session'
 import { pruneFinishedSessionSubagents } from '@/store/subagents'
 import { clearActiveSessionTodos } from '@/store/todos'
+import type { ProviderArtifactDescriptor } from '@/types/lemon'
 
 import type { GatewayEventContext } from './types'
 
@@ -353,7 +354,10 @@ export function handleMessageStreamEvent(ctx: GatewayEventContext): boolean {
           }
         : undefined
 
-    completeAssistantMessage(sessionId, finalText, payload?.response_previewed, failure, occurredAt)
+    completeAssistantMessage(
+      sessionId, finalText, payload?.response_previewed, failure, occurredAt,
+      Array.isArray(payload?.artifacts) ? payload.artifacts as ProviderArtifactDescriptor[] : undefined
+    )
 
     // Structured billing wall forwarded by the gateway (out of credits /
     // payment required) — cache it + raise a billing-specific toast.

@@ -11,6 +11,7 @@ sys.modules.setdefault("fal_client", types.SimpleNamespace())
 
 import run_agent
 from agent.conversation_loop import _CODEX_INCOMPLETE_NUDGE
+from agent.turn_final_response import finish_text_response
 
 
 @pytest.fixture(autouse=True)
@@ -100,6 +101,39 @@ def _build_azure_foundry_agent(monkeypatch, *, model="gpt-5.4"):
     agent._persist_session = lambda messages, history=None: None
     agent._save_trajectory = lambda messages, user_message, completed: None
     return agent
+
+
+def test_direct_openai_final_citation_is_materialized_only_after_stop_gate_accepts(monkeypatch, tmp_path):
+    _patch_agent_bootstrap(monkeypatch)
+    agent = run_agent.AIAgent(
+        model="gpt-5.4", provider="openai-api", api_mode="codex_responses",
+        base_url="https://api.openai.com/v1", api_key="direct-key", quiet_mode=True,
+        max_iterations=2, skip_context_files=True, skip_memory=True,
+    )
+    agent._build_assistant_message = lambda _message, finish_reason: {
+        "role": "assistant", "content": "answer", "finish_reason": finish_reason,
+    }
+    agent._has_content_after_think_block = lambda _text: True
+    agent._strip_think_blocks = lambda text: text
+    agent._flush_messages_to_session_db = lambda *_args: None
+    refs = [SimpleNamespace(to_dict=lambda: {"id": "0" * 32, "filename": "safe.zip"})]
+    monkeypatch.setattr("agent.turn_final_response.materialize_provider_citations", lambda *_args: refs)
+    monkeypatch.setattr("lemon_constants.get_lemon_home", lambda: tmp_path)
+    messages = []
+    verdict = finish_text_response(
+        agent, assistant_message=SimpleNamespace(
+            content="answer", tool_calls=None, provider_artifact_citations=[
+                {"container_id": "cntr_1", "file_id": "file_1", "filename": "safe.zip"}],
+        ), response=SimpleNamespace(), finish_reason="stop", messages=messages,
+        api_messages=[], conversation_history=[], api_call_count=1, user_message="make zip",
+        active_system_prompt="", final_response="answer", _turn_exit_reason="text_response(stop)",
+        _preflight_compression_blocked=False, codex_ack_continuations=0, truncated_response_parts=[],
+        length_continue_retries=0, _pending_verification_response=None,
+        _pending_verification_response_previewed=False,
+    )
+    assert verdict.action == "break"
+    assert messages[-1]["content"] == "answer"
+    assert messages[-1]["display_metadata"]["provider_artifacts"] == [{"id": "0" * 32, "filename": "safe.zip"}]
 
 
 def _codex_message_response(text: str):

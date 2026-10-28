@@ -14,8 +14,11 @@ import {
   $currentReasoningEffort,
   $messages,
   $selectedStoredSessionId,
-  $turnStartedAt
+  $sessions,
+  $turnStartedAt,
+  knownSessionOwner
 } from '@/store/session'
+import type { SessionOwnerScope } from '@/store/session-request-router'
 import { $sessionStates } from '@/store/session-states'
 
 import { lastVisibleMessageIsUser } from './thread-loading'
@@ -44,6 +47,7 @@ export interface SessionView {
   kind: 'primary' | 'tile'
   $runtimeId: ReadableAtom<string | null>
   $storedId: ReadableAtom<string | null>
+  $storedOwner: ReadableAtom<SessionOwnerScope>
   $messages: ReadableAtom<ChatMessage[]>
   $busy: ReadableAtom<boolean>
   $awaitingResponse: ReadableAtom<boolean>
@@ -106,6 +110,9 @@ export const PRIMARY_SESSION_VIEW: SessionView = {
   $reasoningEffort: primaryField<string>(state => state.reasoningEffort, $currentReasoningEffort),
   $runtimeId: $activeSessionId,
   $storedId: $selectedStoredSessionId,
+  $storedOwner: computed([$sessions, $selectedStoredSessionId], (sessions, storedId) =>
+    knownSessionOwner(sessions, storedId)
+  ),
   $turnStartedAt: primaryField<number | null>(state => state.turnStartedAt, $turnStartedAt)
 }
 

@@ -30,6 +30,7 @@ import { isDiskFullErrorMessage, notifyError } from '@/store/notifications'
 import { broadcastSessionsChanged } from '@/store/session-sync'
 import { upsertSubagent } from '@/store/subagents'
 import { $todosBySession, setSessionTodos } from '@/store/todos'
+import type { ProviderArtifactDescriptor } from '@/types/lemon'
 
 import type { ClientSessionState } from '../../../types'
 
@@ -564,7 +565,8 @@ export function useMessageStream({
       text: string,
       responsePreviewed?: boolean,
       failure?: { error: string; partial: boolean; surface?: ErrorSurface | null },
-      occurredAt = Date.now() / 1000
+      occurredAt = Date.now() / 1000,
+      artifacts?: ProviderArtifactDescriptor[]
     ) => {
       let shouldHydrate = false
 
@@ -588,6 +590,7 @@ export function useMessageStream({
 
         const streamId = state.streamId
         const finalText = renderMediaTags(text).trim()
+        const finalArtifacts = failure ? [] : artifacts ?? []
         // Structured failure from the terminal frame wins over the legacy text
         // heuristic ("Error: <provider detail>" texts don't match the regexes).
         const completionError = failure?.error ?? completionErrorText(finalText)
@@ -619,6 +622,7 @@ export function useMessageStream({
             pending: false,
             interim: false,
             ...(durationS !== undefined ? { durationS } : {}),
+            ...(finalArtifacts.length ? { providerArtifacts: finalArtifacts } : {}),
             ...(completionError && failure?.surface ? { errorSurface: failure.surface } : {})
           }
 
@@ -644,6 +648,7 @@ export function useMessageStream({
           completedAt: occurredAt,
           branchGroupId: state.pendingBranchGroup ?? undefined,
           ...(durationS !== undefined ? { durationS } : {}),
+          ...(finalArtifacts.length ? { providerArtifacts: finalArtifacts } : {}),
           ...(completionError && { error: completionError }),
           ...(completionError && failure?.surface ? { errorSurface: failure.surface } : {})
         })
@@ -679,7 +684,7 @@ export function useMessageStream({
               (finalText === existingText || finalText.startsWith(existingText) || existingText.startsWith(finalText))
             )
 
-            if (existing.pending || (!interimBoundaryPending && finalText && existingText === finalText)) {
+            if (existing.pending || (!interimBoundaryPending && finalText && existingText === finalText) || (finalArtifacts.length > 0 && !existingText)) {
               nextMessages = prev.map((message, messageIndex) =>
                 messageIndex === index ? completeMessage(message) : message
               )
@@ -709,10 +714,10 @@ export function useMessageStream({
               nextMessages = prev.map((message, messageIndex) =>
                 messageIndex === index ? completeMessage(message) : message
               )
-            } else if (finalText) {
+            } else if (finalText || finalArtifacts.length) {
               nextMessages = [...prev, newAssistantFromCompletion()]
             }
-          } else if (finalText) {
+          } else if (finalText || finalArtifacts.length) {
             nextMessages = [...prev, newAssistantFromCompletion()]
           }
         }
@@ -752,8 +757,8 @@ export function useMessageStream({
           // blank until restart (#88036). A non-empty frame still settles
           // locally, so the user-tail guard keeps applying there.
           (!unresolvedUserTail || !finalText) &&
-          !(localVisibleText && !finalText) &&
-          (state.adoptedRunningTurn || !state.sawAssistantPayload || !finalText)
+          !(localVisibleText && !finalText && !finalArtifacts.length) &&
+          (state.adoptedRunningTurn || !state.sawAssistantPayload || (!finalText && !finalArtifacts.length))
 
         return {
           ...state,

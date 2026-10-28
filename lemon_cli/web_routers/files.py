@@ -22,8 +22,10 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from starlette.background import BackgroundTask
 
+from lemon_cli.web_server_cron import _cron_profile_home
 from lemon_cli._subprocess_compat import windows_hide_flags
 from lemon_cli.web_deps import late
 from lemon_cli.web_server_files import (
@@ -32,6 +34,39 @@ from lemon_cli.web_server_files import (
 from lemon_cli.web_models import (
     ChatImageUpload, FsWriteText, ManagedDirectoryCreate, ManagedFileDelete, ManagedFileUpload,
 )
+
+_open_session_db_for_profile = late("_open_session_db_for_profile", "lemon_cli.web_server_sessions")
+
+
+class _ProviderArtifactStreamingResponse(StreamingResponse):
+    def __init__(self, artifact_handle, content, **kwargs):
+        self._artifact_handle = artifact_handle
+        super().__init__(content, **kwargs)
+
+    async def _close_artifact(self):
+        try:
+            close = getattr(self.body_iterator, "aclose", None)
+            if close is not None:
+                await close()
+        finally:
+            if not self._artifact_handle.closed:
+                self._artifact_handle.close()
+
+    async def __call__(self, scope, receive, send):
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            await self._close_artifact()
+
+
+def _provider_artifact_store_for_profile(profile: Optional[str]):
+    from agent.provider_artifacts import ProviderArtifactStore
+
+    if profile == "custom":
+        home = get_lemon_home()
+    else:
+        _profile_name, home = _cron_profile_home(profile)
+    return ProviderArtifactStore(Path(home) / "cache" / "provider-artifacts")
 
 router = APIRouter()
 
@@ -696,6 +731,70 @@ async def fs_read_data_url(path: str):
         raise HTTPException(status_code=413, detail="File too large")
     encoded = base64.b64encode(_fs_read_bytes(target)).decode("ascii")
     return {"dataUrl": f"data:{_fs_mime_type(target)};base64,{encoded}"}
+
+
+@router.get("/api/provider-artifacts/{artifact_id}", name="download_provider_artifact")
+async def download_provider_artifact(artifact_id: str, session_id: str, profile: Optional[str] = None):
+    from lemon_constants import get_lemon_home
+    from lemon_cli.profiles import get_profile_dir
+    from agent.provider_artifacts import ProviderArtifactRef
+
+    if not re.fullmatch(r"[0-9a-f]{32}", artifact_id):
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    artifact_handle = None
+    try:
+        db = _open_session_db_for_profile(profile, read_only=True)
+        try:
+            resolved = db.resolve_session_id(session_id)
+            if not resolved:
+                raise HTTPException(status_code=404, detail="Artifact not found")
+            _, display = db.get_resume_conversations(resolved)
+            refs = []
+            for message in display:
+                metadata = message.get("display_metadata") if isinstance(message, dict) else None
+                artifacts = metadata.get("provider_artifacts") if isinstance(metadata, dict) else None
+                for item in artifacts if isinstance(artifacts, list) else ():
+                    candidate = ProviderArtifactRef.from_dict(item)
+                    if candidate is not None:
+                        refs.append(candidate)
+            ref = next((candidate for candidate in refs if candidate.artifact_id == artifact_id), None)
+            if ref is None:
+                raise HTTPException(status_code=404, detail="Artifact not found")
+        finally:
+            db.close()
+        store = _provider_artifact_store_for_profile(profile)
+        artifact_handle = store.open_verified(artifact_id, ref=ref)
+    except HTTPException:
+        if artifact_handle is not None:
+            artifact_handle.close()
+        raise
+    except Exception as exc:
+        if artifact_handle is not None:
+            artifact_handle.close()
+        if "expired" in str(exc):
+            raise HTTPException(status_code=410, detail="Artifact expired") from None
+        raise HTTPException(status_code=404, detail="Artifact not found") from None
+    async def stream_artifact():
+        try:
+            while chunk := await asyncio.to_thread(artifact_handle.read, 64 * 1024):
+                yield chunk
+        finally:
+            artifact_handle.close()
+
+    stream = stream_artifact()
+
+    return _ProviderArtifactStreamingResponse(
+        artifact_handle,
+        stream,
+        media_type=ref.content_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{ref.filename}"',
+            "Content-Length": str(ref.size_bytes),
+            "X-Content-Type-Options": "nosniff",
+            "X-Artifact-Sha256": ref.sha256,
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.get("/api/fs/download")

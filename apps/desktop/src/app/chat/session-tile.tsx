@@ -47,6 +47,7 @@ import {
   $messagingSessions,
   $selectedStoredSessionId,
   $sessions,
+  knownSessionOwner,
   sessionMatchesStoredId,
   sessionPinId
 } from '@/store/session'
@@ -151,6 +152,7 @@ function buildTileView(storedSessionId: string): SessionView {
     $runtimeId,
     // Constant for the tile's lifetime — a plain atom, not a computed.
     $storedId: atom(storedSessionId),
+    $storedOwner: computed($sessions, sessions => knownSessionOwner(sessions, storedSessionId) ?? $activeGatewayProfile.get()),
     $turnStartedAt: computed($state, state => state?.turnStartedAt ?? null)
   }
 }

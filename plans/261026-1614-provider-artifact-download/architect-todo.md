@@ -1,0 +1,5 @@
+- [ ] Ground: explain current Responses, turn-result, persistence, gateway event, Desktop hydration, and file-card paths with evidence.
+- [ ] Sketch: compare at least two structurally distinct designs for structured Desktop artifact delivery; screen design red flags.
+- [ ] Agree: record the approved choice and resolve any remaining implementation boundary against the plan.
+- [ ] Implement: add regression tests first, then minimum code for the accepted design; verify focused tests and Desktop flow.
+- [ ] Scrap: if implementation shows the architecture is wrong, re-ground and redesign before continuing.

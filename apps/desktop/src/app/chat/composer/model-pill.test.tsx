@@ -99,6 +99,7 @@ describe('ModelPill per-surface model label', () => {
       $reasoningEffort: atom('high'),
       $runtimeId: atom('tile-runtime'),
       $storedId: atom('stored-tile'),
+      $storedOwner: atom('default'),
       $turnStartedAt: atom<number | null>(null)
     }
 

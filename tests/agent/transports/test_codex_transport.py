@@ -1272,6 +1272,25 @@ class TestCodexNormalizeResponse:
             }
         ]
 
+    def test_provider_artifact_citations_survive_transport_normalization(self, transport):
+        citation = SimpleNamespace(
+            type="container_file_citation", container_id="cntr_abc", file_id="file_123", filename="report.zip",
+        )
+        response = SimpleNamespace(
+            output=[SimpleNamespace(
+                type="message", role="assistant", status="completed", phase="final_answer",
+                content=[SimpleNamespace(type="output_text", text="Ready.", annotations=[citation])],
+            )],
+            status="completed",
+        )
+
+        normalized = transport.normalize_response(response)
+
+        assert normalized.content == "Ready."
+        assert (normalized.provider_data or {}).get("provider_artifact_citations") == [
+            {"container_id": "cntr_abc", "file_id": "file_123", "filename": "report.zip"}
+        ]
+
     def test_tool_call_response(self, transport):
         """Normalize a Codex response with tool calls."""
         r = SimpleNamespace(

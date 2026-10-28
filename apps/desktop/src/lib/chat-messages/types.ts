@@ -2,7 +2,7 @@ import type { ThreadMessageLike } from '@assistant-ui/react'
 import { type BillingBlock } from '@lemon-ai/shared'
 
 import type { ErrorSurface } from '@/lib/error-surface'
-import type { MessageReaction, SessionMessage, UsageStats } from '@/types/lemon'
+import type { MessageReaction, ProviderArtifactDescriptor, SessionMessage, UsageStats } from '@/types/lemon'
 
 export interface TimelinePartMetadata {
   /** Unix seconds when this visible activity segment began. Fractional values
@@ -38,6 +38,7 @@ export type ChatMessage = {
   durationS?: number
   /** Composer attachment ref strings (`@file:...`, `@image:...`) sent with this user message. */
   attachmentRefs?: string[]
+  providerArtifacts?: ProviderArtifactDescriptor[]
   /** Durable backend `messages.id`. Absent until the row is persisted. */
   rowId?: number
   /** Emoji reactions on this message — one per author (see MessageReaction). */
@@ -48,6 +49,7 @@ export type GatewayEventPayload = {
   /** Unix seconds supplied by tests/newer gateways; the desktop falls back to
    * its local receipt clock when older gateways omit it. */
   timestamp?: number
+  artifacts?: ProviderArtifactDescriptor[]
   text?: string
   rendered?: string
   status?: string
