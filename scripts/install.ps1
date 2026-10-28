@@ -1878,14 +1878,7 @@ function Wait-PortableGitExtraction {
             throw [System.TimeoutException]::new("PortableGit extraction timed out after $timeoutSeconds seconds. Could not confirm extractor process-tree termination because taskkill did not finish within 10 seconds.")
         }
         $taskkill.WaitForExit()
-        if ($taskkill.ExitCode -ne 0) {
-            if ($Process.HasExited) {
-                $Process.WaitForExit()
-                if ($Process.ExitCode -ne 0) {
-                    throw "PortableGit extraction failed (exit code $($Process.ExitCode))"
-                }
-                return
-            }
+        if ($taskkill.ExitCode -ne 0 -and -not $Process.HasExited) {
             throw [System.TimeoutException]::new("PortableGit extraction timed out after $timeoutSeconds seconds. Could not confirm extractor process-tree termination (PID $($Process.Id), taskkill exit code $($taskkill.ExitCode)).")
         }
     } finally {
