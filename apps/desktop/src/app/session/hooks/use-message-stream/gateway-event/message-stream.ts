@@ -15,9 +15,9 @@ import { flashPetActivity, markPetUnread, setPetActivity } from '@/store/pet'
 import { clearAllPrompts } from '@/store/prompts'
 import { providerWaitText, setSessionProviderWait } from '@/store/provider-wait'
 import { setCurrentUsage, setTurnStartedAt } from '@/store/session'
-import type { ProviderArtifactDescriptor } from '@/types/lemon'
 import { pruneFinishedSessionSubagents } from '@/store/subagents'
 import { clearActiveSessionTodos } from '@/store/todos'
+import type { ProviderArtifactDescriptor } from '@/types/lemon'
 
 import type { GatewayEventContext } from './types'
 

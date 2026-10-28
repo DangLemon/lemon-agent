@@ -1,8 +1,10 @@
+import type { SessionOwnerScope } from '@/store/session-request-router'
+
 export async function downloadProviderArtifact(
   artifactId: string,
   sessionId: string,
   suggestedName: string,
-  owner: import('@/store/session-request-router').SessionOwnerScope
+  owner: SessionOwnerScope
 ): Promise<{ canceled?: boolean; path?: string; saved: boolean }> {
   const bridge = window.lemonDesktop?.saveProviderArtifact
 
@@ -13,6 +15,7 @@ export async function downloadProviderArtifact(
   if (!owner || owner === null) {
     throw new Error('Provider artifact owner is unavailable')
   }
+
   const route = typeof owner === 'string'
     ? { connectionId: undefined, profile: owner }
     : { connectionId: owner.connectionId, profile: owner.profile, targetProfile: owner.targetProfile }

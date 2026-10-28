@@ -2,8 +2,8 @@ import { useState } from 'react'
 
 import { useI18n } from '@/i18n'
 import { downloadProviderArtifact } from '@/lib/provider-artifacts'
-import type { ProviderArtifactDescriptor } from '@/types/lemon'
 import type { SessionOwnerScope } from '@/store/session-request-router'
+import type { ProviderArtifactDescriptor } from '@/types/lemon'
 
 type ProviderArtifactCardProps = {
   artifact: ProviderArtifactDescriptor
@@ -23,6 +23,7 @@ export function ProviderArtifactCard({ artifact, owner, sessionId }: ProviderArt
     }
 
     setDownloading(true)
+
     try {
       const result = await downloadProviderArtifact(artifact.id, sessionId, artifact.filename, owner)
       setDownloaded(Boolean(result.saved))

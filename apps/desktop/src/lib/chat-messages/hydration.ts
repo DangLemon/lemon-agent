@@ -218,9 +218,13 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
     const displayContent = imageRefExtraction ? imageRefExtraction.cleanedText : rawDisplayContent
     const extractedAttachmentRefs = imageRefExtraction?.refs.length ? imageRefExtraction.refs : undefined
     const providerArtifactsRaw = parseDisplayMetadata(message.display_metadata)?.provider_artifacts
+
     const providerArtifacts = Array.isArray(providerArtifactsRaw)
       ? providerArtifactsRaw.filter((item): item is ProviderArtifactDescriptor => {
-          if (!item || typeof item !== 'object') return false
+          if (!item || typeof item !== 'object') {
+            return false
+          }
+
           const artifact = item as Partial<ProviderArtifactDescriptor>
 
           return typeof artifact.id === 'string' && /^[0-9a-f]{32}$/.test(artifact.id) &&
@@ -293,6 +297,7 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
 
       if (activeAssistant && (currentHasToolCall || activeHasToolCall)) {
         activeAssistant.parts = [...activeAssistant.parts, ...parts]
+
         if (providerArtifacts?.length) {
           const existingArtifacts = activeAssistant.providerArtifacts ?? []
           const knownArtifactIds = new Set(existingArtifacts.map(artifact => artifact.id))
@@ -302,6 +307,7 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
             ...providerArtifacts.filter(artifact => !knownArtifactIds.has(artifact.id))
           ]
         }
+
         activeAssistant.timestamp = earliestTimestamp(
           activeAssistant.timestamp,
           message.timestamp,

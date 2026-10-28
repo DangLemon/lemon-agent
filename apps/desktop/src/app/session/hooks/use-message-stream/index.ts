@@ -19,7 +19,6 @@ import {
   upsertToolPart
 } from '@/lib/chat-messages'
 import type { ErrorSurface } from '@/lib/error-surface'
-import type { ProviderArtifactDescriptor } from '@/types/lemon'
 import {
   dedupeGeneratedImageEchoesInParts,
   generatedImageEchoSources,
@@ -31,6 +30,7 @@ import { isDiskFullErrorMessage, notifyError } from '@/store/notifications'
 import { broadcastSessionsChanged } from '@/store/session-sync'
 import { upsertSubagent } from '@/store/subagents'
 import { $todosBySession, setSessionTodos } from '@/store/todos'
+import type { ProviderArtifactDescriptor } from '@/types/lemon'
 
 import type { ClientSessionState } from '../../../types'
 

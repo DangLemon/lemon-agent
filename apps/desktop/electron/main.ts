@@ -8370,22 +8370,35 @@ function gatewayFileRequestPath(
 }
 
 async function saveProviderArtifact(payload: ProviderArtifactSavePayload = {}) {
-  const artifactId = String(payload.artifactId || "").trim()
-  const sessionId = String(payload.sessionId || "").trim()
-  if (!/^[0-9a-f]{32}$/.test(artifactId) || !sessionId) throw new Error("Invalid provider artifact reference")
+  const artifactId = String(payload.artifactId || '').trim()
+  const sessionId = String(payload.sessionId || '').trim()
+
+  if (!/^[0-9a-f]{32}$/.test(artifactId) || !sessionId) {
+    throw new Error('Invalid provider artifact reference')
+  }
+
   const { connection, connectionId, profile } = await resolveGatewayFileBackend<GatewayFileConnection>(payload, {
     ensureLegacy: ensureBackend,
     ensureRegistry: ensureRegistryBackend
   })
+
   const requestPath = gatewayFileRequestPath(
     connection, connectionId, profile,
     `/api/provider-artifacts/${encodeURIComponent(artifactId)}?session_id=${encodeURIComponent(sessionId)}`
   )
+
   const url = `${connection.baseUrl}${requestPath}`
-  const ctx = { suggested: String(payload.suggestedName || "").trim(), fallbackName: "download" }
+  const ctx = { suggested: String(payload.suggestedName || '').trim(), fallbackName: 'download' }
   const auth = await gatedFileAuth(connection)
-  if (auth.kind === "bearer") return downloadViaTokenToFile(url, auth.token, ctx, { bearer: auth.token })
-  if (auth.kind === "cookie") return downloadViaOauthSessionToFile(url, ctx)
+
+  if (auth.kind === 'bearer') {
+    return downloadViaTokenToFile(url, auth.token, ctx, { bearer: auth.token })
+  }
+
+  if (auth.kind === 'cookie') {
+    return downloadViaOauthSessionToFile(url, ctx)
+  }
+
   return downloadViaTokenToFile(url, auth.token, ctx)
 }
 

@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { AssistantMessage } from './assistant-message'
@@ -11,6 +11,7 @@ const artifact = {
   sha256: 'a'.repeat(64),
   size_bytes: 128
 }
+
 const owner = { connectionId: 'conn-1', profile: 'work' }
 
 vi.mock('@assistant-ui/react', () => ({

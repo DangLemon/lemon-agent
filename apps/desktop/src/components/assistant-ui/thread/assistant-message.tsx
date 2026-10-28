@@ -32,7 +32,6 @@ import { Codicon } from '@/components/ui/codicon'
 import { CopyButton } from '@/components/ui/copy-button'
 import { useI18n } from '@/i18n'
 import { type ErrorSurface, formatErrorDiagnostics } from '@/lib/error-surface'
-import { downloadProviderArtifact } from '@/lib/provider-artifacts'
 import { triggerHaptic } from '@/lib/haptics'
 import {
   AudioLines,
@@ -52,13 +51,13 @@ import { playSpeechText, stopVoicePlayback } from '@/lib/voice-playback'
 import { notifyError } from '@/store/notifications'
 import { requestSendDiagnostics } from '@/store/send-diagnostics'
 import { $connection, $currentModel } from '@/store/session'
-import type { ProviderArtifactDescriptor } from '@/types/lemon'
-import type { SessionOwnerScope } from '@/store/session-request-router'
 import { $voicePlayback } from '@/store/voice-playback'
+import type { ProviderArtifactDescriptor } from '@/types/lemon'
 
 // Stable empty identity for the settled-parts selector — a fresh [] per render
 // would re-derive the changed-files card on every message re-render.
 const EMPTY_PARTS: readonly unknown[] = []
+const EMPTY_PROVIDER_ARTIFACTS: readonly ProviderArtifactDescriptor[] = []
 
 // PERF: hoisted to module scope so the element OBJECT is identical on every
 // render of every assistant message. React bails out of re-rendering a child
@@ -186,8 +185,9 @@ const AssistantMessageBody: FC<AssistantMessageProps & { collapsedNotice?: null 
   const runtimeSessionId = useStore(sessionView.$runtimeId)
   const storedSessionId = useStore(sessionView.$storedId)
   const storedOwner = useStore(sessionView.$storedOwner)
+
   const providerArtifacts = useAuiState(s =>
-    (s.message.metadata?.custom?.providerArtifacts as ProviderArtifactDescriptor[] | undefined) ?? []
+    (s.message.metadata?.custom?.providerArtifacts as ProviderArtifactDescriptor[] | undefined) ?? EMPTY_PROVIDER_ARTIFACTS
   )
 
   // PERF: this component must NOT subscribe to the streaming text, and no
