@@ -281,6 +281,71 @@ async def test_canonical_guard_fails_closed_when_lookup_raises(tmp_path: Path, m
     )
 
 
+def test_large_csv_is_kept_on_disk_for_on_demand_reads(tmp_path: Path, monkeypatch):
+    from agent.context_references import preprocess_context_references
+
+    csv = tmp_path / "orders.csv"
+    csv.write_text("sku,value\n" + "ABC123,42\n" * 230_000, encoding="utf-8")
+    monkeypatch.setenv("TERMINAL_ENV", "local")
+
+    result = preprocess_context_references(
+        f"analyze @file:{csv}",
+        cwd=tmp_path,
+        context_length=1_050_000,
+        allowed_root=tmp_path,
+    )
+
+    assert not result.blocked
+    assert result.expanded
+    assert "ABC123,42" not in result.message
+    assert str(csv) in result.message
+    assert "not inlined" in result.message
+    assert "search_files" in result.message
+    assert "read_file" in result.message
+    assert result.injected_tokens <= 525_000
+    assert "context injection refused" not in result.message
+
+
+def test_multiple_individually_safe_files_still_obey_aggregate_limit(tmp_path: Path):
+    from agent.context_references import preprocess_context_references
+
+    for name in ("first.txt", "second.txt"):
+        (tmp_path / name).write_text("x" * 1_200, encoding="utf-8")
+
+    result = preprocess_context_references(
+        "Inspect @file:first.txt and @file:second.txt",
+        cwd=tmp_path,
+        context_length=1_000,
+    )
+
+    assert result.blocked
+    assert not result.expanded
+    assert "context injection refused" in "\n".join(result.warnings)
+
+
+def test_oversized_extracted_document_uses_on_disk_fallback(tmp_path: Path, monkeypatch):
+    from agent.context_references import preprocess_context_references
+
+    pdf = tmp_path / "brief.pdf"
+    pdf.write_bytes(b"%PDF-1.4 unused")
+    monkeypatch.setattr(
+        "agent.context_references._inline_extractable_document",
+        lambda _path: "DOCUMENT-CONTENT-MARKER\n" + "x" * 8_000,
+    )
+
+    result = preprocess_context_references(
+        f"read @file:{pdf}",
+        cwd=tmp_path,
+        context_length=1_000,
+        allowed_root=tmp_path,
+    )
+
+    assert not result.blocked
+    assert "DOCUMENT-CONTENT-MARKER" not in result.message
+    assert str(pdf) in result.message
+    assert "read_file" in result.message
+
+
 def test_pdf_attachment_is_inlined_as_extracted_text(tmp_path: Path, monkeypatch):
     """@file: PDF must not stay a binary stub when extraction succeeds."""
     from agent.context_references import preprocess_context_references
