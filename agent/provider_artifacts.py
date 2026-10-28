@@ -231,7 +231,7 @@ class ProviderArtifactStore:
         path = self._validated_path(artifact_id, ref=ref)
         flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
         try:
-            handle = os.fdopen(os.open(path, flags), "rb")
+            handle = os.fdopen(os.open(path, flags), "rb")  # windows-footgun: ok - binary mode
         except OSError as exc:
             raise ProviderArtifactError("artifact not found") from exc
         try:
