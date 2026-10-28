@@ -1853,6 +1853,7 @@ function Wait-PortableGitExtraction {
 
     if ($Process.WaitForExit($TimeoutMilliseconds)) {
         $Process.WaitForExit()
+        $Process.Refresh()
         if ($Process.ExitCode -ne 0) {
             throw "PortableGit extraction failed (exit code $($Process.ExitCode))"
         }
@@ -1861,6 +1862,7 @@ function Wait-PortableGitExtraction {
 
     if ($Process.HasExited) {
         $Process.WaitForExit()
+        $Process.Refresh()
         if ($Process.ExitCode -ne 0) {
             throw "PortableGit extraction failed (exit code $($Process.ExitCode))"
         }
@@ -1877,9 +1879,12 @@ function Wait-PortableGitExtraction {
             try { $taskkill.Kill() } catch { }
             throw [System.TimeoutException]::new("PortableGit extraction timed out after $timeoutSeconds seconds. Could not confirm extractor process-tree termination because taskkill did not finish within 10 seconds.")
         }
+        $taskkill.WaitForExit()
+        $taskkill.Refresh()
         if ($taskkill.ExitCode -ne 0) {
             if ($Process.HasExited) {
                 $Process.WaitForExit()
+                $Process.Refresh()
                 if ($Process.ExitCode -ne 0) {
                     throw "PortableGit extraction failed (exit code $($Process.ExitCode))"
                 }
