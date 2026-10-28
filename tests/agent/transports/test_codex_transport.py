@@ -1287,7 +1287,7 @@ class TestCodexNormalizeResponse:
         normalized = transport.normalize_response(response)
 
         assert normalized.content == "Ready."
-        assert (normalized.provider_data or {}).get("provider_artifact_citations") == [
+        assert normalized.provider_artifact_citations == [
             {"container_id": "cntr_abc", "file_id": "file_123", "filename": "report.zip"}
         ]
 

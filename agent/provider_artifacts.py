@@ -73,7 +73,8 @@ def _profile_file_lock(path: Path):
 
 
 _ALLOWED_MIME_TYPES = frozenset({
-    "application/json", "application/octet-stream", "application/pdf", "application/zip",
+    "application/json", "application/octet-stream", "application/pdf",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/zip",
     "image/gif", "image/jpeg", "image/png", "image/webp", "text/csv", "text/html", "text/plain",
 })
 

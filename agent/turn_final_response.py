@@ -8,8 +8,12 @@ re-prompt, scaffolding pop, stop gates, then the durable final flush. Extracted 
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import logging
+from pathlib import Path
+import re
 from typing import Any, Dict, Optional
+from urllib.parse import quote, unquote
 
 from agent.message_metadata import append_message
 from agent.provider_artifacts import materialize_provider_citations
@@ -21,8 +25,76 @@ logger = logging.getLogger("agent.conversation_loop")
 # Ephemeral retry scaffolding rows popped before the final answer becomes durable.
 _EPHEMERAL_SCAFFOLDING_FLAGS = (
     "_thinking_prefill", "_empty_recovery_synthetic", "_empty_terminal_sentinel",
-    "_dropped_toolcall_nudge",
+    "_dropped_toolcall_nudge", "_local_file_delivery_nudge",
 )
+_SANDBOX_LINK_RE = re.compile(r"(?P<prefix>\]\()sandbox:(?P<path>[^)\n]+)(?P<suffix>\))")
+_LOCAL_FILE_TOOLS = frozenset({"execute_code", "write_file"})
+_LOCAL_FILE_DELIVERY_NUDGE = (
+    "Your response used a local sandbox: link without structured creation evidence. "
+    "Call execute_code again, copy the file into the project workspace, declare that relative path "
+    "in output_files, then return the exact output_file path as MEDIA:/absolute/path."
+)
+
+
+def _tool_output_paths(messages: Any) -> set[str]:
+    paths: set[str] = set()
+    current_turn = []
+    for message in reversed(messages):
+        if isinstance(message, dict) and message.get("role") == "user":
+            break
+        current_turn.append(message)
+    for message in reversed(current_turn):
+        if not isinstance(message, dict) or message.get("role") != "tool":
+            continue
+        if message.get("name") not in _LOCAL_FILE_TOOLS and message.get("tool_name") not in _LOCAL_FILE_TOOLS:
+            continue
+        try:
+            result = json.loads(message.get("content") or "")
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(result, dict) or result.get("status") == "error" or result.get("error"):
+            continue
+        tool_name = message.get("name") or message.get("tool_name")
+        values = [result.get("resolved_path")] if tool_name == "write_file" else [result.get("output_file")]
+        files_created = result.get("files_created")
+        if tool_name == "execute_code" and isinstance(files_created, list):
+            values.extend(files_created)
+        for value in values:
+            if not isinstance(value, str):
+                continue
+            candidate = Path(value.strip().strip("'\"`")).expanduser()
+            try:
+                if candidate.is_file() and not candidate.is_symlink():
+                    paths.add(str(candidate.resolve()))
+            except OSError:
+                continue
+    return paths
+
+
+def _repair_local_sandbox_links(
+    text: str,
+    messages: Any,
+    *,
+    platform: str,
+) -> str:
+    if platform != "desktop" or "sandbox:" not in text:
+        return text
+    proven = _tool_output_paths(messages)
+    if not proven:
+        return text
+
+    def replace(match: re.Match[str]) -> str:
+        raw = unquote(match.group("path")).strip().strip("'\"`")
+        try:
+            path = Path(raw).expanduser()
+            resolved = str(path.resolve())
+        except (OSError, ValueError):
+            return match.group(0)
+        if resolved not in proven:
+            return match.group(0)
+        return f"{match.group('prefix')}#media:{quote(resolved, safe='')}{match.group('suffix')}"
+
+    return _SANDBOX_LINK_RE.sub(replace, text)
 
 
 @dataclass
@@ -78,8 +150,16 @@ def finish_text_response(
     # empty-response warnings on the final response path.
     agent._mute_post_response = False
 
+    provider_citations = getattr(assistant_message, "provider_artifact_citations", None) or []
+    has_direct_openai_artifact = bool(provider_citations) and (
+        getattr(agent, "provider", None) == "openai-api"
+        and getattr(agent, "api_mode", None) == "codex_responses"
+        and str(getattr(agent, "base_url", "") or "").rstrip("/") == "https://api.openai.com/v1"
+        and bool(str(getattr(agent, "api_key", "") or "").strip())
+    )
+
     # Think-block-only / empty content: recovery path.
-    if not agent._has_content_after_think_block(final_response):
+    if not agent._has_content_after_think_block(final_response) and not has_direct_openai_artifact:
         _ev = recover_empty_response(
             agent, assistant_message, response, finish_reason, final_response=final_response,
             messages=messages, api_messages=api_messages, conversation_history=conversation_history,
@@ -224,13 +304,39 @@ def finish_text_response(
         final_response = None
         return _verdict("continue")
 
+    repaired_response = _repair_local_sandbox_links(
+        final_response,
+        messages,
+        platform=str(getattr(agent, "platform", "") or "").lower(),
+    )
     if (
-        finish_reason == "stop" and final_response and getattr(agent, "provider", None) == "openai-api"
+        "sandbox:" in repaired_response
+        and str(getattr(agent, "platform", "") or "").lower() == "desktop"
+        and "execute_code" in getattr(agent, "valid_tool_names", set())
+        and not has_direct_openai_artifact
+        and getattr(agent, "_local_file_delivery_retries", 0) < 1
+    ):
+        agent._local_file_delivery_retries = getattr(agent, "_local_file_delivery_retries", 0) + 1
+        final_msg["_local_file_delivery_nudge"] = True
+        append_message(messages, final_msg)
+        append_message(messages, {
+            "role": "user",
+            "content": _LOCAL_FILE_DELIVERY_NUDGE,
+            "_local_file_delivery_nudge": True,
+        })
+        agent._session_messages = messages
+        final_response = None
+        return _verdict("continue")
+    agent._local_file_delivery_retries = 0
+    final_response = repaired_response
+    final_msg["content"] = final_response
+
+    if (
+        finish_reason == "stop" and getattr(agent, "provider", None) == "openai-api"
         and getattr(agent, "api_mode", None) == "codex_responses"
     ):
-        citations = getattr(assistant_message, "provider_artifact_citations", None) or []
-        if citations:
-            refs = materialize_provider_citations(agent, citations)
+        if provider_citations:
+            refs = materialize_provider_citations(agent, provider_citations)
             if refs:
                 metadata = final_msg.get("display_metadata")
                 metadata = dict(metadata) if isinstance(metadata, dict) else {}
