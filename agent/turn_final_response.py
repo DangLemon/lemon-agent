@@ -28,11 +28,12 @@ _EPHEMERAL_SCAFFOLDING_FLAGS = (
     "_dropped_toolcall_nudge", "_local_file_delivery_nudge",
 )
 _SANDBOX_LINK_RE = re.compile(r"(?P<prefix>\]\()sandbox:(?P<path>[^)\n]+)(?P<suffix>\))")
-_LOCAL_FILE_TOOLS = frozenset({"execute_code", "write_file"})
+_LOCAL_FILE_TOOLS = frozenset({"execute_code", "terminal", "write_file"})
 _LOCAL_FILE_DELIVERY_NUDGE = (
     "Your response used a local sandbox: link without structured creation evidence. "
-    "Call execute_code again, copy the file into the project workspace, declare that relative path "
-    "in output_files, then return the exact output_file path as MEDIA:/absolute/path."
+    "Call the local foreground terminal command again with its relative output path in output_files, "
+    "or use execute_code with output_files. Then return the exact output_file path as "
+    "MEDIA:/absolute/path."
 )
 
 
@@ -57,7 +58,7 @@ def _tool_output_paths(messages: Any) -> set[str]:
         tool_name = message.get("name") or message.get("tool_name")
         values = [result.get("resolved_path")] if tool_name == "write_file" else [result.get("output_file")]
         files_created = result.get("files_created")
-        if tool_name == "execute_code" and isinstance(files_created, list):
+        if tool_name in {"execute_code", "terminal"} and isinstance(files_created, list):
             values.extend(files_created)
         for value in values:
             if not isinstance(value, str):
@@ -312,7 +313,7 @@ def finish_text_response(
     if (
         "sandbox:" in repaired_response
         and str(getattr(agent, "platform", "") or "").lower() == "desktop"
-        and "execute_code" in getattr(agent, "valid_tool_names", set())
+        and {"execute_code", "terminal"} & set(getattr(agent, "valid_tool_names", set()))
         and not has_direct_openai_artifact
         and getattr(agent, "_local_file_delivery_retries", 0) < 1
     ):

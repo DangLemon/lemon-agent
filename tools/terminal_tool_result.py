@@ -198,6 +198,7 @@ def finalize_foreground_result(
     *, command: str, result: dict, env: Any, env_type: str, effective_task_id: str,
     task_id: Optional[str], session_id: Optional[str], session_key: str,
     workdir: Optional[str], command_cwd: Optional[str], approval_note: Optional[str],
+    output_files: Optional[list[str]] = None,
 ) -> str:
     """Turn a raw ``env.execute`` result into the tool's JSON result string."""
     from tools.terminal_tool import record_session_cwd
@@ -247,6 +248,21 @@ def finalize_foreground_result(
         approval_note = approval_note.rstrip(".") + ", then interrupted."
 
     result_dict = {"output": output, "exit_code": returncode, "error": None}
+    if output_files and returncode == 0:
+        from tools.code_execution_tool import _validate_output_files
+
+        try:
+            files = _validate_output_files(output_files, command_cwd or "")
+        except (OSError, ValueError) as exc:
+            return json.dumps({
+                "output": output,
+                "exit_code": returncode,
+                "error": str(exc),
+                "status": "error",
+            }, ensure_ascii=False)
+        result_dict["files_created"] = files
+        if len(files) == 1:
+            result_dict["output_file"] = files[0]
     # Optional fields in observable JSON key order; None means "omit". Spill
     # metadata is present only when output overflowed the capture window.
     optional_fields: list[tuple[str, Any]] = [
