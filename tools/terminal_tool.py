@@ -1007,6 +1007,7 @@ def _run_foreground(
     command: str, env: Any, plan: _ExecPlan, *,
     task_id: Optional[str], session_id: Optional[str], session_key: str,
     workdir: Optional[str], approval_note: Optional[str], clear_interrupt: bool,
+    output_files: Optional[List[str]],
 ) -> str:
     """Execute in the foreground with retry on transient errors, then finalize."""
     max_retries = 3
@@ -1048,7 +1049,7 @@ def _run_foreground(
     return finalize_foreground_result(
         command=command, result=result, env=env, env_type=env_type, effective_task_id=eff,
         task_id=task_id, session_id=session_id, session_key=session_key, workdir=workdir,
-        command_cwd=command_cwd, approval_note=approval_note,
+        command_cwd=command_cwd, approval_note=approval_note, output_files=output_files,
     )
 
 
@@ -1118,6 +1119,7 @@ def terminal_tool(
     pty: bool = False,
     notify_on_complete: bool = False,
     watch_patterns: Optional[List[str]] = None,
+    output_files: Optional[List[str]] = None,
     _host_local: bool = False,
 ) -> str:
     """Execute *command* in the configured terminal environment; returns a JSON string.
@@ -1137,8 +1139,25 @@ def terminal_tool(
         plan = _plan_execution(
             command, task_id=task_id, timeout=timeout, background=background, _host_local=_host_local,
         )
-        env = _acquire_env(plan, task_id)
         env_type, cwd, effective_task_id = plan.env_type, plan.cwd, plan.effective_task_id
+        if output_files is not None:
+            if background:
+                raise _Rejected(_error_json(
+                    "output_files declarations require a foreground terminal command.",
+                    status="error",
+                ))
+            if env_type != "local":
+                raise _Rejected(_error_json(
+                    "output_files declarations require the local terminal backend.",
+                    status="error",
+                ))
+            from tools.code_execution_tool import _validate_output_file_declarations
+
+            try:
+                _validate_output_file_declarations(output_files)
+            except ValueError as exc:
+                raise _Rejected(_error_json(str(exc), status="error")) from exc
+        env = _acquire_env(plan, task_id)
 
         # Session key for cwd records: the contextvar doesn't cross tool-worker
         # threads, so fall back to the raw task_id (the top-level agent's
@@ -1165,6 +1184,7 @@ def terminal_tool(
             command, env, plan,
             task_id=task_id, session_id=session_id, session_key=session_key,
             workdir=workdir, approval_note=verdict.note, clear_interrupt=verdict.approved_run,
+            output_files=output_files,
         )
     except _Rejected as r:
         return r.result_json
@@ -1210,6 +1230,11 @@ TERMINAL_SCHEMA = {
             "workdir": {
                 "type": "string",
                 "description": "Working directory for this command (absolute path). Defaults to the session working directory."
+            },
+            "output_files": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Foreground local commands only. Declare relative output paths under the command working directory. Successful commands return canonical files_created/output_file fields for file delivery."
             },
             "pty": {
                 "type": "boolean",
@@ -1283,6 +1308,7 @@ def _handle_terminal(args, **kw):
         workdir=args.get("workdir"),
         pty=args.get("pty", False),
         notify_on_complete=notify_on_complete,
+        output_files=args.get("output_files"),
         watch_patterns=watch_patterns,
     )
 

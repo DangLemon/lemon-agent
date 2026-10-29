@@ -115,18 +115,27 @@ def _open_output_file(root: Path, candidate: Path, declared: str) -> Tuple[int, 
         os.close(parent_fd)
 
 
-def _validate_output_files(output_files: Any, cwd: str) -> List[str]:
-    """Return canonical readable regular files declared inside the project cwd."""
+def _validate_output_file_declarations(output_files: Any) -> List[Tuple[str, Path]]:
+    """Return validated relative output declarations and their native paths."""
     if not isinstance(output_files, list) or any(not isinstance(path, str) or not path for path in output_files):
         raise ValueError("output_files must be a list of non-empty relative paths")
-    root = Path(cwd).resolve(strict=True)
-    canonical = []
+    declarations = []
     for declared in output_files:
         candidate = Path(declared)
         windows_path = PureWindowsPath(declared)
         if (candidate.is_absolute() or windows_path.is_absolute() or windows_path.drive or windows_path.root
                 or ".." in candidate.parts or ".." in windows_path.parts):
             raise ValueError("output_files declarations must be relative paths without '..'")
+        declarations.append((declared, candidate))
+    return declarations
+
+
+def _validate_output_files(output_files: Any, cwd: str) -> List[str]:
+    """Return canonical readable regular files declared inside the project cwd."""
+    declarations = _validate_output_file_declarations(output_files)
+    root = Path(cwd).resolve(strict=True)
+    canonical = []
+    for declared, candidate in declarations:
         try:
             for component in (root.joinpath(*candidate.parts[:index + 1]) for index in range(len(candidate.parts))):
                 if _is_symlink_or_junction(component):

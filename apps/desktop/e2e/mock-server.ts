@@ -37,6 +37,8 @@ export interface MockServerOptions {
   toolCallResultTools?: string[]
   /** Return execute_code's output_file as a final MEDIA link. */
   toolCallFinalMediaFromOutput?: boolean
+  /** Return the structured output_file as a literal sandbox link. */
+  toolCallFinalSandboxPath?: boolean
   /** Absolute sandbox path written by the verify-on-stop scripted tool call. */
   verificationWritePath?: string
   /**
@@ -511,7 +513,12 @@ export function startMockServer(options: MockServerOptions = {}): Promise<MockSe
             requested && expectedResults.length > 0 && expectedResults.every(name => returnedNames.has(name))
           if (allToolResultsArrived) {
             const output = findE2eOutputFile(messages)
-            const response = options.toolCallFinalMediaFromOutput && output ? `MEDIA:${output}` : MOCK_REPLY
+            const sandboxPath = options.toolCallFinalSandboxPath === true ? output : null
+            const response = sandboxPath
+              ? `[${nodePath.basename(sandboxPath)}](sandbox:${sandboxPath})`
+              : options.toolCallFinalMediaFromOutput && output
+                ? `MEDIA:${output}`
+                : MOCK_REPLY
             if (stream) {
               streamTextResponse(res, model, response)
             } else {

@@ -194,6 +194,23 @@ def test_local_sandbox_link_is_repaired_only_with_tool_provenance(tmp_path):
     assert _repair_local_sandbox_links(response, messages, platform="tui") == response
 
 
+def test_local_sandbox_link_is_repaired_with_terminal_output_provenance(tmp_path):
+    report = tmp_path / "report.xlsx"
+    report.write_bytes(b"workbook")
+    response = f"[Download](sandbox:{report})"
+    messages = [{
+        "role": "tool",
+        "tool_name": "terminal",
+        "content": json.dumps({"exit_code": 0, "error": None, "output_file": str(report)}),
+    }]
+
+    assert _repair_local_sandbox_links(
+        response,
+        messages,
+        platform="desktop",
+    ) == f"[Download](#media:{quote(str(report), safe='')})"
+
+
 def test_local_sandbox_link_repair_rejects_unproven_sibling(tmp_path):
     proven = tmp_path / "report.xlsx"
     unproven = tmp_path / "secret.xlsx"
@@ -298,6 +315,40 @@ def test_finish_text_response_retries_mixed_proven_and_unproven_sandbox_links(mo
     assert messages[-1]["_local_file_delivery_nudge"] is True
 
 
+def test_finish_text_response_retries_with_terminal_only(monkeypatch, tmp_path):
+    _patch_agent_bootstrap(monkeypatch)
+    agent = run_agent.AIAgent(
+        model="gpt-5.4", provider="custom", api_mode="chat_completions",
+        base_url="https://agent.example/v1", api_key="custom-key", quiet_mode=True,
+        max_iterations=2, skip_context_files=True, skip_memory=True, platform="desktop",
+    )
+    agent.valid_tool_names = {"terminal"}
+    report = tmp_path / "report.xlsx"
+    report.write_bytes(b"workbook")
+    response = f"[Download](sandbox:{report})"
+    agent._build_assistant_message = lambda _message, finish_reason: {
+        "role": "assistant", "content": response, "finish_reason": finish_reason,
+    }
+    agent._has_content_after_think_block = lambda _text: True
+    agent._strip_think_blocks = lambda text: text
+    agent._flush_messages_to_session_db = lambda *_args: None
+    messages = []
+
+    verdict = finish_text_response(
+        agent, assistant_message=SimpleNamespace(content=response, tool_calls=None),
+        response=SimpleNamespace(), finish_reason="stop", messages=messages,
+        api_messages=[], conversation_history=[], api_call_count=1, user_message="make workbook",
+        active_system_prompt="", final_response=response, _turn_exit_reason="text_response(stop)",
+        _preflight_compression_blocked=False, codex_ack_continuations=0,
+        truncated_response_parts=[], length_continue_retries=0,
+        _pending_verification_response=None, _pending_verification_response_previewed=False,
+    )
+
+    assert verdict.action == "continue"
+    assert messages[-1]["_local_file_delivery_nudge"] is True
+
+
+
 def test_finish_text_response_retries_unproven_local_sandbox_link(monkeypatch, tmp_path):
     _patch_agent_bootstrap(monkeypatch)
     agent = run_agent.AIAgent(
@@ -336,6 +387,8 @@ def test_finish_text_response_retries_unproven_local_sandbox_link(monkeypatch, t
     assert verdict.final_response is None
     assert messages[-2]["_local_file_delivery_nudge"] is True
     assert messages[-1]["_local_file_delivery_nudge"] is True
+    assert "terminal" in messages[-1]["content"]
+    assert "execute_code" in messages[-1]["content"]
     assert "output_files" in messages[-1]["content"]
     assert flushed == []
 
