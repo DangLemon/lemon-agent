@@ -737,17 +737,24 @@ export function DesktopInstallOverlay({ enabled = true }: DesktopInstallOverlayP
                 </Button>
                 <Button
                   onClick={async () => {
-                    // Tell main.ts to clear its latched failure BEFORE we
-                    // reload. Otherwise the renderer reload calls getConnection
-                    // and main short-circuits to the latched error without
-                    // re-running install.ps1.
-                    try {
-                      await window.lemonDesktop?.resetBootstrap?.()
-                    } catch {
-                      // best-effort -- continue with reload regardless
-                    }
+                    // Clear main's failure latch before reloading so startup can retry.
+                    const result = await window.lemonDesktop?.resetBootstrap?.().catch(() => null)
 
-                    window.location.reload()
+                    if (result?.ok) {
+                      window.location.reload()
+                    } else {
+                      const snapshot = await window.lemonDesktop?.getBootstrapState().catch(() => null)
+
+                      setState(prev =>
+                        snapshot?.active
+                          ? snapshot
+                          : {
+                              ...prev,
+                              error: 'Could not restart the installer. Check the saved transcript and try again.'
+                            }
+                      )
+                      setLogOpen(true)
+                    }
                   }}
                   size="sm"
                   variant="default"

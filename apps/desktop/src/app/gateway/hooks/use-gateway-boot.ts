@@ -9,7 +9,7 @@ import { appBrand, replaceLemonBrandTerms } from '@/lib/app-brand'
 import { desktopDefaultCwd } from '@/lib/desktop-fs'
 import { decideLivenessForceClose, LIVENESS_REPROBE_DELAY_MS } from '@/lib/gateway-liveness-policy'
 import { reconnectBackoffDelayMs } from '@/lib/reconnect-backoff'
-import { BACKEND_BOOT_WAIT_TIMEOUT_MS, RECONNECT_ATTEMPT_TIMEOUT_MS, withTimeout } from '@/lib/with-timeout'
+import { BACKEND_BOOT_WAIT_TIMEOUT_MS, RECONNECT_ATTEMPT_TIMEOUT_MS, TimeoutError, withTimeout } from '@/lib/with-timeout'
 import {
   $desktopBoot,
   applyDesktopBootProgress,
@@ -989,13 +989,40 @@ export function useGatewayBoot({
         // Everything else keeps dialing the primary.
         // Bounded like the reconnect path (#93454): a wedged main-process
         // round-trip must not hang "Starting Lemon AI…" forever. Initial boot
-        // rides out a full backend cold spawn, so it gets the shared 45s
-        // backend-boot budget, not the 20s reconnect budget.
-        const conn = await withTimeout(
-          desktop.getConnection(windowProfileOverride() ?? undefined),
-          BACKEND_BOOT_WAIT_TIMEOUT_MS,
-          brandCopy('Timed out connecting to Lemon AI backend')
-        )
+        // uses the shared cold-boot budget, not the 20s reconnect budget.
+        const connection = desktop.getConnection(windowProfileOverride() ?? undefined)
+        let conn: Awaited<typeof connection>
+
+        for (;;) {
+          try {
+            conn = await withTimeout(
+              connection,
+              BACKEND_BOOT_WAIT_TIMEOUT_MS,
+              brandCopy('Timed out connecting to Lemon AI backend')
+            )
+            break
+          } catch (error) {
+            if (!(error instanceof TimeoutError)) {
+              throw error
+            }
+
+            const bootstrap = await withTimeout(
+              desktop.getBootstrapState(),
+              RECONNECT_ATTEMPT_TIMEOUT_MS,
+              brandCopy('Timed out checking installer status')
+            ).catch(() => null)
+
+            if (!bootstrap?.active) {
+              throw error
+            }
+
+            setDesktopBootStep({
+              phase: 'renderer.bootstrap.wait',
+              message: translateNow('boot.steps.finishingInstall'),
+              progress: Math.min(90, $desktopBoot.get().progress)
+            })
+          }
+        }
 
         if (cancelled) {
           return

@@ -1,7 +1,7 @@
 import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { DesktopConnectionsRegistry } from '@/global'
+import type { DesktopBootstrapState, DesktopConnectionsRegistry, LemonConnection } from '@/global'
 import { createClientSessionState } from '@/lib/chat-runtime'
 import { BACKEND_BOOT_WAIT_TIMEOUT_MS } from '@/lib/with-timeout'
 import { $desktopBoot } from '@/store/boot'
@@ -199,6 +199,17 @@ function fakeDesktop() {
 
       return !key || key === 'default' ? primaryConn : coderConn
     }),
+    getBootstrapState: vi.fn(async (): Promise<DesktopBootstrapState> => ({
+      active: false,
+      completedAt: null,
+      error: null,
+      log: [],
+      manifest: null,
+      setupChoice: null,
+      stages: {},
+      startedAt: null,
+      unsupportedPlatform: null
+    })),
     getGatewayWsUrl: vi.fn(async (conn?: { wsUrl?: string }) => conn?.wsUrl ?? primaryConn.wsUrl),
     getBootProgress: vi.fn(async () => ({
       error: null as null | string,
@@ -1206,11 +1217,26 @@ describe('useGatewayBoot remote reconnect loop (real hook, fake socket)', () => 
     expect($connection.get()).toBeNull()
   })
 
-  it('keeps waiting through a slow initial boot, then rejects a wedged getConnection() at the cold-boot deadline', async () => {
-    // The renderer owns a final bound because a wedged IPC call may never
-    // settle. That bound must still allow a healthy slow Windows cold boot.
+  it('waits for a local installer beyond the cold-boot deadline without exposing retry', async () => {
     const desktop = fakeDesktop()
-    desktop.getConnection = vi.fn(() => new Promise(() => undefined))
+    const connection = deferred<LemonConnection>()
+    let statusReads = 0
+    desktop.getConnection = vi.fn(async (profile?: null | string) => {
+      await connection.promise
+
+      return (profile ?? '').trim() === 'coder' ? coderConn : primaryConn
+    })
+    desktop.getBootstrapState = vi.fn(async (): Promise<DesktopBootstrapState> => ({
+      active: ++statusReads <= 1,
+      completedAt: null,
+      error: null,
+      log: [],
+      manifest: null,
+      setupChoice: null,
+      stages: { 'node-deps': { durationMs: null, error: null, json: null, startedAt: Date.now(), state: 'running' } },
+      startedAt: Date.now(),
+      unsupportedPlatform: null
+    }))
     ;(window as { lemonDesktop?: unknown }).lemonDesktop = desktop
 
     render(<Harness />)
@@ -1218,18 +1244,48 @@ describe('useGatewayBoot remote reconnect loop (real hook, fake socket)', () => 
 
     expect($desktopBoot.get().error).toBeNull()
 
-    // A slow cold boot may still be healthy after 45s on Windows. Keep waiting
-    // instead of replacing the real startup result with a renderer timeout.
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(45_000)
+      await vi.advanceTimersByTimeAsync(BACKEND_BOOT_WAIT_TIMEOUT_MS)
     })
-    expect($desktopBoot.get().error).toBeNull()
 
-    // A genuinely wedged IPC call still stops at the shared cold-boot budget.
+    expect(desktop.getBootstrapState).toHaveBeenCalled()
+    expect($desktopBoot.get().error).toBeNull()
+    expect($desktopBoot.get().running).toBe(true)
+    expect(notifyError).not.toHaveBeenCalled()
+    expect(desktop.getConnection).toHaveBeenCalledTimes(1)
+
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(BACKEND_BOOT_WAIT_TIMEOUT_MS - 45_000)
+      await vi.advanceTimersByTimeAsync(BACKEND_BOOT_WAIT_TIMEOUT_MS)
     })
+    expect(desktop.getBootstrapState).toHaveBeenCalledTimes(2)
     expect($desktopBoot.get().error).toBeTruthy()
+  })
+
+  it('fails a wedged initial IPC wait when no installer is active', async () => {
+    const desktop = fakeDesktop()
+    desktop.getConnection = vi.fn(() => new Promise(() => undefined))
+    desktop.getBootstrapState = vi.fn(async (): Promise<DesktopBootstrapState> => ({
+      active: false,
+      completedAt: null,
+      error: null,
+      log: [],
+      manifest: null,
+      setupChoice: null,
+      stages: {},
+      startedAt: null,
+      unsupportedPlatform: null
+    }))
+    ;(window as { lemonDesktop?: unknown }).lemonDesktop = desktop
+
+    render(<Harness />)
+    await flushAsync()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(BACKEND_BOOT_WAIT_TIMEOUT_MS)
+    })
+
+    expect($desktopBoot.get().error).toBeTruthy()
+    expect(notifyError).toHaveBeenCalled()
   })
 
   it('softSwitch(): a getConnection() that hangs on a connection-apply switch does not latch $gatewaySwitching forever (#93454)', async () => {
