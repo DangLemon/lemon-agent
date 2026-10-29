@@ -82,6 +82,7 @@ import {
   resolveLinuxPasswordStore
 } from './bootstrap-platform'
 import { decideBootstrapRepair } from './bootstrap-repair-guard'
+import { createBootstrapRunOwner } from './bootstrap-run-owner'
 import { resolveBootstrapSourceRepository, runBootstrap } from './bootstrap-runner'
 import {
   BROWSER_WINDOW_HEIGHT,
@@ -1717,6 +1718,7 @@ let remoteReauthFailure = null
 // Active first-launch install, so the renderer's Cancel button (and app quit)
 // can abort the in-flight install.sh/ps1 instead of leaving it running.
 let bootstrapAbortController = null
+const bootstrapRunOwner = createBootstrapRunOwner<Awaited<ReturnType<typeof runBootstrap>>>()
 // Explicit "the user asked for a repair" flag. Repair used to signal intent by
 // deleting the bootstrap marker, which stranded healthy installs whose only
 // problem was a transient backend error (#72166). Intent now lives here, so
@@ -2207,7 +2209,7 @@ function broadcastBootstrapEvent(ev) {
 }
 
 function getBootstrapState() {
-  return bootstrapState
+  return bootstrapRunOwner.active && !bootstrapState.active ? { ...bootstrapState, active: true } : bootstrapState
 }
 
 function resetBootstrapSnapshot() {
@@ -5348,92 +5350,77 @@ async function ensureRuntime(backend) {
       throw handoffError
     }
 
-    // Eagerly flip the bootstrap UI state to 'active' so the renderer
-    // shows the install overlay BEFORE the runner finishes fetching the
-    // manifest (which on slow networks can take tens of seconds and would
-    // otherwise leave the user staring at the generic 'Preparing' splash).
-    // We emit a synthetic manifest with an empty stages list -- the real
-    // manifest event will overwrite it once install.ps1 -Manifest returns.
-    try {
-      broadcastBootstrapEvent({
-        type: 'manifest',
-        stages: [],
-        protocolVersion: null
-      })
-    } catch {
-      void 0
-    }
+    await bootstrapRunOwner.run(async () => {
+      // Eagerly show installer progress before the runner fetches its manifest.
+      try {
+        broadcastBootstrapEvent({ type: 'manifest', stages: [], protocolVersion: null })
+      } catch {
+        void 0
+      }
 
-    bootstrapAbortController = new AbortController()
+      bootstrapAbortController = new AbortController()
+      bootstrapRepairRequested = false
+      bootstrapRepairAttempt = 0
 
-    // The repair request has been honoured by reaching the installer; clear it
-    // so a later boot isn't forced through bootstrap again.
-    bootstrapRepairRequested = false
-    bootstrapRepairAttempt = 0
+      try {
+        const result = await runBootstrap({
+          installStamp: backend.installStamp,
+          activeRoot: backend.activeRoot,
+          sourceRepoRoot: SOURCE_REPO_ROOT,
+          lemonHome: LEMON_HOME,
+          logRoot: path.join(LEMON_HOME, 'logs'),
+          abortSignal: bootstrapAbortController.signal,
+          onEvent: ev => {
+            try {
+              rememberLog(`[bootstrap] ${JSON.stringify(ev)}`)
+            } catch {
+              void 0
+            }
 
-    const bootstrapResult = await runBootstrap({
-      installStamp: backend.installStamp,
-      activeRoot: backend.activeRoot,
-      sourceRepoRoot: SOURCE_REPO_ROOT,
-      lemonHome: LEMON_HOME,
-      logRoot: path.join(LEMON_HOME, 'logs'),
-      abortSignal: bootstrapAbortController.signal,
-      onEvent: ev => {
-        // Tee every bootstrap event to (a) the desktop log for forensics
-        // and (b) the renderer for live progress UI. Either may be absent;
-        // tolerate both gracefully so a renderer crash doesn't stall the
-        // bootstrap and a log-write failure doesn't suppress the UI signal.
-        try {
-          rememberLog(`[bootstrap] ${JSON.stringify(ev)}`)
-        } catch {
-          void 0
+            try {
+              broadcastBootstrapEvent(ev)
+            } catch {
+              void 0
+            }
+          },
+          writeMarker: writeBootstrapMarker,
+          desktopHarnessConfigPath: INTERNAL_DESKTOP_HARNESS.resourcePath,
+          bootstrapMarkerName: DESKTOP_RUNTIME_IDENTITY.bootstrapMarkerName,
+          desktopInternal: INTERNAL_DESKTOP_BUILD,
+          desktopHomeOverride: LEMON_HOME,
+          legacyBootstrapMarkerNames: DESKTOP_RUNTIME_IDENTITY.legacyBootstrapMarkerNames,
+          runtimeDirName: path.basename(ACTIVE_LEMON_ROOT),
+          runtimeRootDirNames: [path.basename(ACTIVE_LEMON_ROOT)]
+        })
+
+        if (result.cancelled) {
+          const cancelledError = new Error(`${DESKTOP_RUNTIME_IDENTITY.appName} install was cancelled.`) as any
+          cancelledError.isBootstrapFailure = true
+          cancelledError.bootstrapCancelled = true
+          bootstrapFailure = cancelledError
+          throw cancelledError
         }
 
-        try {
-          broadcastBootstrapEvent(ev)
-        } catch {
-          void 0
+        if (!result.ok) {
+          const detail = String(result.error || 'unknown error')
+          const error = new Error(
+            `${DESKTOP_RUNTIME_IDENTITY.appName} bootstrap failed${result.failedStage ? ` at stage '${result.failedStage}'` : ''}: ` +
+              `${detail}. Check ${DESKTOP_LOG_PATH} for the full transcript.`
+          ) as any
+
+          error.isBootstrapFailure = true
+          error.failedStage = result.failedStage || null
+          bootstrapFailure = error
+          throw error
         }
-      },
-      writeMarker: writeBootstrapMarker,
-      desktopHarnessConfigPath: INTERNAL_DESKTOP_HARNESS.resourcePath,
-      bootstrapMarkerName: DESKTOP_RUNTIME_IDENTITY.bootstrapMarkerName,
-      desktopInternal: INTERNAL_DESKTOP_BUILD,
-      desktopHomeOverride: LEMON_HOME,
-      legacyBootstrapMarkerNames: DESKTOP_RUNTIME_IDENTITY.legacyBootstrapMarkerNames,
-      runtimeDirName: path.basename(ACTIVE_LEMON_ROOT),
-      runtimeRootDirNames: [path.basename(ACTIVE_LEMON_ROOT)]
+
+        rememberLog('[bootstrap] bootstrap complete; marker written. Re-resolving backend.')
+
+        return result
+      } finally {
+        bootstrapAbortController = null
+      }
     })
-
-    bootstrapAbortController = null
-
-    if (bootstrapResult.cancelled) {
-      const cancelledError = new Error(`${DESKTOP_RUNTIME_IDENTITY.appName} install was cancelled.`) as any
-      cancelledError.isBootstrapFailure = true
-      cancelledError.bootstrapCancelled = true
-      bootstrapFailure = cancelledError
-      throw cancelledError
-    }
-
-    if (!bootstrapResult.ok) {
-      const bootstrapDetail = String(bootstrapResult.error || 'unknown error')
-
-      const bootstrapError = new Error(
-        `${DESKTOP_RUNTIME_IDENTITY.appName} bootstrap failed${bootstrapResult.failedStage ? ` at stage '${bootstrapResult.failedStage}'` : ''}: ` +
-          `${bootstrapDetail}. ` +
-          `Check ${DESKTOP_LOG_PATH} for the full transcript.`
-      ) as any
-
-      bootstrapError.isBootstrapFailure = true
-      bootstrapError.failedStage = bootstrapResult.failedStage || null
-      // Latch the failure so subsequent startLemon() calls return this
-      // same error without re-running install.ps1.  Cleared by the
-      // lemon:bootstrap:reset IPC (renderer's "Reload and retry").
-      bootstrapFailure = bootstrapError
-      throw bootstrapError
-    }
-
-    rememberLog('[bootstrap] bootstrap complete; marker written. Re-resolving backend.')
 
     // Re-resolve now that the install exists. The new resolution lands in
     // step 3 (bootstrap-complete marker) and we recurse to wire venvPython.
@@ -15378,24 +15365,33 @@ ipcMain.handle('lemon:backend:recycle', async (_event, profile) => {
   return { ok: true }
 })
 ipcMain.handle('lemon:bootstrap:reset', async () => {
-  // Renderer's "Reload and retry" path. Clear the latched failure and
-  // reset connection state so the next startLemon() call restarts the
-  // full backend flow (including a fresh runBootstrap pass).
-  rememberLog('[bootstrap] reset requested by renderer; clearing latched failure')
-  await teardownPrimaryBackendAndWait()
-  bootstrapFailure = null
-  backendStartFailure = null
-  remoteReauthFailure = null
-  getFirstRunSetupGate().resetForRetry()
-  resetBootstrapSnapshot()
+  const accepted = await bootstrapRunOwner.reset(async () => {
+    rememberLog('[bootstrap] reset requested by renderer; clearing latched failure')
+    await teardownPrimaryBackendAndWait()
+    bootstrapFailure = null
+    backendStartFailure = null
+    remoteReauthFailure = null
+    getFirstRunSetupGate().resetForRetry()
+    resetBootstrapSnapshot()
 
-  return { ok: true }
+    return true
+  })
+
+  return { ok: accepted }
 })
+
 ipcMain.handle('lemon:bootstrap:repair', async () => {
   // Forceful repair: force the next startLemon() through the full installer
   // (refreshing a broken/partial venv) and clear any latched failure + live
   // connection. The renderer reloads afterwards to re-drive the boot flow.
   //
+  // Never reset the connection while an installer owns the shared runtime tree.
+  if (bootstrapRunOwner.isResetting || bootstrapRunOwner.active) {
+    rememberLog('[bootstrap] repair refused while installer is still active')
+
+    return { ok: false }
+  }
+
   // We do NOT delete the bootstrap marker here. Repair is also reachable from
   // transient backend errors on a perfectly healthy install, and deleting the
   // marker in that case stranded the app in first-run setup with no way back

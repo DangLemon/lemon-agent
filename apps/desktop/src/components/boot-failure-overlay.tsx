@@ -146,14 +146,40 @@ export function BootFailureOverlay() {
 
   const retry = async () => {
     setBusy('retry')
-    await window.lemonDesktop?.resetBootstrap().catch(() => undefined)
-    window.location.reload()
+    const result = await window.lemonDesktop?.resetBootstrap().catch(() => null)
+
+    if (result?.ok) {
+      window.location.reload()
+    } else {
+      setBusy(null)
+      const active = await window.lemonDesktop?.getBootstrapState().then(state => state.active).catch(() => false)
+      notify({
+        kind: 'warning',
+        title: copy.retry,
+        message: active
+          ? 'An install is still running. Wait for it to finish or cancel it from the install screen.'
+          : 'Could not restart the installer. Check the logs and try again.'
+      })
+    }
   }
 
   const repair = async () => {
     setBusy('repair')
-    await window.lemonDesktop?.repairBootstrap().catch(() => undefined)
-    window.location.reload()
+    const result = await window.lemonDesktop?.repairBootstrap().catch(() => null)
+
+    if (result?.ok) {
+      window.location.reload()
+    } else {
+      setBusy(null)
+      const active = await window.lemonDesktop?.getBootstrapState().then(state => state.active).catch(() => false)
+      notify({
+        kind: 'warning',
+        title: copy.repairInstall,
+        message: active
+          ? 'An install is still running. Wait for it to finish or cancel it from the install screen.'
+          : 'Could not repair the installer. Check the logs and try again.'
+      })
+    }
   }
 
   const switchToLocalGateway = async () => {
