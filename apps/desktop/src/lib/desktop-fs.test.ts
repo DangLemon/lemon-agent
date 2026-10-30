@@ -9,6 +9,7 @@ import {
   desktopFsCacheKey,
   desktopGitRoot,
   readDesktopDir,
+  readDesktopFileBytes,
   readDesktopFileDataUrl,
   readDesktopFileDataUrlLocalFirst,
   readDesktopFileText,
@@ -19,6 +20,7 @@ import {
 const readDir = vi.fn(async () => ({ entries: [{ name: 'local', path: '/local', isDirectory: true }] }))
 const readFileText = vi.fn(async () => ({ path: '/local/file.txt', text: 'local', byteSize: 5 }))
 const readFileDataUrl = vi.fn(async () => 'data:text/plain;base64,bG9jYWw=')
+const readFilePreviewDataUrl = vi.fn(async () => 'data:application/octet-stream;base64,bG9jYWw=')
 const gitRoot = vi.fn(async () => '/local')
 const selectPaths = vi.fn(async () => ['/local'])
 
@@ -32,7 +34,9 @@ const api = vi.fn(async ({ path }: { path: string }) => {
   }
 
   if (path.startsWith('/api/fs/read-data-url?')) {
-    return { dataUrl: 'data:text/plain;base64,cmVtb3Rl' }
+    return path.includes('max_bytes=')
+      ? { dataUrl: 'data:application/octet-stream;base64,cmVtb3Rl' }
+      : { dataUrl: 'data:text/plain;base64,cmVtb3Rl' }
   }
 
   if (path.startsWith('/api/fs/git-root?')) {
@@ -57,6 +61,7 @@ function stubBridge() {
       gitRoot,
       readDir,
       readFileDataUrl,
+      readFilePreviewDataUrl,
       readFileText,
       selectPaths
     }
@@ -95,6 +100,35 @@ describe('desktop filesystem facade', () => {
     expect(gitRoot).toHaveBeenCalledWith('/work')
     expect(selectPaths).toHaveBeenCalledWith({ directories: true, profile: 'team-local' })
     expect(api).not.toHaveBeenCalled()
+  })
+
+  it('reads bounded local preview bytes through the dedicated bridge', async () => {
+    $connection.set({ mode: 'local' } as never)
+
+    expect(Array.from(await readDesktopFileBytes('/work/archive.zip', 8 * 1024 * 1024))).toEqual(
+      Array.from(new TextEncoder().encode('local'))
+    )
+    expect(readFilePreviewDataUrl).toHaveBeenCalledWith('/work/archive.zip', 8 * 1024 * 1024)
+    expect(readFileDataUrl).not.toHaveBeenCalled()
+  })
+
+  it('reads bounded remote preview bytes and carries the ceiling to the backend', async () => {
+    $connection.set({ mode: 'remote' } as never)
+
+    expect(Array.from(await readDesktopFileBytes('/remote/archive.zip', 8 * 1024 * 1024))).toEqual(
+      Array.from(new TextEncoder().encode('remote'))
+    )
+    expect(api).toHaveBeenCalledWith({
+      path: '/api/fs/read-data-url?path=%2Fremote%2Farchive.zip&max_bytes=8388608'
+    })
+    expect(readFilePreviewDataUrl).not.toHaveBeenCalled()
+  })
+
+  it('rejects malformed preview data URLs before decoding', async () => {
+    $connection.set({ mode: 'local' } as never)
+    readFilePreviewDataUrl.mockResolvedValueOnce('not-a-data-url')
+
+    await expect(readDesktopFileBytes('/work/archive.zip', 1024)).rejects.toThrow('Invalid preview byte response')
   })
 
   it('brands missing bridge errors for internal builds', async () => {

@@ -119,6 +119,43 @@ test('attachment data URL helper reads bytes above the preview default without c
   }
 })
 
+test('data URL helper rejects a file that grows during the read', async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lemon-desktop-growing-preview-'))
+  const source = path.join(tempDir, 'growing.bin')
+
+  const grow = () => {
+    if (fs.statSync(source).size === 3) {
+      fs.appendFileSync(source, '4')
+    }
+  }
+
+  const fsImpl = Object.assign(Object.create(Object.getPrototypeOf(fs)), fs)
+
+  fsImpl.promises = Object.assign(Object.create(Object.getPrototypeOf(fs.promises)), fs.promises)
+
+  fsImpl.promises.open = async (...args: Parameters<typeof fs.promises.open>) => {
+    grow()
+
+    return fs.promises.open(...args)
+  }
+
+  try {
+    fs.writeFileSync(source, '123')
+
+    await assert.rejects(
+      readFileDataUrlForIpc(source, {
+        fs: fsImpl,
+        maxBytes: 3,
+        mimeType: 'application/octet-stream',
+        purpose: 'File preview'
+      }),
+      /file is too large/
+    )
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true })
+  }
+})
+
 test('resolveTimeoutMs falls back to defaults and accepts overrides', () => {
   assert.equal(resolveTimeoutMs(undefined), DEFAULT_FETCH_TIMEOUT_MS)
   assert.equal(resolveTimeoutMs(0), DEFAULT_FETCH_TIMEOUT_MS)

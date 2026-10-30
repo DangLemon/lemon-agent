@@ -232,6 +232,7 @@ contextBridge.exposeInMainWorld('lemonDesktop', {
   requestMicrophoneAccess: () => ipcRenderer.invoke('lemon:requestMicrophoneAccess'),
   readWindowBelow: () => ipcRenderer.invoke('lemon:window:readBelow'),
   readFileDataUrl: filePath => ipcRenderer.invoke('lemon:readFileDataUrl', filePath),
+  readFilePreviewDataUrl: (filePath, maxBytes) => ipcRenderer.invoke('lemon:readFilePreviewDataUrl', filePath, maxBytes),
   readFileDataUrlForAttach: filePath => ipcRenderer.invoke('lemon:readFileDataUrlForAttach', filePath),
   dataUrlReadMax: {
     get: () => ipcRenderer.invoke('lemon:data-url-read-max:get'),

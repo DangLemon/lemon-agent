@@ -1,7 +1,7 @@
 /**
  * E2E tests for the tile-unread bug — two scenarios:
  *
- * 1. TAB (stacked, not visible) — a session opened as a tab via ⌃-click is
+ * 1. TAB (stacked, not visible) — a session opened with the primary modifier is
  *    NOT visible on screen. When it finishes, the green "unread" dot IS
  *    correct — the user isn't looking at it. This test PASSES.
  *
@@ -15,18 +15,14 @@
  * Prerequisite: `npm run build` must have been run so dist/ exists.
  */
 
-import { expect, test } from '@playwright/test'
+import { expect, type Page, test } from '@playwright/test'
 
-import {
-  type MockBackendFixture,
-  setupMockBackend,
-  waitForAppReady,
-} from './fixtures'
+import { type MockBackendFixture, setupMockBackend, waitForAppReady } from './fixtures'
 import {
   type BackgroundReleaseHandle,
   createBackgroundReleaseHandle,
   restartMockServer,
-  SIDEBAR_CROSS_TEXTS,
+  SIDEBAR_CROSS_TEXTS
 } from './mock-server'
 
 /** Finished-unread dot aria-label. */
@@ -35,6 +31,9 @@ const UNREAD_DOT_LABEL = 'Finished — unread'
 const BG_DOT_LABEL = 'Background task running'
 /** Foreground turn-running dot aria-label. */
 const SESSION_RUNNING_DOT_LABEL = 'Session running'
+const SECOND_SESSION_PROMPT = 'SECOND SESSION: keep this session visible.'
+const SECOND_SESSION_TEXT = 'keep this session visible.'
+const ACTIVE_SURFACE = '[data-composer-target]:not([data-pane-hidden] [data-composer-target])'
 
 /**
  * The auto-title auxiliary call hits the SAME mock provider as the chat turn,
@@ -49,14 +48,13 @@ const SESSION_RUNNING_DOT_LABEL = 'Session running'
 const DISABLE_AUTO_TITLE = 'auxiliary:\n  title_generation:\n    enabled: false'
 
 /** Locate a session's sidebar row by its preview text. */
-function sessionRow(page: import('@playwright/test').Page, text: string) {
+function sessionRow(page: Page, text: string) {
   return page.locator('[data-slot="sidebar"] button').filter({ hasText: text }).first()
 }
 
-/** Common setup: start a turn with a held bg process + subagent, wait for
- *  the turn to complete, then switch to a new session so the first session is
- *  no longer $selectedStoredSessionId (required before opening a tile). */
-async function startTurnAndSwitchAway(page: import('@playwright/test').Page) {
+/** Common setup: start a turn with a held bg process + subagent, then persist
+ *  a second session and load it into the primary workspace. */
+async function startTurnAndSwitchAway(page: Page) {
   // Send E2E_SIDEBAR_CROSS — starts a turn with sleep 5 + subagent.
   const composer = page.locator('[contenteditable="true"]').first()
   await composer.waitFor({ state: 'visible', timeout: 10_000 })
@@ -65,11 +63,9 @@ async function startTurnAndSwitchAway(page: import('@playwright/test').Page) {
   await page.keyboard.press('Enter')
 
   // Wait for the user's message to appear.
-  await page.waitForFunction(
-    () => (document.body.textContent ?? '').includes('E2E_SIDEBAR_CROSS'),
-    undefined,
-    { timeout: 15_000 },
-  )
+  await page.waitForFunction(() => (document.body.textContent ?? '').includes('E2E_SIDEBAR_CROSS'), undefined, {
+    timeout: 15_000
+  })
 
   // NOTE: while the turn is busy the dot-state priority paints the session as
   // "working" ('Session running'), which OUTRANKS the background claim — the
@@ -82,16 +78,14 @@ async function startTurnAndSwitchAway(page: import('@playwright/test').Page) {
   // The final answer text streams before message.complete, so text visibility
   // alone is not a completion barrier. Wait for the foreground-running state
   // to clear before asserting the background-process state.
-  await page.waitForFunction(
-    (text) => (document.body.textContent ?? '').includes(text),
-    SIDEBAR_CROSS_TEXTS.finalText,
-    { timeout: 90_000 },
-  )
+  await page.waitForFunction(text => (document.body.textContent ?? '').includes(text), SIDEBAR_CROSS_TEXTS.finalText, {
+    timeout: 90_000
+  })
   await expect
-    .poll(
-      () => page.locator(`[aria-label="${SESSION_RUNNING_DOT_LABEL}"]`).count(),
-      { timeout: 30_000, message: 'session running dot should disappear after turn completes' },
-    )
+    .poll(() => page.locator(`[aria-label="${SESSION_RUNNING_DOT_LABEL}"]`).count(), {
+      timeout: 30_000,
+      message: 'session running dot should disappear after turn completes'
+    })
     .toBe(0)
 
   // The background dot must be visible now: the turn is done but the process
@@ -100,29 +94,59 @@ async function startTurnAndSwitchAway(page: import('@playwright/test').Page) {
   // dot flip is event-driven off the busy=false publish and can land a tick
   // after the running dot clears.
   await expect
-    .poll(
-      () => page.locator(`[aria-label="${BG_DOT_LABEL}"]`).count(),
-      { timeout: 30_000, message: 'background dot should be visible after turn completes' },
-    )
+    .poll(() => page.locator(`[aria-label="${BG_DOT_LABEL}"]`).count(), {
+      timeout: 30_000,
+      message: 'background dot should be visible after turn completes'
+    })
     .toBeGreaterThan(0)
 
-  // Switch to a new session — session A is no longer $selectedStoredSessionId.
-  // This is required: openSessionTile bails if the session is already selected.
-  await page.getByRole('button', { name: /^(New session|New conversation|Cuộc trò chuyện mới)$/ }).first().click()
-  await page.waitForTimeout(2000)
+  // The New session action stacks a draft beside the occupied workspace. Send
+  // one turn so the draft becomes session B, then move B into the workspace.
+  await page
+    .getByRole('button', { name: /^(New session|New conversation|Cuộc trò chuyện mới)$/ })
+    .first()
+    .click()
+
+  const secondTab = page.locator('[data-tree-tab^="session-tile:"][aria-selected="true"]')
+  const secondPaneId = (await secondTab.getAttribute('data-tree-tab'))?.slice('session-tile:'.length)
+  expect(secondPaneId, 'new session tile must expose its pane id').toBeTruthy()
+  const secondSurface = page.locator(`[data-composer-target="tile:${secondPaneId}"]`)
+  const secondComposer = secondSurface.locator('[contenteditable="true"]').first()
+  await secondComposer.waitFor({ state: 'visible', timeout: 15_000 })
+  await secondComposer.click()
+  await secondComposer.type(SECOND_SESSION_PROMPT, { delay: 5 })
+  await page.keyboard.press('Enter')
+  await expect(secondSurface.locator('[data-slot="aui_thread-viewport"]')).toContainText(SECOND_SESSION_TEXT, {
+    timeout: 30_000
+  })
+
+  await expect
+    .poll(() => page.locator(`[aria-label="${SESSION_RUNNING_DOT_LABEL}"]`).count(), {
+      timeout: 30_000,
+      message: 'second session should finish before its tile closes'
+    })
+    .toBe(0)
+
+  const secondRow = sessionRow(page, SECOND_SESSION_TEXT)
+  await secondRow.waitFor({ state: 'visible', timeout: 30_000 })
+  await secondTab.hover()
+  await secondTab.getByRole('button', { name: /^(Close|Đóng)$/ }).click()
+  await expect(secondTab).toHaveCount(0)
+  await secondRow.click()
+  await expect(page.locator(ACTIVE_SURFACE).last().locator('[data-slot="aui_thread-viewport"]')).toContainText(
+    SECOND_SESSION_TEXT,
+    { timeout: 30_000 }
+  )
 }
 
 /** Release the held background process, then wait for its dot to clear. */
-async function waitForBgProcessToFinish(
-  page: import('@playwright/test').Page,
-  release?: BackgroundReleaseHandle,
-) {
+async function waitForBgProcessToFinish(page: Page, release?: BackgroundReleaseHandle) {
   release?.release()
   await expect
-    .poll(
-      () => page.locator(`[aria-label="${BG_DOT_LABEL}"]`).count(),
-      { timeout: 30_000, message: 'background dot should disappear after process finishes' },
-    )
+    .poll(() => page.locator(`[aria-label="${BG_DOT_LABEL}"]`).count(), {
+      timeout: 30_000,
+      message: 'background dot should disappear after process finishes'
+    })
     .toBe(0)
 }
 
@@ -139,8 +163,9 @@ test.describe('sidebar states — tab (hidden) unread is correct', () => {
   test.beforeAll(async () => {
     restartMockServer()
     fixture = await setupMockBackend({
+      extraDisplayConfig: '  language: en',
       extraConfig: DISABLE_AUTO_TITLE,
-      mockServer: { backgroundReleasePath: bgRelease.path },
+      mockServer: { backgroundReleasePath: bgRelease.path }
     })
     await waitForAppReady(fixture, 120_000)
   })
@@ -159,14 +184,21 @@ test.describe('sidebar states — tab (hidden) unread is correct', () => {
     // Evidence: session A is in the background (bg dot in sidebar).
     await page.screenshot({ path: 'test-results/tile-bug-tab-switched-away.png' })
 
-    // ⌃-click opens the session as a TAB (center dock = stacked, not visible
-    // unless it's the active tab). The session is NOT on screen.
+    // Modified click opens the session as a TAB (center dock = stacked, not
+    // visible unless it's the active tab). Control-click opens the context menu
+    // on macOS, so use the platform's primary modifier.
     //
     // With auto-title disabled the sidebar row is titled by the user's
     // message (the trigger keyword), not the assistant's final text.
     const row = sessionRow(page, 'E2E_SIDEBAR_CROSS')
-    await row.click({ modifiers: ['Control'] })
-    await page.waitForTimeout(2000)
+    await row.click({ modifiers: [process.platform === 'darwin' ? 'Meta' : 'Control'] })
+
+    const hiddenSessionTab = page.locator('[data-tree-tab^="session-tile:"]').filter({ hasText: 'E2E_SIDEBAR_CROSS' })
+    await expect(hiddenSessionTab).toHaveAttribute('aria-selected', 'false')
+    await expect(page.locator('[data-tree-tab="workspace"]')).toHaveAttribute('aria-selected', 'true')
+    const activeTranscript = page.locator(ACTIVE_SURFACE).last().locator('[data-slot="aui_thread-viewport"]')
+    await expect(activeTranscript).toContainText(SECOND_SESSION_TEXT)
+    await expect(activeTranscript).not.toContainText('E2E_SIDEBAR_CROSS')
 
     // Evidence: the tab is open but the session is not visible on screen.
     await page.screenshot({ path: 'test-results/tile-bug-tab-opened.png' })
@@ -181,10 +213,10 @@ test.describe('sidebar states — tab (hidden) unread is correct', () => {
     // released (rather than slowly-expiring) process there is no incidental
     // slack between the two. Same reasoning as the cross-session spec.
     await expect
-      .poll(
-        () => page.locator(`[aria-label="${UNREAD_DOT_LABEL}"]`).count(),
-        { timeout: 30_000, message: 'hidden tab should be marked unread' },
-      )
+      .poll(() => page.locator(`[aria-label="${UNREAD_DOT_LABEL}"]`).count(), {
+        timeout: 30_000,
+        message: 'hidden tab should be marked unread'
+      })
       .toBeGreaterThan(0)
 
     await page.screenshot({ path: 'test-results/tile-bug-tab-unread-correct.png' })
@@ -204,8 +236,9 @@ test.describe.skip('sidebar states — split (visible) unread bug (RED)', () => 
   test.beforeAll(async () => {
     restartMockServer()
     fixture = await setupMockBackend({
+      extraDisplayConfig: '  language: en',
       extraConfig: DISABLE_AUTO_TITLE,
-      mockServer: { backgroundReleasePath: bgRelease.path },
+      mockServer: { backgroundReleasePath: bgRelease.path }
     })
     await waitForAppReady(fixture, 120_000)
   })

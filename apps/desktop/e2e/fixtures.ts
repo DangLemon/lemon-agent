@@ -521,6 +521,8 @@ providers:
   writeEnvFile(sandbox.lemonHome)
 
   const env = buildAppEnv(sandbox, options.fakeError ? { LEMON_DESKTOP_BOOT_FAKE_ERROR: 'Failed to connect to Lemon AI backend: connection refused' } : {})
+
+  delete env.LEMON_DESKTOP_HARNESS_CONFIG
   const { app, page } = await launchDesktop(env)
 
   return {
@@ -726,9 +728,13 @@ export async function waitForOnboarding(page: Page, timeoutMs = 60_000): Promise
 /**
  * Wait for the boot failure overlay to appear.
  */
-export async function waitForBootFailure(page: Page, timeoutMs = 60_000): Promise<void> {
+export async function waitForBootFailure(
+  page: Page,
+  expectedError: string,
+  timeoutMs = 60_000,
+): Promise<void> {
   await page.waitForFunction(
-    () => {
+    ({ expectedError }) => {
       // Boot failure is terminal: the backend gave up. The renderer shows
       // either BootFailureOverlay (z-1400, with Retry/Repair buttons) or
       // falls back to the onboarding picker (z-1300) as a recovery path.
@@ -744,12 +750,12 @@ export async function waitForBootFailure(page: Page, timeoutMs = 60_000): Promis
         text.includes('Use local gateway') ||
         text.includes('Connection settings')
 
-      // The error toast / notification that fires on failDesktopBoot().
-      const hasErrorToast = text.includes('Desktop boot failed')
+      // The localized error toast still includes the controlled backend error.
+      const hasErrorToast = text.includes(expectedError)
 
       return hasFailureUI || hasErrorToast
     },
-    undefined,
+    { expectedError },
     { timeout: timeoutMs },
   )
 }

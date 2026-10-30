@@ -83,7 +83,8 @@ _MEDIA_CONTENT_TYPES = {
 _MEDIA_MAX_BYTES = 25 * 1024 * 1024
 
 _STREAMABLE_MEDIA_EXTENSIONS = frozenset({
-    ".avi", ".flac", ".m4a", ".mkv", ".mov", ".mp3", ".mp4", ".ogg", ".opus", ".wav", ".webm",
+    ".avi", ".bmp", ".flac", ".gif", ".jpeg", ".jpg", ".m4a", ".mkv", ".mov", ".mp3",
+    ".mp4", ".ogg", ".opus", ".png", ".wav", ".webm", ".webp",
 })
 
 _FS_READDIR_HIDDEN = {
@@ -192,6 +193,8 @@ def _io_errors(denied: str, failed: str):
 
 def _fs_regular_file(path: Path) -> tuple[Path, os.stat_result]:
     target = _fs_path(str(path))
+    if _is_sensitive_path(target):
+        raise HTTPException(status_code=403, detail="Access to sensitive files is not allowed")
     try:
         st = target.stat()
     except (FileNotFoundError, NotADirectoryError):
@@ -724,12 +727,20 @@ async def fs_write_text(payload: FsWriteText):
 
 
 @router.get("/api/fs/read-data-url")
-async def fs_read_data_url(path: str):
+async def fs_read_data_url(path: str, max_bytes: Optional[int] = None):
     from lemon_cli.web_server import _FS_DATA_URL_MAX_BYTES
     target, st = _fs_regular_file(_fs_path(path))
-    if st.st_size > _FS_DATA_URL_MAX_BYTES:
+    limit = _FS_DATA_URL_MAX_BYTES
+    if max_bytes is not None:
+        if max_bytes <= 0:
+            raise HTTPException(status_code=400, detail="Invalid byte limit")
+        limit = min(limit, max_bytes)
+    if st.st_size > limit:
         raise HTTPException(status_code=413, detail="File too large")
-    encoded = base64.b64encode(_fs_read_bytes(target)).decode("ascii")
+    data = _fs_read_bytes(target, limit + 1)
+    if len(data) > limit:
+        raise HTTPException(status_code=413, detail="File too large")
+    encoded = base64.b64encode(data).decode("ascii")
     return {"dataUrl": f"data:{_fs_mime_type(target)};base64,{encoded}"}
 
 

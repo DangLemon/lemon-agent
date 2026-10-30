@@ -10,7 +10,7 @@ import {
   writeEnvFile,
   writeMockProviderConfig
 } from './fixtures'
-import { MOCK_REPLY, startMockServer } from './mock-server'
+import { startMockServer } from './mock-server'
 import { RealSessionBuilder } from './real-session-builder'
 import { expect, test } from './test'
 
@@ -118,13 +118,6 @@ test("an open Bot Chat's tab reads the bot's name, not the canonical 'Bot Chat' 
   // A `+` side thread beside the Bot Chat gives the main zone a tab strip —
   // the surface where every bot chat used to read "Bot Chat".
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+T' : 'Control+T')
-  const composer = page.locator('[data-slot="composer-root"] [contenteditable="true"]').filter({ visible: true }).first()
-  await expect(composer).toBeVisible({ timeout: 15_000 })
-  await composer.click()
-  await composer.fill('hello alpha thread')
-  await page.keyboard.press('Enter')
-  await expect(page.getByText(MOCK_REPLY).filter({ visible: true }).first()).toBeVisible({ timeout: 60_000 })
-
   await expect.poll(() => mainStripTabTitles(page), { timeout: 15_000 }).toHaveLength(2)
   const captions = await mainStripTabTitles(page)
   expect(captions.some(caption => /alpha/i.test(caption))).toBe(true)

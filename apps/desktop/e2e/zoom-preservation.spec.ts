@@ -41,11 +41,12 @@ async function setZoomPercent(percent: number): Promise<void> {
 
 async function gotoRoute(route: string): Promise<void> {
   const page = fixture!.page
+  const hash = `#${route}`
 
   await page.evaluate(target => {
     window.location.hash = target
-  }, route)
-  await page.waitForFunction(target => window.location.hash === `#${target}`, route)
+  }, hash)
+  await page.waitForFunction(target => window.location.hash === target, hash)
 }
 
 test.beforeAll(async () => {

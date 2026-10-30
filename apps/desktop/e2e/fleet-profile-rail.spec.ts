@@ -32,6 +32,22 @@ import { type ElectronApplication, expect, type Page, test } from './test'
 
 const DESKTOP_ROOT = path.resolve(import.meta.dirname, '..')
 const REPO_ROOT = path.resolve(DESKTOP_ROOT, '..', '..')
+const HARNESS_RESOURCE = path.join(DESKTOP_ROOT, 'build', 'lemon-ai-harness.json')
+
+function isInternalHarnessBuild(): boolean {
+  if (!fs.existsSync(HARNESS_RESOURCE)) {
+    return false
+  }
+
+  try {
+    return JSON.parse(fs.readFileSync(HARNESS_RESOURCE, 'utf8')).profile === 'internal'
+  } catch {
+    return false
+  }
+}
+
+// The internal renderer intentionally hides fleet gateway groups.
+test.skip(isInternalHarnessBuild(), 'requires an upstream Desktop harness build')
 
 const REMOTE_LABEL = 'Homelab'
 const REMOTE_ID = 'homelab'
