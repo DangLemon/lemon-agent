@@ -57,7 +57,14 @@ import { INTERIM_TEXTS, restartMockServer } from './mock-server'
  * model-backed title upgrade — the instant derived title needs no LLM call —
  * so the mock's script indices line up with real chat turns again.
  */
-const DISABLE_AUTO_TITLE = 'auxiliary:\n  title_generation:\n    enabled: false'
+const TEST_CONFIG = [
+  'auxiliary:',
+  '  title_generation:',
+  '    enabled: false',
+  'tools:',
+  '  tool_search:',
+  '    enabled: off',
+].join('\n')
 
 /** Unique trigger keyword the mock server detects to switch to the script. */
 const TRIGGER = 'E2E_INTERIM_TRIGGER'
@@ -172,7 +179,7 @@ test.describe('interim assistant messages — flag ON (default)', () => {
 
   test.beforeAll(async () => {
     restartMockServer()
-    fixture = await setupMockBackend({ extraConfig: DISABLE_AUTO_TITLE })
+    fixture = await setupMockBackend({ extraConfig: TEST_CONFIG })
     await waitForAppReady(fixture, 120_000)
   })
 
@@ -226,7 +233,7 @@ test.describe('interim assistant messages — flag OFF', () => {
     restartMockServer()
     fixture = await setupMockBackend({
       extraDisplayConfig: '  interim_assistant_messages: false',
-      extraConfig: DISABLE_AUTO_TITLE,
+      extraConfig: TEST_CONFIG,
     })
     await waitForAppReady(fixture, 120_000)
   })

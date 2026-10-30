@@ -9,14 +9,33 @@
  * Prerequisite: `npm run build` must have been run so dist/ exists.
  */
 
-import { expect, test } from './test'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 
 import {
   type NoProviderFixture,
   setupNoProvider,
   waitForOnboarding,
 } from './fixtures'
+import { expect, test } from './test'
 import { expectVisualSnapshot } from './visual-snapshot'
+
+const HARNESS_RESOURCE = path.resolve(import.meta.dirname, '..', 'build', 'lemon-ai-harness.json')
+
+function isInternalHarnessBuild(): boolean {
+  if (!fs.existsSync(HARNESS_RESOURCE)) {
+    return false
+  }
+
+  try {
+    return JSON.parse(fs.readFileSync(HARNESS_RESOURCE, 'utf8')).profile === 'internal'
+  } catch {
+    return false
+  }
+}
+
+// The internal renderer intentionally replaces first-run onboarding with its own connection flow.
+test.skip(isInternalHarnessBuild(), 'requires an upstream Desktop harness build')
 
 let fixture: NoProviderFixture | null = null
 

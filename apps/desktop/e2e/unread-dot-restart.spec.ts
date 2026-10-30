@@ -25,7 +25,7 @@
  * Prerequisite: `npm run build` must have been run so dist/ exists.
  */
 
-import { expect, type Page, test } from '@playwright/test'
+import { expect, type Locator, type Page, test } from '@playwright/test'
 import { type ElectronApplication } from '@playwright/test'
 
 import {
@@ -48,12 +48,11 @@ const SECOND_PROMPT = 'E2E unread restart: second session, read while open.'
 
 const unreadDots = (page: Page) => page.locator(`[aria-label="${UNREAD_DOT_LABEL}"]`)
 
-async function sendMessage(page: Page, text: string): Promise<void> {
-  const composer = page.locator('[contenteditable="true"]').first()
+async function sendMessage(page: Page, text: string, surface?: Locator): Promise<void> {
+  const composer = (surface ?? page).locator('[contenteditable="true"]').first()
   await composer.waitFor({ state: 'visible', timeout: 15_000 })
-  await composer.click()
-  await composer.type(text, { delay: 5 })
-  await page.keyboard.press('Enter')
+  await composer.fill(text)
+  await composer.press('Enter')
 }
 
 test.describe('unread dot survives app restart', () => {
@@ -68,6 +67,7 @@ test.describe('unread dot survives app restart', () => {
   test.beforeAll(async () => {
     restartMockServer()
     fixture = await setupMockBackend({
+      extraDisplayConfig: '  language: en',
       mockServer: { holdFirstStreamForPrompt: HELD_PROMPT },
     })
     app = fixture.app
@@ -106,7 +106,11 @@ test.describe('unread dot survives app restart', () => {
 
     // ── 2. Session B: complete a turn while SELECTED (stays read) ──────
     await page.getByRole('button', { name: /^(New session|New conversation|Cuộc trò chuyện mới)$/ }).first().click()
-    await sendMessage(page, SECOND_PROMPT)
+
+    const draftTab = page.locator('[data-tree-tab^="session-tile:"][aria-selected="true"]')
+    const draftPaneId = (await draftTab.getAttribute('data-tree-tab'))?.slice('session-tile:'.length)
+    expect(draftPaneId, 'new session tile must expose its pane id').toBeTruthy()
+    await sendMessage(page, SECOND_PROMPT, page.locator(`[data-composer-target="tile:${draftPaneId}"]`))
 
     // B's reply lands in the open transcript — this session is "read".
     await page.waitForFunction(

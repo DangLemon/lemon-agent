@@ -1,3 +1,4 @@
+import type { FilePreviewKind } from '@lemon-ai/shared/file-preview-format'
 import { atom, computed } from 'nanostores'
 
 import { persistentAtom } from '@/lib/persisted'
@@ -37,7 +38,7 @@ export interface PreviewTarget {
   language?: string
   mimeType?: string
   path?: string
-  previewKind?: 'binary' | 'html' | 'image' | 'pdf' | 'text'
+  previewKind?: FilePreviewKind
   renderMode?: 'preview' | 'source'
   source: string
   /** Runtime-only target that cannot be restored from persisted state. */

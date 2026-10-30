@@ -17,6 +17,8 @@ import { MOCK_REPLY, startMockServer, type MockServer, type MockServerOptions } 
 import { RealSessionBuilder } from './real-session-builder'
 
 const DESKTOP_ROOT = path.resolve(import.meta.dirname, '..')
+const ACTIVE_SURFACE = '[data-composer-target]:not([data-pane-hidden] [data-composer-target])'
+const ACTIVE_VIEWPORT = `${ACTIVE_SURFACE} [data-slot="aui_thread-viewport"]`
 const SESSION_TITLE = 'E2E large persisted session'
 const EXPECTED_TEXT = 'E2E persisted user message 52'
 // The oldest seeded turn (HISTORY_TURNS[0]). The transcript first paints only
@@ -94,8 +96,9 @@ async function openNewSession(page: Page): Promise<void> {
   await button.waitFor({ state: 'visible', timeout: 10_000 })
   await button.click()
   await page.waitForFunction(
-    expected => !(document.querySelector('[data-slot="aui_thread-viewport"]')?.textContent ?? '').includes(expected),
-    EXPECTED_TEXT,
+    ({ expected, surface }) =>
+      !(document.querySelector(`${surface} [data-slot="aui_thread-viewport"]`)?.textContent ?? '').includes(expected),
+    { expected: EXPECTED_TEXT, surface: ACTIVE_SURFACE },
     { timeout: 15_000 },
   )
 }
@@ -145,8 +148,8 @@ async function paintState(page: Page): Promise<PaintState> {
 }
 
 async function textNodeOccurrences(page: Page, expected: string): Promise<number> {
-  return page.evaluate(text => {
-    const viewport = document.querySelector('[data-slot="aui_thread-viewport"]')
+  return page.evaluate(({ text, viewportSelector }) => {
+    const viewport = document.querySelector(viewportSelector)
     if (!viewport) return 0
 
     const walker = document.createTreeWalker(viewport, NodeFilter.SHOW_TEXT)
@@ -157,7 +160,7 @@ async function textNodeOccurrences(page: Page, expected: string): Promise<number
       }
     }
     return count
-  }, expected)
+  }, { text: expected, viewportSelector: ACTIVE_VIEWPORT })
 }
 
 async function reloadIntoColdRenderer(fixture: SeededFixture): Promise<void> {

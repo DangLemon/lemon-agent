@@ -21,6 +21,7 @@
       "@lemon-ai/shared/billing": ["../shared/src/billing-types.ts"],
       "@lemon-ai/shared/billing-policy": ["../shared/src/billing-policy.ts"],
       "@lemon-ai/shared/charge-settlement": ["../shared/src/charge-settlement.ts"],
+      "@lemon-ai/shared/file-preview-format": ["../shared/src/file-preview-format.ts"],
       "@lemon-ai/shared/skin": ["../shared/src/skin.ts"],
       "@lemon-ai/shared/translucency": ["../shared/src/translucency.ts"],
       "@lemon-ai/shared": ["../shared/src/index.ts"]
