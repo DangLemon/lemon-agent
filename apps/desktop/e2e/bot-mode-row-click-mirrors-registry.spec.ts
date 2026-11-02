@@ -10,7 +10,7 @@ import {
   writeEnvFile,
   writeMockProviderConfig
 } from './fixtures'
-import { MOCK_REPLY, startMockServer } from './mock-server'
+import { startMockServer } from './mock-server'
 import { RealSessionBuilder } from './real-session-builder'
 import { expect, test } from './test'
 
@@ -29,15 +29,6 @@ let fixture: MockBackendFixture | null = null
 async function openBots(page: Page): Promise<void> {
   await page.locator('[data-tree-tab="lemon-bots:pane"]').click()
   await expect(page.getByRole('button', { name: /New bot or group chat/ })).toBeVisible()
-}
-
-async function settle(page: Page, timeout = 90_000): Promise<void> {
-  await page
-    .getByText(/Waking up/i)
-    .first()
-    .waitFor({ state: 'hidden', timeout })
-    .catch(() => undefined)
-  await page.waitForTimeout(500)
 }
 
 async function openUntil(action: () => Promise<void>, expected: () => Promise<void>, attempts = 3): Promise<void> {
@@ -117,23 +108,14 @@ test('a bot row click lands on the Bot Chat the row previews, not a side thread'
     () => alphaRow.click(),
     () => expect(seededTurn.first()).toBeVisible({ timeout: 45_000 })
   )
-  await settle(page, 15_000)
 
-  // A `+` side thread for alpha, with a real turn so it is a persisted tile.
+  // A `+` side thread for alpha. Persistence is irrelevant to this click contract.
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+T' : 'Control+T')
-  const composer = page.locator('[data-slot="composer-root"] [contenteditable="true"]').filter({ visible: true }).first()
-  await expect(composer).toBeVisible({ timeout: 15_000 })
-  await composer.click()
-  await composer.fill('hello alpha thread')
-  await page.keyboard.press('Enter')
-  await expect(page.getByText(MOCK_REPLY).filter({ visible: true }).first()).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('tab', { name: /New session (Close|Đóng)/ })).toHaveAttribute('aria-selected', 'true')
 
   // Leave alpha on the side thread, go to beta, come back via the row.
   await betaRow.click()
-  await expect(page.getByText('Hello beta', { exact: true }).filter({ visible: true }).first()).toBeVisible({
-    timeout: 60_000
-  })
-  await settle(page)
+  await expect(page.getByText('Hello beta', { exact: true }).filter({ visible: true }).first()).toBeVisible({ timeout: 60_000 })
 
   await alphaRow.click()
   // The row previews the Bot Chat; the click must front it.

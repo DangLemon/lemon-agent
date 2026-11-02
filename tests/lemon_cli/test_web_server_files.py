@@ -175,6 +175,24 @@ def test_stream_requires_header_auth_and_supports_ranges(forced_files_client):
     assert client.get("/api/files/stream", params=params).status_code == 401
 
 
+def test_stream_serves_raster_images(forced_files_client):
+    client, root = forced_files_client
+
+    for name, content_type in (
+        ("out/image.bmp", "image/bmp"),
+        ("out/image.gif", "image/gif"),
+        ("out/image.jpeg", "image/jpeg"),
+        ("out/image.jpg", "image/jpeg"),
+        ("out/image.png", "image/png"),
+        ("out/image.webp", "image/webp"),
+    ):
+        file_path = _seed_file(client, root, name=name)
+        response = client.get("/api/files/stream", params={"path": str(file_path)})
+        assert response.status_code == 200
+        assert response.headers["content-type"] == content_type
+        assert response.content == b"hello"
+
+
 def test_stream_rejects_non_media_active_content(forced_files_client):
     client, root = forced_files_client
 

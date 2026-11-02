@@ -38,7 +38,11 @@ test.describe('boot failure with dead backend', () => {
     // BootFailureOverlay in dev mode.
     fixture = await setupDeadBackend({ fakeError: true })
 
-    await waitForBootFailure(fixture.page, 90_000)
+    await waitForBootFailure(
+      fixture.page,
+      'Failed to connect to Lemon AI backend: connection refused',
+      90_000,
+    )
   })
 
   test('screenshot of error state', async () => {

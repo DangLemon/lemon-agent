@@ -47,6 +47,12 @@ export {
   DATA_URL_READ_MIN_MAX_MB
 } from './data-url-read-max'
 export {
+  FILE_PREVIEW_LIMITS,
+  type FilePreviewFormat,
+  filePreviewFormat,
+  type FilePreviewKind
+} from './file-preview-format'
+export {
   type ConnectionState,
   type GatewayClientOptions,
   type GatewayEvent,

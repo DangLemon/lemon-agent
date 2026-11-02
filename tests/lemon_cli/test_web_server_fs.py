@@ -55,6 +55,39 @@ def test_fs_read_data_url_rejects_over_cap(client, tmp_path, monkeypatch):
     assert response.status_code == 413
 
 
+def test_fs_read_data_url_honors_a_narrower_caller_limit(client, tmp_path):
+    target = tmp_path / "archive.zip"
+    target.write_bytes(b"1234")
+
+    response = client.get(
+        "/api/fs/read-data-url",
+        params={"path": str(target), "max_bytes": 3},
+    )
+
+    assert response.status_code == 413
+
+
+def test_fs_read_data_url_rejects_file_that_grows_during_read(client, tmp_path, monkeypatch):
+    from lemon_cli.web_routers import files
+
+    target = tmp_path / "archive.zip"
+    target.write_bytes(b"123")
+    read_bytes = files._fs_read_bytes
+
+    def grow_then_read(path, limit=None):
+        path.write_bytes(b"1234")
+        return read_bytes(path, limit)
+
+    monkeypatch.setattr(files, "_fs_read_bytes", grow_then_read)
+
+    response = client.get(
+        "/api/fs/read-data-url",
+        params={"path": str(target), "max_bytes": 3},
+    )
+
+    assert response.status_code == 413
+
+
 def test_fs_download_streams_file_without_data_url_cap(client, tmp_path, monkeypatch):
     monkeypatch.setattr(web_server, "_FS_DATA_URL_MAX_BYTES", 3)
     target = tmp_path / "report with spaces.pdf"
@@ -68,11 +101,12 @@ def test_fs_download_streams_file_without_data_url_cap(client, tmp_path, monkeyp
     assert "report%20with%20spaces.pdf" in response.headers["content-disposition"]
 
 
-def test_fs_download_rejects_sensitive_files(client, tmp_path):
+@pytest.mark.parametrize("endpoint", ["/api/fs/read-text", "/api/fs/read-data-url", "/api/fs/download"])
+def test_fs_read_endpoints_reject_sensitive_files(client, tmp_path, endpoint):
     target = tmp_path / ".env"
     target.write_text("SECRET=1")
 
-    response = client.get("/api/fs/download", params={"path": str(target)})
+    response = client.get(endpoint, params={"path": str(target)})
 
     assert response.status_code == 403
 

@@ -9,13 +9,29 @@ import {
   type MockBackendFixture,
   waitForAppReady,
   writeEnvFile,
-  writeMockProviderConfig,
+  writeMockProviderConfig
 } from './fixtures'
 import { startMockServer } from './mock-server'
 import { expect, test } from './test'
 import { expectVisualSnapshot } from './visual-snapshot'
 
 const BRANCH_NAME = 'e2e-composer-branch'
+const HARNESS_RESOURCE = path.resolve(import.meta.dirname, '..', 'build', 'lemon-ai-harness.json')
+
+function isInternalHarnessBuild(): boolean {
+  if (!fs.existsSync(HARNESS_RESOURCE)) {
+    return false
+  }
+
+  try {
+    return JSON.parse(fs.readFileSync(HARNESS_RESOURCE, 'utf8')).profile === 'internal'
+  } catch {
+    return false
+  }
+}
+
+// Worktree creation is intentionally unavailable in internal Desktop builds.
+test.skip(isInternalHarnessBuild(), 'requires an upstream Desktop harness build')
 
 /**
  * Enough branches to make both the base-branch popover and the convert-branch
@@ -33,7 +49,7 @@ const EXTRA_BRANCHES = [
   'chore/eta-seven',
   'spike/theta-eight',
   'spike/iota-nine',
-  'release/kappa-ten',
+  'release/kappa-ten'
 ]
 
 function createGitRepo(root: string): string {
@@ -68,7 +84,7 @@ const DIALOG = '[data-slot="dialog-content"]'
 /** Open the worktree dialog with the global ⌘⇧B / ctrl+shift+B hotkey. */
 async function openWorktreeDialog(): Promise<void> {
   const page = fixture!.page
-  await page.keyboard.press('Control+Shift+B')
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+B' : 'Control+Shift+B')
   await expect(page.locator(DIALOG)).toBeVisible()
 }
 
@@ -97,7 +113,7 @@ test.beforeAll(async () => {
       await app.close().catch(() => undefined)
       await mock.close()
       sandbox.cleanup()
-    },
+    }
   }
 
   await waitForAppReady(fixture, 120_000)
@@ -111,7 +127,7 @@ test.beforeAll(async () => {
   await page.waitForFunction(
     prompt => (document.querySelector('[data-slot="aui_thread-viewport"]')?.textContent ?? '').includes(prompt),
     'create a repo-backed e2e session',
-    { timeout: 15_000 },
+    { timeout: 15_000 }
   )
   await expect(page.locator('.coding-status-bar')).toContainText('main')
 })
@@ -155,8 +171,9 @@ test('worktree dialog renders the base-branch picker over the dialog, not clippe
       // Only a clipping ancestor can crop the popover. The popover is cut when
       // the dialog scrolls its overflow AND the popover goes past the box of
       // the dialog.
-      clipped: (scrolls === 'auto' || scrolls === 'scroll' || scrolls === 'hidden') &&
-        (p.bottom > d.bottom + 1 || p.top < d.top - 1 || p.right > d.right + 1 || p.left < d.left - 1),
+      clipped:
+        (scrolls === 'auto' || scrolls === 'scroll' || scrolls === 'hidden') &&
+        (p.bottom > d.bottom + 1 || p.top < d.top - 1 || p.right > d.right + 1 || p.left < d.left - 1)
     }
   })
 
@@ -180,7 +197,9 @@ test('worktree dialog convert-an-existing-branch sub-view lists the repo branche
   await closeDialog()
 })
 
-test('creating a branch with ctrl-shift-b updates the composer git-status branch and leaves no dialog behind', async ({}, testInfo) => {
+test('creating a branch with ctrl-shift-b updates the composer git-status branch and leaves no dialog behind', async ({
+  page: _page
+}, testInfo) => {
   const page = fixture!.page
   const codingRow = page.locator('.coding-status-bar')
 
@@ -216,7 +235,9 @@ test('creating a branch with ctrl-shift-b updates the composer git-status branch
   await page.screenshot({ path: testInfo.outputPath('composer-branch-after-create.png') })
 })
 
-test('ctrl-shift-b opens exactly one worktree dialog when a second composer is on screen', async ({}, testInfo) => {
+test('ctrl-shift-b opens exactly one worktree dialog when a second composer is on screen', async ({
+  page: _page
+}, testInfo) => {
   const page = fixture!.page
 
   // ⌘T / ctrl+T stacks a second session tile. That gives a second live composer
@@ -225,10 +246,10 @@ test('ctrl-shift-b opens exactly one worktree dialog when a second composer is o
   // keypress therefore opened two stacked dialogs, and the dialog the user
   // dismissed showed an identical empty one behind it. One mount in the sidebar
   // makes that impossible by structure.
-  await page.keyboard.press('Control+T')
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+T' : 'Control+T')
   await expect(page.locator('.coding-status-bar')).toHaveCount(2, { timeout: 20_000 })
 
-  await page.keyboard.press('Control+Shift+B')
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+B' : 'Control+Shift+B')
   await expect(page.locator(DIALOG).first()).toBeVisible()
   // Wait: let the effect of every subscriber flush before the count.
   await page.waitForTimeout(500)

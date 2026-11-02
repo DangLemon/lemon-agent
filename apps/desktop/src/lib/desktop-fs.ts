@@ -158,6 +158,63 @@ export async function readDesktopFileDataUrl(path: string): Promise<string> {
   return typeof result === 'string' ? result : result.dataUrl || ''
 }
 
+function decodePreviewDataUrl(dataUrl: string, maxBytes: number): Uint8Array {
+  const match = /^data:[^,]*;base64,([A-Za-z0-9+/]*={0,2})$/.exec(dataUrl)
+
+  if (!match) {
+    throw new Error('Invalid preview byte response')
+  }
+
+  const payload = match[1]
+  const maximumBase64Length = Math.ceil(maxBytes / 3) * 4
+
+  if (payload.length > maximumBase64Length) {
+    throw new Error(`Preview file exceeds the ${maxBytes} byte limit`)
+  }
+
+  try {
+    const decoded = atob(payload)
+
+    if (decoded.length > maxBytes || btoa(decoded) !== payload) {
+      throw new Error('Invalid preview byte response')
+    }
+
+    return Uint8Array.from(decoded, char => char.charCodeAt(0))
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Preview file exceeds')) {
+      throw error
+    }
+
+    throw new Error('Invalid preview byte response')
+  }
+}
+
+export async function readDesktopFileBytes(path: string, maxBytes: number): Promise<Uint8Array> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
+    throw new Error('Preview byte limit must be a positive integer')
+  }
+
+  let dataUrl: string
+
+  if (!isDesktopFsRemoteMode()) {
+    const reader = bridge().readFilePreviewDataUrl
+
+    if (!reader) {
+      throw new Error('Structured file preview requires a newer desktop shell')
+    }
+
+    dataUrl = await reader(path, maxBytes)
+  } else {
+    const result = await remoteFsApi<string | { dataUrl?: string }>(
+      `${fsPath('read-data-url', path)}&max_bytes=${maxBytes}`
+    )
+
+    dataUrl = typeof result === 'string' ? result : result.dataUrl || ''
+  }
+
+  return decodePreviewDataUrl(dataUrl, maxBytes)
+}
+
 /**
  * Read a composer image local-shell first, even when the active agent is
  * remote. Picker, clipboard, and OS-drop paths belong to this machine; in-app

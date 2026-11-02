@@ -1,4 +1,5 @@
 import type { GatewayWsUrlResult } from '@lemon-ai/shared'
+import type { FilePreviewKind } from '@lemon-ai/shared/file-preview-format'
 import type { TranslucencyState } from '@lemon-ai/shared/translucency'
 
 import type { PoolLimits } from '../electron/pool-limits'
@@ -243,6 +244,8 @@ declare global {
         } | null
       } | null>
       readFileDataUrl: (filePath: string) => Promise<string>
+      /** Bounded structured-preview read; maxBytes cannot exceed the package ceiling. */
+      readFilePreviewDataUrl?: (filePath: string, maxBytes: number) => Promise<string>
       /** Remote non-image attach: higher dedicated cap than preview/Settings default. */
       readFileDataUrlForAttach?: (filePath: string) => Promise<string>
       /** Settings → Chat: max size for local files loaded as data URLs (attach/preview). */
@@ -1272,7 +1275,7 @@ export interface LemonPreviewTarget {
   language?: string
   mimeType?: string
   path?: string
-  previewKind?: 'binary' | 'html' | 'image' | 'pdf' | 'text'
+  previewKind?: FilePreviewKind | 'directory'
   renderMode?: 'preview' | 'source'
   source: string
   url: string

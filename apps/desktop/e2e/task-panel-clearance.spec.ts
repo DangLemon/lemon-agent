@@ -4,10 +4,9 @@
  * height without needing a manual scroll to repair the position.
  */
 
-import { expect, test, type Page } from './test'
-
 import { type MockBackendFixture, setupMockBackend, waitForAppReady } from './fixtures'
 import { TASK_PANEL_RESUME_TRIGGER } from './mock-server'
+import { expect, type Page, test } from './test'
 
 const SURFACE = '[data-composer-target]:visible'
 const PROMPT = `${TASK_PANEL_RESUME_TRIGGER}: keep the task panel expanded while this session is reopened.`
@@ -26,20 +25,22 @@ async function send(page: Page, text: string): Promise<void> {
 }
 
 async function openFreshDraft(page: Page): Promise<void> {
-  await page.getByRole('button', { name: /^(New session|New conversation|Cuộc trò chuyện mới)$/ }).first().click()
+  await page
+    .getByRole('button', { name: /^(New session|New conversation|Cuộc trò chuyện mới)$/ })
+    .first()
+    .click()
   await expect(activeSurface(page).locator('[data-slot="aui_thread-viewport"]')).not.toContainText(PROMPT)
   await page.waitForTimeout(1_000)
 }
 
 async function reopenWorkingSession(page: Page): Promise<void> {
-  const sidebar = page.locator('[data-slot="sidebar"]')
-  const row = sidebar.getByRole('button', { name: /^(?:Session running|Needs your input|Working)\b/ }).first()
+  const row = page.locator('[data-slot="sidebar"] button').filter({ hasText: TASK_PANEL_RESUME_TRIGGER }).first()
 
   await row.waitFor({ state: 'visible', timeout: 30_000 })
   await row.click()
   await expect(activeSurface(page).locator('[data-slot="aui_thread-viewport"]')).toContainText(
     'Task-panel clearance line 24',
-    { timeout: 30_000 },
+    { timeout: 30_000 }
   )
 }
 
@@ -64,7 +65,7 @@ async function clearanceMetrics(page: Page): Promise<ClearanceMetrics> {
       distanceFromBottom: viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop,
       latestMessageBottom: latest.getBoundingClientRect().bottom,
       statusPanelTop: status.getBoundingClientRect().top,
-      viewportHeight: viewport.clientHeight,
+      viewportHeight: viewport.clientHeight
     }
   })
 }
@@ -74,7 +75,8 @@ test.describe('working-session task-panel clearance', () => {
 
   test.beforeEach(async () => {
     fixture = await setupMockBackend({
-      mockServer: { holdFirstCompletionContaining: TASK_PANEL_RESUME_TRIGGER },
+      extraConfig: 'tools:\n  tool_search:\n    enabled: off',
+      mockServer: { holdFirstCompletionContaining: TASK_PANEL_RESUME_TRIGGER }
     })
     await waitForAppReady(fixture, 120_000)
   })
@@ -84,7 +86,7 @@ test.describe('working-session task-panel clearance', () => {
     fixture = null
   })
 
-  test('window focus reanchors a working session above the expanded task panel', async ({}, testInfo) => {
+  test('window focus reanchors a working session above the expanded task panel', async ({ page: _page }, testInfo) => {
     const page = fixture!.page
 
     await send(page, PROMPT)
@@ -126,7 +128,7 @@ test.describe('working-session task-panel clearance', () => {
           following: viewport.dataset.following,
           latestMessageBottom: latest.getBoundingClientRect().bottom,
           statusPanelTop: status.getBoundingClientRect().top,
-          visibility: document.visibilityState,
+          visibility: document.visibilityState
         }
       })
 

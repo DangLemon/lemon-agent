@@ -30,6 +30,8 @@ import {
   systemPreferences
 } from 'electron'
 
+import { FILE_PREVIEW_LIMITS, filePreviewFormat } from '../../shared/src/file-preview-format'
+
 import { classifyActiveRuntime } from './active-runtime-state'
 import { destroyKeepaliveAgents, downloadAgentFor, jsonAgentFor, withRetry } from './api-transport'
 import { appIconCandidates, resolveAppIcon } from './app-icon'
@@ -1366,8 +1368,6 @@ const MEDIA_MIME_TYPES = {
   '.webp': 'image/webp'
 }
 
-const PREVIEW_HTML_EXTENSIONS = new Set(['.html', '.htm'])
-const PREVIEW_PDF_EXTENSIONS = new Set(['.pdf'])
 const PREVIEW_WATCH_DEBOUNCE_MS = 120
 const LOCAL_PREVIEW_HOSTS = new Set(['0.0.0.0', '127.0.0.1', '::1', '[::1]', 'localhost'])
 const TEXT_PREVIEW_MAX_BYTES = 512 * 1024
@@ -5403,6 +5403,7 @@ async function ensureRuntime(backend) {
 
         if (!result.ok) {
           const detail = String(result.error || 'unknown error')
+
           const error = new Error(
             `${DESKTOP_RUNTIME_IDENTITY.appName} bootstrap failed${result.failedStage ? ` at stage '${result.failedStage}'` : ''}: ` +
               `${detail}. Check ${DESKTOP_LOG_PATH} for the full transcript.`
@@ -6413,7 +6414,14 @@ async function previewFileTarget(rawTarget, baseDir) {
   })
 
   if (directoryExists(resolved)) {
-    resolved = path.join(resolved, 'index.html')
+    return {
+      kind: 'file',
+      label: path.basename(resolved),
+      path: resolved,
+      previewKind: 'directory',
+      source: raw,
+      url: pathToFileURL(resolved).toString()
+    }
   }
 
   const ext = path.extname(resolved).toLowerCase()
@@ -6426,10 +6434,7 @@ async function previewFileTarget(rawTarget, baseDir) {
 
   const mimeType = mimeTypeForPath(resolved)
   const metadata = previewFileMetadata(resolved, mimeType)
-  const isHtml = PREVIEW_HTML_EXTENSIONS.has(ext)
-  const isImage = mimeType.startsWith('image/')
-  const isPdf = PREVIEW_PDF_EXTENSIONS.has(ext) || mimeType === 'application/pdf'
-  const previewKind = isHtml ? 'html' : isImage ? 'image' : isPdf ? 'pdf' : metadata.binary ? 'binary' : 'text'
+  const format = filePreviewFormat(resolved, { binary: metadata.binary, mimeType })
 
   return {
     binary: metadata.binary,
@@ -6437,10 +6442,10 @@ async function previewFileTarget(rawTarget, baseDir) {
     kind: 'file',
     large: metadata.large,
     label: path.basename(resolved),
-    language: PREVIEW_LANGUAGE_BY_EXT[ext] || 'text',
-    mimeType,
+    language: format.language || PREVIEW_LANGUAGE_BY_EXT[ext] || 'text',
+    mimeType: format.mimeType || mimeType,
     path: resolved,
-    previewKind,
+    previewKind: format.kind,
     source: raw,
     url: pathToFileURL(resolved).toString()
   }
@@ -17090,6 +17095,19 @@ ipcMain.handle('lemon:readFileDataUrl', async (_event, filePath) => {
     maxBytes: dataUrlReadMaxBytesFromMb(dataUrlReadMaxMb),
     mimeType: mimeTypeForPath(resolveRequestedPathForIpc(filePath, { purpose: 'File preview' })),
     purpose: 'File preview'
+  })
+})
+
+ipcMain.handle('lemon:readFilePreviewDataUrl', async (_event, filePath, requestedMaxBytes) => {
+  const maxBytes = Math.min(
+    FILE_PREVIEW_LIMITS.packageBytes,
+    Number.isFinite(requestedMaxBytes) && requestedMaxBytes > 0 ? Math.floor(requestedMaxBytes) : FILE_PREVIEW_LIMITS.packageBytes
+  )
+
+  return readFileDataUrlForIpc(filePath, {
+    maxBytes,
+    mimeType: mimeTypeForPath(resolveRequestedPathForIpc(filePath, { purpose: 'Structured file preview' })),
+    purpose: 'Structured file preview'
   })
 })
 

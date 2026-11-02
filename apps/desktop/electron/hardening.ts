@@ -524,8 +524,35 @@ async function readFileDataUrlForIpc(
   }
 ): Promise<string> {
   const fsImpl = options.fs || fs
-  const { resolvedPath } = await resolveReadableFileForIpc(filePath, options)
-  const data = await fsImpl.promises.readFile(resolvedPath)
+  const { realPath } = await resolveReadableFileForIpc(filePath, options)
+  const maxBytes = Number.isFinite(options.maxBytes) && Number(options.maxBytes) > 0 ? Number(options.maxBytes) : null
+  const handle = await fsImpl.promises.open(realPath, 'r')
+  const chunks: Buffer[] = []
+  let total = 0
+
+  try {
+    while (true) {
+      const bytesToRead = maxBytes ? Math.min(64 * 1024, maxBytes + 1 - total) : 64 * 1024
+      const chunk = Buffer.alloc(bytesToRead)
+      const { bytesRead } = await handle.read(chunk, 0, bytesToRead, total)
+
+      if (bytesRead === 0) {
+        break
+      }
+
+      total += bytesRead
+
+      if (maxBytes && total > maxBytes) {
+        throw ipcPathError('EFBIG', `${options.purpose || 'File read'} failed: file is too large.`)
+      }
+
+      chunks.push(chunk.subarray(0, bytesRead))
+    }
+  } finally {
+    await handle.close()
+  }
+
+  const data = Buffer.concat(chunks, total)
 
   return `data:${options.mimeType};base64,${data.toString('base64')}`
 }

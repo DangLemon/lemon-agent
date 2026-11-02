@@ -184,6 +184,23 @@ describe('PDF previews', () => {
     })
   })
 
+  it.each([
+    ['track.mp3', 'audio'],
+    ['clip.mp4', 'video']
+  ] as const)('classifies %s for seekable media playback', (file, previewKind) => {
+    expect(localPreviewTarget(`/tmp/${file}`)).toMatchObject({ previewKind })
+  })
+
+  it.each([
+    ['report.csv', 'delimited'],
+    ['report.xlsx', 'xlsx'],
+    ['archive.zip', 'zip'],
+    ['brief.docx', 'docx'],
+    ['slides.pptx', 'pptx']
+  ] as const)('routes %s to its structured preview family', (file, previewKind) => {
+    expect(localPreviewTarget(`/tmp/${file}`)).toMatchObject({ previewKind })
+  })
+
   it('does not UTF-8-enrich remote PDFs before loading their bytes', async () => {
     vi.clearAllMocks()
     window.lemonDesktop = {
@@ -195,5 +212,20 @@ describe('PDF previews', () => {
       previewKind: 'pdf'
     })
     expect(readDesktopFileDataUrl).not.toHaveBeenCalled()
+  })
+
+  it('does not treat directories as preview targets', async () => {
+    window.lemonDesktop = {
+      normalizePreviewTarget: vi.fn(async () => ({
+        kind: 'file',
+        label: 'output',
+        path: '/tmp/output',
+        previewKind: 'directory',
+        source: '/tmp/output',
+        url: 'file:///tmp/output'
+      }))
+    } as never
+
+    await expect(normalizeOrLocalPreviewTarget('/tmp/output')).resolves.toBeNull()
   })
 })

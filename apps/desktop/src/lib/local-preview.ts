@@ -1,59 +1,15 @@
+import { filePreviewFormat } from '@lemon-ai/shared/file-preview-format'
 import DOMPurify from 'dompurify'
 
 import { isDesktopFsRemoteMode, readDesktopFileDataUrl, readDesktopFileText } from '@/lib/desktop-fs'
 import type { PreviewTarget } from '@/store/preview'
 
-const HTML_EXTENSIONS = new Set(['.htm', '.html'])
-const IMAGE_EXTENSIONS = new Set(['.bmp', '.gif', '.jpeg', '.jpg', '.png', '.svg', '.webp'])
-const PDF_EXTENSIONS = new Set(['.pdf'])
 // Mirrors `_FS_DATA_URL_MAX_BYTES` in the backend filesystem endpoint.
 const REMOTE_HTML_PREVIEW_MAX_BYTES = 16 * 1024 * 1024
 const REMOTE_HTML_PREVIEW_MAX_BASE64_BYTES = Math.ceil(REMOTE_HTML_PREVIEW_MAX_BYTES / 3) * 4
 
-const LANGUAGE_BY_EXT: Record<string, string> = {
-  '.c': 'c',
-  '.conf': 'ini',
-  '.cpp': 'cpp',
-  '.css': 'css',
-  '.csv': 'csv',
-  '.go': 'go',
-  '.graphql': 'graphql',
-  '.h': 'c',
-  '.hpp': 'cpp',
-  '.html': 'html',
-  '.java': 'java',
-  '.js': 'javascript',
-  '.json': 'json',
-  '.jsx': 'jsx',
-  '.log': 'text',
-  '.lua': 'lua',
-  '.md': 'markdown',
-  '.mjs': 'javascript',
-  '.py': 'python',
-  '.rb': 'ruby',
-  '.rs': 'rust',
-  '.sh': 'shell',
-  '.sql': 'sql',
-  '.svg': 'xml',
-  '.toml': 'toml',
-  '.ts': 'typescript',
-  '.tsx': 'tsx',
-  '.txt': 'text',
-  '.xml': 'xml',
-  '.yaml': 'yaml',
-  '.yml': 'yaml',
-  '.zsh': 'shell'
-}
-
 function basename(value: string) {
   return value.split(/[\\/]/).filter(Boolean).pop() || value
-}
-
-function extension(value: string) {
-  const clean = value.split(/[?#]/, 1)[0] || value
-  const idx = clean.lastIndexOf('.')
-
-  return idx >= 0 ? clean.slice(idx).toLowerCase() : ''
 }
 
 function joinPath(base: string, rel: string) {
@@ -201,20 +157,17 @@ export function localPreviewTarget(rawTarget: string, cwd?: string | null): Prev
     path = joinPath(cwd, raw)
   }
 
-  const ext = extension(path)
-  const isHtml = HTML_EXTENSIONS.has(ext)
-  const isImage = IMAGE_EXTENSIONS.has(ext)
-  const isPdf = PDF_EXTENSIONS.has(ext)
+  const format = filePreviewFormat(path)
 
   return {
     kind: 'file',
     label: basename(path),
-    language: LANGUAGE_BY_EXT[ext] || 'text',
+    language: format.language,
+    mimeType: format.mimeType,
     path,
-    // Renderer fallback can't stat/sniff without reading; assume text unless
-    // image/html/pdf extension says otherwise. LocalFilePreview still guards
-    // binary/large files when readFileText/readFileDataUrl returns metadata.
-    previewKind: isHtml ? 'html' : isImage ? 'image' : isPdf ? 'pdf' : 'text',
+    // Renderer fallback can't stat or sniff without reading. The shared
+    // extension registry still keeps known binary packages off the text path.
+    previewKind: format.kind,
     source: raw,
     url: pathToFileUrl(path)
   }
@@ -225,8 +178,14 @@ async function enrichPreviewTarget(target: PreviewTarget | null): Promise<Previe
     !isDesktopFsRemoteMode() ||
     !target ||
     target.kind !== 'file' ||
+    target.previewKind === 'audio' ||
+    target.previewKind === 'docx' ||
     target.previewKind === 'image' ||
-    target.previewKind === 'pdf'
+    target.previewKind === 'pdf' ||
+    target.previewKind === 'pptx' ||
+    target.previewKind === 'video' ||
+    target.previewKind === 'xlsx' ||
+    target.previewKind === 'zip'
   ) {
     return target
   }
@@ -265,7 +224,13 @@ export async function normalizeOrLocalPreviewTarget(
     const normalized = await window.lemonDesktop?.normalizePreviewTarget?.(rawTarget, cwd || undefined)
 
     if (normalized) {
-      return enrichPreviewTarget(normalized)
+      const { previewKind, ...target } = normalized
+
+      if (previewKind === 'directory') {
+        return null
+      }
+
+      return enrichPreviewTarget({ ...target, previewKind })
     }
   } catch {
     // Running Electron may still have the old HTML-only preview IPC. Fall

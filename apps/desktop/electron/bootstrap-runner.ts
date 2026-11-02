@@ -34,7 +34,6 @@
 
 import { execFileSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
-import fsp from 'node:fs/promises'
 import https from 'node:https'
 import path from 'node:path'
 
@@ -250,13 +249,12 @@ function resolveMarkerPinnedCommit(
 }
 
 /**
- * Map an install stamp to the GitHub ref used to fetch install.ps1/sh.
- * Real CI/git stamps pin an immutable SHA. Non-git fallback stamps carry an
- * all-zero placeholder -- treat those as an unpinned branch ref so bootstrap
- * never asks GitHub for commit 0000000... (#50823).
+ * Map an install stamp to the same source identity the installer stages use.
+ * Fresh installs use the packaged immutable SHA. Existing checkouts follow
+ * the branch, so the script and checkout cannot drift onto different versions.
  */
-function installRefForStamp(installStamp) {
-  if (installStamp && isPinnedCommit(installStamp.commit)) {
+function installRefForStamp(installStamp, { pinCommit = true } = {}) {
+  if (pinCommit && installStamp && isPinnedCommit(installStamp.commit)) {
     return {
       ref: installStamp.commit,
       cacheKey: installStamp.commit,
@@ -264,12 +262,17 @@ function installRefForStamp(installStamp) {
     }
   }
 
-  if (installStamp && typeof installStamp.commit === 'string' && FALLBACK_COMMIT_RE.test(installStamp.commit)) {
+  const validStamp =
+    installStamp &&
+    typeof installStamp.commit === 'string' &&
+    (isPinnedCommit(installStamp.commit) || FALLBACK_COMMIT_RE.test(installStamp.commit))
+
+  if (validStamp) {
     const ref = installStamp.branch || FALLBACK_BRANCH
 
     return {
       ref,
-      cacheKey: `fallback-${String(ref).replace(/[^0-9A-Za-z._-]/g, '_')}`,
+      cacheKey: `branch-${String(ref).replace(/[^0-9A-Za-z._-]/g, '_')}`,
       pinned: false
     }
   }
@@ -314,31 +317,6 @@ function resolveLocalInstallScript(sourceRepoRoot) {
 
 function bootstrapCacheDir(lemonHome) {
   return path.join(lemonHome, 'bootstrap-cache')
-}
-
-// The install.sh / install.ps1 that ships inside the already-installed agent
-// checkout under ~/.lemon-ai/lemon-agent. Used as a last-resort fallback when
-// the pinned commit can't be fetched from GitHub (e.g. a locally-built desktop
-// app stamped to an unpushed HEAD).
-function installedAgentInstallScript(lemonHome, { activeRoot = null, runtimeRootDirNames = ['lemon-agent'] } = {}) {
-  const roots = [
-    activeRoot,
-    ...(lemonHome ? runtimeRootDirNames.map(name => path.join(lemonHome, name)) : [])
-  ].filter(Boolean)
-
-  for (const root of Array.from(new Set(roots))) {
-    const candidate = path.join(root, 'scripts', installScriptName())
-
-    try {
-      fs.accessSync(candidate, fs.constants.R_OK)
-
-      return candidate
-    } catch {
-      void 0
-    }
-  }
-
-  return null
 }
 
 function hasExistingGitCheckout(activeRoot) {
@@ -451,10 +429,9 @@ async function resolveInstallScript({
   installStamp,
   sourceRepoRoot,
   lemonHome,
-  activeRoot = null,
-  runtimeRootDirNames = ['lemon-agent'],
   sourceRepository = resolveBootstrapSourceRepository(),
   emit,
+  pinCommit = true,
   _download = downloadInstallScript
 }) {
   const installSourceRepository = validateSourceRepository(sourceRepository)
@@ -470,10 +447,7 @@ async function resolveInstallScript({
     return { path: localScript, source: 'local', kind: installScriptKind() }
   }
 
-  // 2. Packaged path: download from GitHub at the install stamp's ref.
-  // Non-git fallback builds carry an all-zero commit; treat that as an
-  // unpinned branch ref instead of trying to fetch a non-existent SHA.
-  const installRef = installRefForStamp(installStamp)
+  const installRef = installRefForStamp(installStamp, { pinCommit })
 
   if (!installRef) {
     throw new Error(
@@ -485,60 +459,20 @@ async function resolveInstallScript({
   const cached = cachedScriptPath(lemonHome, installRef.cacheKey, installSourceRepository)
   const resolvedCommit = installRef.pinned ? installRef.ref : null
 
-  try {
-    await fsp.access(cached, fs.constants.R_OK)
-    emit({
-      type: 'log',
-      line: `[bootstrap] using cached ${installScriptName()} for ${installSourceRepository}@${installRef.ref.slice(0, 12)}`
-    })
-
-    return { path: cached, source: 'cache', commit: resolvedCommit, kind: installScriptKind() }
-  } catch {
-    // not cached; download
-  }
-
+  // Cache is only the current run's -File target. Always refresh it so an old
+  // installer cannot survive an app update or drive a newer checkout.
   emit({
     type: 'log',
     line:
       `[bootstrap] fetching ${installScriptName()} for ${installRef.ref.slice(0, 12)} from GitHub` +
       ` (${installSourceRepository})` +
-      (installRef.pinned ? '' : ' (fallback, unpinned)')
+      (installRef.pinned ? '' : ' (unpinned branch)')
   })
 
-  try {
-    await _download(installRef.ref, cached, installSourceRepository)
-    emit({ type: 'log', line: `[bootstrap] saved to ${cached}` })
+  await _download(installRef.ref, cached, installSourceRepository)
+  emit({ type: 'log', line: `[bootstrap] saved to ${cached}` })
 
-    return { path: cached, source: 'download', commit: resolvedCommit, kind: installScriptKind() }
-  } catch (err) {
-    // The pinned commit may not be fetchable from GitHub -- most commonly a
-    // locally-built desktop app stamped to an unpushed HEAD (see
-    // write-build-stamp.mjs fromLocalGit). Fall back to the installer that
-    // ships inside the already-installed agent checkout so dev/self-builds can
-    // still bootstrap instead of dying with a fatal 404.
-    const installed = installedAgentInstallScript(lemonHome, { activeRoot, runtimeRootDirNames })
-
-    if (installed) {
-      emit({
-        type: 'log',
-        line:
-          `[bootstrap] GitHub fetch failed (${err.message}); ` +
-          `falling back to installed agent ${installScriptName()} at ${installed}`
-      })
-
-      try {
-        fs.mkdirSync(path.dirname(cached), { recursive: true })
-        fs.copyFileSync(installed, cached)
-
-        return { path: cached, source: 'installed-agent', commit: resolvedCommit, kind: installScriptKind() }
-      } catch {
-        // Cache copy failed (read-only FS, etc.) -- use the source path directly.
-        return { path: installed, source: 'installed-agent', commit: resolvedCommit, kind: installScriptKind() }
-      }
-    }
-
-    throw err
-  }
+  return { path: cached, source: 'download', commit: resolvedCommit, kind: installScriptKind() }
 }
 
 // ---------------------------------------------------------------------------
@@ -1217,10 +1151,9 @@ async function runBootstrap(opts) {
       installStamp,
       sourceRepoRoot,
       lemonHome,
-      activeRoot,
-      runtimeRootDirNames: effectiveRuntimeRootDirNames,
       sourceRepository: installSourceRepository,
-      emit
+      emit,
+      pinCommit
     })
 
     const installerKind = scriptInfo.kind || 'powershell'
@@ -1333,7 +1266,6 @@ export {
   buildPosixPinArgs,
   cachedScriptPath,
   hasExistingGitCheckout,
-  installedAgentInstallScript,
   installerRuntimeEnv,
   installRefForStamp,
   isPinnedCommit,

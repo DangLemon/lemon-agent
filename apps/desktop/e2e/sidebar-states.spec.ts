@@ -9,7 +9,7 @@
  * Prerequisite: `npm run build` must have been run so dist/ exists.
  */
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, type Page, test } from '@playwright/test'
 
 import {
   type MockBackendFixture,
@@ -142,6 +142,7 @@ test.describe('sidebar states — subagent and background dot coexist', () => {
   test.beforeAll(async () => {
     restartMockServer()
     fixture = await setupMockBackend({
+      extraDisplayConfig: '  language: en',
       extraConfig: DISABLE_AUTO_TITLE,
       mockServer: { backgroundReleasePath: bgRelease.path },
     })
@@ -228,6 +229,7 @@ test.describe('sidebar states — cross-session dot transition', () => {
   test.beforeAll(async () => {
     restartMockServer()
     fixture = await setupMockBackend({
+      extraDisplayConfig: '  language: en',
       extraConfig: DISABLE_AUTO_TITLE,
       mockServer: { backgroundReleasePath: bgRelease.path },
     })

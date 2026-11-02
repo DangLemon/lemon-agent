@@ -35,12 +35,14 @@ import { createMemoizedMathPlugin } from '@/lib/katex-memo'
 import { isComposerChord } from '@/lib/keybinds/chords'
 import { shikiLanguageForFilename } from '@/lib/markdown-code'
 import { normalizeFilePreviewMath } from '@/lib/markdown-preprocess'
-import { resolveMediaDisplaySrc } from '@/lib/media'
+import { resolveMediaDisplaySrc, resolveMediaPlaybackSrc } from '@/lib/media'
 import { cn } from '@/lib/utils'
 import type { PreviewTarget } from '@/store/preview'
 import { setPreviewDirty } from '@/store/preview-edit'
 import { $connection, $currentCwd } from '@/store/session'
 import { notifyWorkspaceChanged } from '@/store/workspace-events'
+
+import { StructuredFilePreview } from './preview-file-formats'
 
 const SHIKI_THEME = { dark: 'github-dark-default', light: 'github-light-default' } as const
 const TEXT_PREVIEW_MAX_BYTES = 512 * 1024
@@ -160,6 +162,7 @@ interface LocalPreviewState {
   error?: string
   language?: string
   loading: boolean
+  mediaSrc?: string
   text?: string
   truncated?: boolean
 }
@@ -666,7 +669,7 @@ export type PreviewViewMode = 'diff' | 'rendered' | 'source'
 export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; target: PreviewTarget }) {
   const { t } = useI18n()
   const [state, setState] = useState<LocalPreviewState>({ loading: true })
-  const [forcePreview, setForcePreview] = useState(false)
+  const [forcedPreviewPath, setForcedPreviewPath] = useState<string>()
   const [pdfError, setPdfError] = useState<string>()
   const [pdfUrl, setPdfUrl] = useState<string>()
   // User-picked view; null = auto (diff when changed, else rendered markdown,
@@ -695,12 +698,26 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
   const connection = useStore($connection)
   const fsCacheKey = desktopFsCacheKey(connection)
   const filePath = filePathForTarget(target)
+  const isAudio = target.previewKind === 'audio'
   const isImage = target.previewKind === 'image'
   const isPdf = target.previewKind === 'pdf'
+
+  const structuredKind =
+    target.previewKind === 'delimited' ||
+    target.previewKind === 'docx' ||
+    target.previewKind === 'pptx' ||
+    target.previewKind === 'xlsx' ||
+    target.previewKind === 'zip'
+      ? target.previewKind
+      : null
+
+  const isStructured = structuredKind !== null
+  const isVideo = target.previewKind === 'video'
 
   // eslint-disable-next-line no-restricted-syntax -- legitimate non-atom ref write (see eslint rule comment)
   useEffect(() => {
     uiGenerationRef.current += 1
+    setForcedPreviewPath(undefined)
     setUserMode(null)
     setEditing(false)
     setDirty(false)
@@ -716,7 +733,11 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
   // when the file is forcibly previewed past the binary refusal screen.
   const isText = target.previewKind === 'text' || target.previewKind === 'binary' || target.previewKind === 'html'
 
-  const blockedByTarget = !isImage && !isPdf && !forcePreview && (target.binary || target.large)
+  const isMedia = isAudio || isVideo
+
+  const forcePreview = forcedPreviewPath === filePath
+  const blockedByTarget =
+    !isImage && !isMedia && !isPdf && !isStructured && !forcePreview && (target.binary || target.large)
 
   useEffect(() => {
     let active = true
@@ -728,7 +749,7 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
         return
       }
 
-      if (!isImage && !isPdf && !isText) {
+      if (!isImage && !isMedia && !isPdf && !isText) {
         setState({ loading: false })
 
         return
@@ -756,6 +777,16 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
 
           if (active) {
             setState({ dataUrl, loading: false })
+          }
+
+          return
+        }
+
+        if (isMedia) {
+          const mediaSrc = await resolveMediaPlaybackSrc(filePath)
+
+          if (active) {
+            setState({ loading: false, mediaSrc })
           }
 
           return
@@ -812,6 +843,7 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
     forcePreview,
     fsCacheKey,
     isImage,
+    isMedia,
     isPdf,
     isText,
     reloadKey,
@@ -1062,6 +1094,10 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
     )
   }
 
+  if (structuredKind) {
+    return <StructuredFilePreview filePath={filePath} previewKind={structuredKind} reloadKey={reloadKey + selfReload} />
+  }
+
   if (state.loading) {
     return <PageLoader label={t.preview.loading} />
   }
@@ -1076,6 +1112,7 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
 
   if (
     !isImage &&
+    !isMedia &&
     !isPdf &&
     !forcePreview &&
     (target.binary || target.large || state.binary || (state.byteSize ?? 0) > TEXT_PREVIEW_MAX_BYTES)
@@ -1086,7 +1123,7 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
     return (
       <PreviewEmptyState
         body={binary ? t.preview.binaryBody(target.label) : t.preview.largeBody(target.label, formatBytes(size))}
-        primaryAction={{ label: t.preview.previewAnyway, onClick: () => setForcePreview(true) }}
+        primaryAction={{ label: t.preview.previewAnyway, onClick: () => setForcedPreviewPath(filePath) }}
         title={binary ? t.preview.binaryTitle : t.preview.largeTitle}
         tone="warning"
       />
@@ -1121,6 +1158,27 @@ export function LocalFilePreview({ reloadKey, target }: { reloadKey: number; tar
 
   if (isPdf && state.dataUrl) {
     return <PageLoader label={t.preview.loading} />
+  }
+
+  if (isAudio && state.mediaSrc) {
+    return (
+      <div className="flex h-full w-full items-center justify-center overflow-auto bg-transparent p-4">
+        <audio className="w-full max-w-xl" controls preload="metadata" src={state.mediaSrc} />
+      </div>
+    )
+  }
+
+  if (isVideo && state.mediaSrc) {
+    return (
+      <div className="flex h-full w-full items-center justify-center overflow-auto bg-transparent p-4">
+        <video
+          className="max-h-full max-w-full rounded-lg shadow-sm"
+          controls
+          preload="metadata"
+          src={state.mediaSrc}
+        />
+      </div>
+    )
   }
 
   if (isText && state.text !== undefined) {

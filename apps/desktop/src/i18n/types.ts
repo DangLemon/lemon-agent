@@ -2883,6 +2883,10 @@ export interface Translations {
     source: string
     renderedPreview: string
     diff: string
+    clippedToSafeLimits: string
+    archiveName: string
+    archiveSize: string
+    archiveCompressed: string
     unknownSize: string
     binaryTitle: string
     binaryBody: (label: string) => string

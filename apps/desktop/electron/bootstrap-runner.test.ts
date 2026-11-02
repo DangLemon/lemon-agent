@@ -10,7 +10,6 @@ import {
   buildPosixPinArgs,
   cachedScriptPath,
   hasExistingGitCheckout,
-  installedAgentInstallScript,
   installerRuntimeEnv,
   installRefForStamp,
   isPinnedCommit,
@@ -43,30 +42,11 @@ test('runBootstrap bails immediately when the signal is already aborted', async 
     abortSignal: controller.signal
   })
 
-  // Cancelled before any install script is spawned.
   assert.deepEqual(result, { ok: false, cancelled: true })
   assert.ok(
     events.some(ev => ev.type === 'failed' && /cancelled/i.test(ev.error)),
     'should emit a cancelled failure event'
   )
-})
-
-test('installedAgentInstallScript resolves the installer in the agent checkout', () => {
-  const home = mkTmpHome()
-
-  try {
-    assert.equal(installedAgentInstallScript(home), null, 'absent before the checkout exists')
-
-    const scriptsDir = path.join(home, 'lemon-agent', 'scripts')
-    fs.mkdirSync(scriptsDir, { recursive: true })
-    const scriptPath = path.join(scriptsDir, SCRIPT_NAME)
-    fs.writeFileSync(scriptPath, '#!/bin/sh\necho hi\n')
-
-    assert.equal(installedAgentInstallScript(home), scriptPath)
-    assert.equal(installedAgentInstallScript(null), null, 'null home -> null')
-  } finally {
-    fs.rmSync(home, { recursive: true, force: true })
-  }
 })
 
 test('existing checkout detection requires git metadata', () => {
@@ -151,7 +131,7 @@ test('fallback install stamps use an unpinned branch ref', () => {
   assert.equal(isPinnedCommit(ZERO_COMMIT), false)
   assert.deepEqual(installRefForStamp(stamp), {
     ref: 'main',
-    cacheKey: 'fallback-main',
+    cacheKey: 'branch-main',
     pinned: false
   })
   // Must NOT pass -Commit / --commit for the all-zero placeholder.
@@ -164,6 +144,21 @@ test('fallback install stamps use an unpinned branch ref', () => {
     }),
     ['--dir', '/tmp/lemon', '--lemon-home', '/tmp/home', '--branch', 'main']
   )
+})
+
+test('existing checkout installer ref follows the branch instead of the packaged commit', () => {
+  const stamp = { commit: 'a'.repeat(40), branch: 'main' }
+
+  assert.deepEqual(installRefForStamp(stamp, { pinCommit: false }), {
+    ref: 'main',
+    cacheKey: 'branch-main',
+    pinned: false
+  })
+  assert.deepEqual(installRefForStamp(stamp), {
+    ref: stamp.commit,
+    cacheKey: stamp.commit,
+    pinned: true
+  })
 })
 
 test('resolveMarkerPinnedCommit prefers real HEAD over fallback stamp zeros', () => {
@@ -213,10 +208,10 @@ test('resolveInstallScript downloads fallback stamps by branch instead of zero c
     assert.deepEqual(refs, ['main'])
     assert.equal(result.source, 'download')
     assert.equal(result.commit, null)
-    assert.equal(result.path, cachedScriptPath(home, 'fallback-main'))
+    assert.equal(result.path, cachedScriptPath(home, 'branch-main'))
     assert.ok(
-      logs.some(ev => /fallback, unpinned/.test(ev.line || '')),
-      'emits an unpinned fallback log line'
+      logs.some(ev => /unpinned branch/.test(ev.line || '')),
+      'emits an unpinned branch log line'
     )
   } finally {
     fs.rmSync(home, { recursive: true, force: true })
@@ -391,86 +386,97 @@ test('resolveBootstrapSourceRepository keeps an internal package on Lemon when i
 })
 
 
-test('resolveInstallScript prefers a cached script without touching the network', async () => {
+test('resolveInstallScript refreshes the live branch for an existing checkout', async () => {
+  const home = mkTmpHome()
+
+  try {
+    const commit = 'a'.repeat(40)
+    const cached = cachedScriptPath(home, 'branch-main')
+    fs.mkdirSync(path.dirname(cached), { recursive: true })
+    fs.writeFileSync(cached, 'stale installer\n')
+
+    const refs = []
+
+    const result = await resolveInstallScript({
+      installStamp: { commit, branch: 'main' },
+      sourceRepoRoot: null,
+      lemonHome: home,
+      emit: () => {},
+      pinCommit: false,
+      _download: async (ref, destPath) => {
+        refs.push(ref)
+        fs.writeFileSync(destPath, 'fresh branch installer\n')
+
+        return destPath
+      }
+    })
+
+    assert.deepEqual(refs, ['main'])
+    assert.equal(result.source, 'download')
+    assert.equal(result.commit, null)
+    assert.equal(result.path, cached)
+    assert.equal(fs.readFileSync(cached, 'utf8'), 'fresh branch installer\n')
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('resolveInstallScript refreshes an immutable-pin cache on a fresh install', async () => {
   const home = mkTmpHome()
 
   try {
     const commit = 'a'.repeat(40)
     const cached = cachedScriptPath(home, commit)
     fs.mkdirSync(path.dirname(cached), { recursive: true })
-    fs.writeFileSync(cached, '#!/bin/sh\necho cached\n')
+    fs.writeFileSync(cached, 'stale installer\n')
 
-    const logs = []
-
-    const result = await resolveInstallScript({
-      installStamp: { commit },
-      sourceRepoRoot: null,
-      lemonHome: home,
-      emit: ev => logs.push(ev)
-    })
-
-    assert.equal(result.source, 'cache')
-    assert.equal(result.path, cached)
-  } finally {
-    fs.rmSync(home, { recursive: true, force: true })
-  }
-})
-
-test('resolveInstallScript falls back to the installed agent checkout on a 404', async () => {
-  const home = mkTmpHome()
-
-  try {
-    const commit = 'a'.repeat(40)
-    // Seed the installed agent checkout so the fallback has something to resolve.
-    const scriptsDir = path.join(home, 'lemon-agent', 'scripts')
-    fs.mkdirSync(scriptsDir, { recursive: true })
-    const installed = path.join(scriptsDir, SCRIPT_NAME)
-    fs.writeFileSync(installed, '#!/bin/sh\necho fallback\n')
-
-    const logs = []
+    const refs = []
 
     const result = await resolveInstallScript({
-      installStamp: { commit },
+      installStamp: { commit, branch: 'main' },
       sourceRepoRoot: null,
       lemonHome: home,
-      emit: ev => logs.push(ev),
-      // Simulate GitHub returning a 404 for the pinned commit.
-      _download: async () => {
-        throw new Error('Failed to download install.sh: HTTP 404')
+      emit: () => {},
+      _download: async (ref, destPath) => {
+        refs.push(ref)
+        fs.writeFileSync(destPath, 'fresh pinned installer\n')
+
+        return destPath
       }
     })
 
-    assert.equal(result.source, 'installed-agent')
-    // It should have copied the installer into the bootstrap cache.
-    assert.equal(result.path, cachedScriptPath(home, commit))
-    assert.ok(fs.existsSync(result.path), 'fallback script copied into cache')
-    assert.ok(
-      logs.some(ev => /falling back to installed agent/.test(ev.line || '')),
-      'emits a fallback log line'
-    )
+    assert.deepEqual(refs, [commit])
+    assert.equal(result.source, 'download')
+    assert.equal(result.commit, commit)
+    assert.equal(result.path, cached)
+    assert.equal(fs.readFileSync(cached, 'utf8'), 'fresh pinned installer\n')
   } finally {
     fs.rmSync(home, { recursive: true, force: true })
   }
 })
 
-test('resolveInstallScript rethrows when the 404 fallback is unavailable', async () => {
+test('resolveInstallScript fails closed instead of executing an installed stale script', async () => {
   const home = mkTmpHome()
 
   try {
     const commit = 'a'.repeat(40)
-    // No installed agent checkout seeded -> nothing to fall back to.
+    const scriptsDir = path.join(home, 'lemon-agent', 'scripts')
+    fs.mkdirSync(scriptsDir, { recursive: true })
+    fs.writeFileSync(path.join(scriptsDir, SCRIPT_NAME), 'stale installed script\n')
+
     await assert.rejects(
       resolveInstallScript({
-        installStamp: { commit },
+        installStamp: { commit, branch: 'main' },
         sourceRepoRoot: null,
         lemonHome: home,
         emit: () => {},
         _download: async () => {
-          throw new Error('Failed to download install.sh: HTTP 404')
+          throw new Error('Failed to download install script: HTTP 404')
         }
       }),
-      /HTTP 404|Failed to download/
+      /HTTP 404/
     )
+    assert.equal(fs.existsSync(cachedScriptPath(home, commit)), false)
   } finally {
     fs.rmSync(home, { recursive: true, force: true })
   }
