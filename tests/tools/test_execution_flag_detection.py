@@ -72,9 +72,14 @@ def test_real_binaries_execute_leading_dash_program_payload(
     if needs_tty:
         argv = ["script", "-qec", shlex.join(argv), "/dev/null"]
 
-    subprocess.run(argv, input=input_text, text=True, capture_output=True, env=env, timeout=20)
+    completed = subprocess.run(
+        argv, input=input_text, text=True, capture_output=True, env=env, timeout=20
+    )
 
-    assert marker.read_text() == "executed"
+    assert marker.exists(), (
+        f"returncode={completed.returncode}\nstdout={completed.stdout}\nstderr={completed.stderr}"
+    )
+    assert marker.read_text() == "executed", completed.stderr
 
 
 @pytest.mark.parametrize(
