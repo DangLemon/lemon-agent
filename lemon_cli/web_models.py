@@ -39,6 +39,10 @@ class CustomEndpointUpdate(BaseModel):
     base_url: str
     model: str
     api_key: Optional[str] = None
+    # Gateway email saved with the connection. ``None`` or blank leaves the stored email alone.
+    login_username: Optional[str] = None
+    # Write-only. Exchanged for a bearer token at save time and never persisted.
+    login_password: Optional[SecretStr] = None
     context_length: Optional[int] = None
     discover_models: bool = True
     make_default: bool = False

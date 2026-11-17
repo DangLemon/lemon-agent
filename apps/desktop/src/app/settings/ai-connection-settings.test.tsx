@@ -78,6 +78,8 @@ describe('AiConnectionSettings', () => {
     expect(screen.getByLabelText('Connection name')).toBeTruthy()
     expect(screen.getByLabelText('Server address')).toBeTruthy()
     expect(screen.getByLabelText('API key')).toBeTruthy()
+    expect(screen.getByLabelText('Email')).toBeTruthy()
+    expect(screen.getByLabelText('Password')).toBeTruthy()
     expect(screen.getByLabelText('Model')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Test connection' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Save and use' })).toBeTruthy()
@@ -215,10 +217,114 @@ describe('AiConnectionSettings', () => {
       model: 'next-model',
       name: 'AI company'
     })
+    expect(saveCustomEndpoint.mock.calls[0][0]).not.toHaveProperty('login_username')
+    expect(saveCustomEndpoint.mock.calls[0][0]).not.toHaveProperty('password')
     expect(saveCustomEndpoint.mock.calls[0][0]).not.toHaveProperty('models')
     expect(onConfigSaved).toHaveBeenCalled()
     expect(onMainModelChanged).toHaveBeenCalledWith('company-ai', 'next-model')
     expect(await screen.findByText('Saved. New conversations will use this connection.')).toBeTruthy()
+  })
+
+  it('sends the gateway password only on save and keeps it out of the connection test', async () => {
+    await renderAiConnectionSettings()
+
+    fireEvent.change(await screen.findByLabelText('Email'), { target: { value: '  Lan.Nguyen@Company.com  ' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret-password' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Test connection' }))
+
+    await waitFor(() => expect(validateCustomEndpoint).toHaveBeenCalled())
+    expect(validateCustomEndpoint.mock.calls[0][0]).not.toHaveProperty('login_password')
+    expect(JSON.stringify(validateCustomEndpoint.mock.calls[0][0])).not.toContain('secret-password')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save and use' }))
+
+    await waitFor(() => expect(saveCustomEndpoint).toHaveBeenCalled())
+    const payload = saveCustomEndpoint.mock.calls[0][0]
+    expect(payload.login_username).toBe('Lan.Nguyen@Company.com')
+    expect(payload.login_password).toBe('secret-password')
+    expect(payload).not.toHaveProperty('password')
+  })
+
+  it('asks for an email before saving a password', async () => {
+    await renderAiConnectionSettings()
+
+    fireEvent.change(await screen.findByLabelText('Password'), { target: { value: 'secret-password' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save and use' }))
+
+    expect(await screen.findByText('Enter the email for this password.')).toBeTruthy()
+    expect(saveCustomEndpoint).not.toHaveBeenCalled()
+  })
+
+  it('does not send a password to a remote http address or a non-base path', async () => {
+    await renderAiConnectionSettings()
+
+    fireEvent.change(await screen.findByLabelText('Email'), { target: { value: 'lan@company.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret-password' } })
+    fireEvent.change(screen.getByLabelText('Server address'), { target: { value: 'http://llm.example.com/v1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save and use' }))
+
+    expect(await screen.findByText('Sign-in requires https. Localhost may use http.')).toBeTruthy()
+    expect(saveCustomEndpoint).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText('Server address'), { target: { value: 'https://llm.example.com/v1/models' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save and use' }))
+
+    expect(await screen.findByText('Server address must be the API base ending in /v1.')).toBeTruthy()
+    expect(saveCustomEndpoint).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText('Server address'), { target: { value: 'http://127.0.0.1:5173/v1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save and use' }))
+
+    await waitFor(() => expect(saveCustomEndpoint).toHaveBeenCalled())
+    expect(saveCustomEndpoint.mock.calls[0][0].login_password).toBe('secret-password')
+    expect(saveCustomEndpoint.mock.calls[0][0].base_url).toBe('http://127.0.0.1:5173/v1')
+  })
+
+  it('labels a rejected sign-in separately from a later save failure', async () => {
+    saveCustomEndpoint.mockRejectedValueOnce(new Error('500: {"detail":"Failed to save custom endpoint"}'))
+    await renderAiConnectionSettings()
+
+    fireEvent.change(await screen.findByLabelText('Email'), { target: { value: 'lan@company.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret-password' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save and use' }))
+
+    expect(await screen.findByText('Could not save this connection. Check the fields and try again.')).toBeTruthy()
+    expect(screen.queryByText('Sign-in failed. Check the email, password, and server address.')).toBeNull()
+
+    saveCustomEndpoint.mockRejectedValueOnce(new Error('401: {"detail":"sign_in_rejected"}'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save and use' }))
+
+    expect(await screen.findByText('Sign-in failed. Check the email, password, and server address.')).toBeTruthy()
+
+    saveCustomEndpoint.mockRejectedValueOnce(new Error('400: {"detail":"sign_in_https_required"}'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save and use' }))
+
+    expect(await screen.findByText('Sign-in requires https. Localhost may use http.')).toBeTruthy()
+  })
+
+  it('shows an expired gateway session instead of a healthy saved key', async () => {
+    getCustomEndpoints.mockResolvedValue({
+      current: { base_url: '', model: '', provider: '' },
+      endpoints: [endpoint({ login_expires_at: '2020-01-01T00:00:00Z', login_username: 'lan@company.com' })]
+    })
+    await renderAiConnectionSettings()
+
+    expect((await screen.findAllByText('This sign-in expired. Enter the password and save again.')).length).toBeGreaterThan(0)
+    expect(screen.getByText('lan@company.com')).toBeTruthy()
+    expect(screen.queryByText('Access key saved')).toBeNull()
+  })
+
+  it('does not treat a sign-in with an unknown expiry as a healthy saved key', async () => {
+    getCustomEndpoints.mockResolvedValue({
+      current: { base_url: '', model: '', provider: '' },
+      endpoints: [endpoint({ login_expires_at: 'unknown', login_username: 'lan@company.com' })]
+    })
+    await renderAiConnectionSettings()
+
+    expect(
+      (await screen.findAllByText('Signed in, but the server did not say when this session expires. Sign in again if chat is rejected.')).length
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText('Access key saved')).toBeNull()
   })
 
   it('shows a friendly validation failure and clears it when the draft changes', async () => {

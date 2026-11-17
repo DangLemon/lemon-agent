@@ -56,6 +56,7 @@ export interface MockServer {
   url: string
   receivedPrompts: string[]
   receivedToolNames: string[][]
+  loginAttempts: Array<{ email?: string; password?: string }>
   waitForHeldStream: () => Promise<void>
   waitForHeldCompletion: () => Promise<void>
   releaseHeldStream: () => void
@@ -412,6 +413,7 @@ export function startMockServer(options: MockServerOptions = {}): Promise<MockSe
   return new Promise((resolve, reject) => {
     const receivedPrompts: string[] = []
     const receivedToolNames: string[][] = []
+    const loginAttempts: Array<{ email?: string; password?: string }> = []
     let resolveHeldStreamStarted: (() => void) | null = null
     let releaseHeldStream: (() => void) | null = null
     let heldCompletionCount = 0
@@ -431,6 +433,37 @@ export function startMockServer(options: MockServerOptions = {}): Promise<MockSe
       if (req.method === 'OPTIONS') {
         res.writeHead(204)
         res.end()
+        return
+      }
+
+      if (req.method === 'POST' && req.url === '/v1/gateway-login') {
+        let body = ''
+        req.on('data', (chunk: Buffer) => {
+          body += chunk.toString()
+        })
+        req.on('end', () => {
+          let parsed: { email?: string; password?: string } = {}
+          try {
+            parsed = JSON.parse(body)
+          } catch {
+            parsed = {}
+          }
+          loginAttempts.push(parsed)
+          const email = String(parsed.email || '').toLowerCase()
+          if (email === 'lan.nguyen@company.com' && parsed.password === 'secret-password') {
+            res.writeHead(200, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({
+              token: 'uat-session-token',
+              token_type: 'Bearer',
+              expires_at: '2026-11-23T00:00:00Z',
+              email,
+              name: 'Lan'
+            }))
+            return
+          }
+          res.writeHead(401, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ error: 'rejected' }))
+        })
         return
       }
 
@@ -744,6 +777,7 @@ export function startMockServer(options: MockServerOptions = {}): Promise<MockSe
         url,
         receivedPrompts,
         receivedToolNames,
+        loginAttempts,
         waitForHeldStream: () => heldStreamStarted,
         waitForHeldCompletion: () => heldStreamStarted,
         releaseHeldStream: () => releaseHeldStream?.(),
