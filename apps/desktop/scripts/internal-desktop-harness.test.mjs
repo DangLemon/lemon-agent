@@ -125,7 +125,7 @@ test('configured internal manifest pins approved repo, model, and MCP env refs',
   assert.deepEqual(resource.initialProvider, {
     id: 'lemon-ai-company',
     name: 'AI công ty',
-    base_url: 'http://127.0.0.1:5173/v1',
+    base_url: 'https://agent.lemondigital.vn/v1',
     model: 'openai-codex-gpt-5-5',
     key_env: 'LEMON_AI_COMPANY_API_KEY'
   })

@@ -401,6 +401,21 @@ export interface Translations {
       keyNewPlaceholder: string
       keyExistingHelp: string
       keyNewHelp: string
+      accountLabel: string
+      accountAriaLabel: string
+      accountPlaceholder: string
+      passwordLabel: string
+      passwordAriaLabel: string
+      passwordPlaceholder: string
+      loginHelp: string
+      loginFailed: string
+      loginUnreachable: string
+      loginNeedsHttps: string
+      loginBadBase: string
+      loginAccountRequired: string
+      sessionExpired: string
+      sessionUnknown: string
+      sessionUntil: (date: string) => string
       modelLabel: string
       modelPlaceholder: string
       modelHelp: string

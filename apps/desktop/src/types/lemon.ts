@@ -178,6 +178,8 @@ export interface CustomEndpoint {
   has_api_key: boolean
   id: string
   is_current?: boolean
+  login_expires_at?: string
+  login_username?: string
   model: string
   models: string[]
   name: string
@@ -199,6 +201,8 @@ export interface CustomEndpointUpdate {
   api_key?: string
   base_url: string
   context_length?: number
+  login_password?: string
+  login_username?: string
   discover_models?: boolean
   id?: string
   make_default?: boolean

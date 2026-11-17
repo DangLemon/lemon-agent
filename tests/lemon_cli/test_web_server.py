@@ -20,6 +20,16 @@ from lemon_cli.config import (
     redact_key,
     OPTIONAL_ENV_VARS,
     DEFAULT_CONFIG,
+    custom_endpoint_key_env,
+    get_env_value,
+    load_config,
+)
+import lemon_cli.web_routers.config_env as config_env
+from lemon_cli.web_routers.config_env import (
+    GatewayLoginError,
+    GatewayLoginResult,
+    exchange_gateway_login,
+    gateway_login_url,
 )
 import gateway.status as _gw_status
 import lemon_cli.config as _cfg_mod
@@ -1899,6 +1909,310 @@ class TestWebServerEndpoints:
         default_list = self.client.get("/api/providers/custom-endpoints").json()
         assert not any(e["id"] == "worker-proxy" for e in default_list["endpoints"])
 
+
+    def test_custom_endpoint_save_keeps_login_username_when_a_later_save_is_blank(self):
+        """A blank email leaves the stored address alone, the same way a blank password keeps the key.
+
+        A non-empty address is still stored in lowercase. A client cannot set the session expiry.
+        """
+        created = self.client.post(
+            "/api/providers/custom-endpoints",
+            json={
+                "id": "proxy",
+                "name": "Proxy",
+                "base_url": "https://llm.example.com/v1",
+                "model": "m",
+                "login_username": "  Lan.Nguyen  ",
+            },
+        )
+        assert created.status_code == 200
+        created_row = next(row for row in created.json()["endpoints"] if row["id"] == "proxy")
+        assert created_row["login_username"] == "lan.nguyen"
+        assert load_config()["providers"]["proxy"]["login_username"] == "lan.nguyen"
+
+        kept_blank = self.client.post(
+            "/api/providers/custom-endpoints",
+            json={
+                "id": "proxy",
+                "name": "Proxy",
+                "base_url": "https://llm.example.com/v1",
+                "model": "m",
+                "login_username": "   ",
+                "login_expires_at": "2099-01-01T00:00:00Z",
+            },
+        )
+        assert kept_blank.status_code == 200
+        kept_row = next(row for row in kept_blank.json()["endpoints"] if row["id"] == "proxy")
+        assert kept_row["login_username"] == "lan.nguyen"
+        assert kept_row["login_expires_at"] == ""
+        stored = load_config()["providers"]["proxy"]
+        assert stored["login_username"] == "lan.nguyen"
+        assert "login_expires_at" not in stored
+
+    def test_custom_endpoint_save_exchanges_gateway_login_for_a_bearer_token(self, monkeypatch):
+        """Email and password become a stored bearer token. The password is not kept."""
+        revoked = []
+        monkeypatch.setattr(
+            config_env,
+            "exchange_gateway_login",
+            lambda base_url, email, password: GatewayLoginResult("sess-token", "2026-11-23T00:00:00Z"),
+        )
+        monkeypatch.setattr(config_env, "revoke_gateway_login", lambda *args, **kwargs: revoked.append(args))
+
+        saved = self.client.post(
+            "/api/providers/custom-endpoints",
+            json={
+                "id": "proxy",
+                "name": "Proxy",
+                "base_url": "https://llm.example.com/v1",
+                "model": "m",
+                "login_username": " Lan.Nguyen@Company.com ",
+                "login_password": "secret-password",
+            },
+        )
+        assert saved.status_code == 200, saved.text
+        row = next(item for item in saved.json()["endpoints"] if item["id"] == "proxy")
+        assert row["login_username"] == "lan.nguyen@company.com"
+        assert row["login_expires_at"] == "2026-11-23T00:00:00Z"
+        assert row["has_api_key"] is True
+        assert get_env_value(custom_endpoint_key_env("proxy")) == "sess-token"
+        stored = yaml.safe_dump(load_config())
+        assert "secret-password" not in stored
+        assert "sess-token" not in stored
+        assert load_config()["providers"]["proxy"]["login_expires_at"] == "2026-11-23T00:00:00Z"
+        assert revoked == []
+
+        kept = self.client.post(
+            "/api/providers/custom-endpoints",
+            json={
+                "id": "proxy",
+                "name": "Proxy",
+                "base_url": "https://llm.example.com/v1",
+                "model": "m",
+                "login_username": "  Other.Person@Company.com  ",
+            },
+        )
+        assert kept.status_code == 200, kept.text
+        kept_row = next(item for item in kept.json()["endpoints"] if item["id"] == "proxy")
+        assert kept_row["login_username"] == "other.person@company.com"
+        assert kept_row["login_expires_at"] == "2026-11-23T00:00:00Z"
+        assert get_env_value(custom_endpoint_key_env("proxy")) == "sess-token"
+
+    def test_custom_endpoint_save_keeps_a_rejected_gateway_login_unsaved(self, monkeypatch):
+        def reject(base_url, email, password):
+            raise GatewayLoginError(401, "sign_in_rejected")
+
+        monkeypatch.setattr(config_env, "exchange_gateway_login", reject)
+        rejected = self.client.post(
+            "/api/providers/custom-endpoints",
+            json={
+                "id": "proxy",
+                "name": "Proxy",
+                "base_url": "https://llm.example.com/v1",
+                "model": "m",
+                "login_username": "lan@company.com",
+                "login_password": "wrong",
+            },
+        )
+        assert rejected.status_code == 401
+        assert "proxy" not in (load_config().get("providers") or {})
+        assert "wrong" not in rejected.text
+
+    def test_custom_endpoint_save_does_not_exchange_an_incomplete_login(self, monkeypatch):
+        """A missing name is a local error. The password must not leave the process."""
+        calls = []
+        monkeypatch.setattr(config_env, "exchange_gateway_login", lambda *args, **kwargs: calls.append(args))
+        missing_name = self.client.post(
+            "/api/providers/custom-endpoints",
+            json={
+                "name": " ",
+                "base_url": "https://llm.example.com/v1",
+                "model": "m",
+                "login_username": "lan@company.com",
+                "login_password": "secret-password",
+            },
+        )
+        assert missing_name.status_code == 400
+        assert calls == []
+        assert "secret-password" not in missing_name.text
+
+    def test_custom_endpoint_save_rejects_an_unsafe_login_before_opening_a_client(self, monkeypatch):
+        opened = []
+        monkeypatch.setattr(config_env.httpx, "Client", lambda *args, **kwargs: opened.append(args))
+        for base_url in ("https://llm.example.com/v1/models", "http://llm.example.com/v1"):
+            refused = self.client.post(
+                "/api/providers/custom-endpoints",
+                json={
+                    "id": "proxy",
+                    "name": "Proxy",
+                    "base_url": base_url,
+                    "model": "m",
+                    "login_username": "lan@company.com",
+                    "login_password": "secret-password",
+                },
+            )
+            assert refused.status_code == 400, refused.text
+            assert "secret-password" not in refused.text
+        assert opened == []
+        assert "proxy" not in (load_config().get("providers") or {})
+        assert "sign_in_https_required" in self.client.post(
+            "/api/providers/custom-endpoints",
+            json={
+                "id": "proxy",
+                "name": "Proxy",
+                "base_url": "http://llm.example.com/v1",
+                "model": "m",
+                "login_username": "lan@company.com",
+                "login_password": "secret-password",
+            },
+        ).text
+
+    def test_custom_endpoint_save_revokes_a_minted_session_when_the_write_fails(self, monkeypatch):
+        monkeypatch.setattr(
+            config_env,
+            "exchange_gateway_login",
+            lambda base_url, email, password: GatewayLoginResult("sess-token", "2026-11-23T00:00:00Z"),
+        )
+        revoked = []
+        monkeypatch.setattr(
+            config_env,
+            "revoke_gateway_login",
+            lambda base_url, token, client=None: revoked.append((base_url, token)),
+        )
+
+        def fail_save(_cfg):
+            raise OSError("disk full")
+
+        monkeypatch.setattr(config_env, "save_config", fail_save)
+        failed = self.client.post(
+            "/api/providers/custom-endpoints",
+            json={
+                "id": "proxy",
+                "name": "Proxy",
+                "base_url": "https://llm.example.com/v1",
+                "model": "m",
+                "login_username": "lan@company.com",
+                "login_password": "secret-password",
+            },
+        )
+        assert failed.status_code == 500
+        assert revoked == [("https://llm.example.com/v1", "sess-token")]
+        assert "secret-password" not in failed.text
+        assert "sess-token" not in failed.text
+        assert "proxy" not in (load_config().get("providers") or {})
+        assert get_env_value(custom_endpoint_key_env("proxy")) in (None, "")
+
+    def test_custom_endpoint_save_restores_the_previous_key_when_login_save_fails(self, monkeypatch):
+        created = self.client.post(
+            "/api/providers/custom-endpoints",
+            json={
+                "id": "proxy",
+                "name": "Proxy",
+                "base_url": "https://llm.example.com/v1",
+                "model": "m",
+                "api_key": "sk-old",
+            },
+        )
+        assert created.status_code == 200, created.text
+        monkeypatch.setattr(
+            config_env,
+            "exchange_gateway_login",
+            lambda base_url, email, password: GatewayLoginResult("sess-token", None),
+        )
+        revoked = []
+        monkeypatch.setattr(
+            config_env,
+            "revoke_gateway_login",
+            lambda base_url, token, client=None: revoked.append((base_url, token)),
+        )
+
+        def fail_save(_cfg):
+            raise OSError("disk full")
+
+        monkeypatch.setattr(config_env, "save_config", fail_save)
+        failed = self.client.post(
+            "/api/providers/custom-endpoints",
+            json={
+                "id": "proxy",
+                "name": "Proxy",
+                "base_url": "https://llm.example.com/v1",
+                "model": "m",
+                "login_username": "lan@company.com",
+                "login_password": "secret-password",
+            },
+        )
+        assert failed.status_code == 500
+        assert revoked == [("https://llm.example.com/v1", "sess-token")]
+        assert get_env_value(custom_endpoint_key_env("proxy")) == "sk-old"
+        stored = yaml.safe_dump(load_config())
+        assert "sess-token" not in stored
+        assert "secret-password" not in failed.text
+
+    def test_gateway_login_url_uses_the_openai_v1_prefix(self):
+        assert gateway_login_url("https://llm.example.com/v1") == "https://llm.example.com/v1/gateway-login"
+        assert gateway_login_url("https://llm.example.com/lemon/v1/") == "https://llm.example.com/lemon/v1/gateway-login"
+        assert gateway_login_url("https://llm.example.com") == "https://llm.example.com/v1/gateway-login"
+        assert gateway_login_url("https://user:secret@llm.example.com/v1?q=1#x") == "https://llm.example.com/v1/gateway-login"
+        with pytest.raises(GatewayLoginError) as bad_path:
+            gateway_login_url("https://llm.example.com/v1/models")
+        assert bad_path.value.status_code == 400
+
+        class Response:
+            status_code = 200
+
+            def json(self):
+                return {
+                    "token": "sess-token",
+                    "token_type": "Bearer",
+                    "expires_at": "2026-11-23T00:00:00Z",
+                }
+
+        class Client:
+            def __init__(self):
+                self.calls = []
+
+            def post(self, url, json=None, headers=None):
+                self.calls.append((url, json, headers))
+                return Response()
+
+        client = Client()
+        result = exchange_gateway_login(
+            "https://llm.example.com/v1", " Lan@Company.com ", "secret-password", client=client
+        )
+        assert result.token == "sess-token"
+        assert result.expires_at == "2026-11-23T00:00:00Z"
+        assert client.calls[0][0] == "https://llm.example.com/v1/gateway-login"
+        assert client.calls[0][1] == {"email": "lan@company.com", "password": "secret-password"}
+
+        refused = Client()
+        for unsafe in ("https://llm.example.com/v1/models", "http://llm.example.com/v1"):
+            with pytest.raises(GatewayLoginError):
+                exchange_gateway_login(unsafe, "lan@company.com", "secret-password", client=refused)
+        assert refused.calls == []
+
+        local = Client()
+        local_result = exchange_gateway_login(
+            "http://127.0.0.1:5173/v1", "lan@company.com", "secret-password", client=local
+        )
+        assert local_result.token == "sess-token"
+        assert local.calls[0][0] == "http://127.0.0.1:5173/v1/gateway-login"
+
+        class NumericToken:
+            status_code = 200
+
+            def json(self):
+                return {"token": 123}
+
+        class NumericClient:
+            def post(self, url, json=None, headers=None):
+                return NumericToken()
+
+        with pytest.raises(GatewayLoginError) as bad_token:
+            exchange_gateway_login(
+                "https://llm.example.com/v1", "lan@company.com", "secret-password", client=NumericClient()
+            )
+        assert bad_token.value.status_code == 502
+        assert "123" not in bad_token.value.detail
 
     def test_custom_endpoint_save_keeps_the_api_key_out_of_config(self):
         """The key belongs in .env behind key_env, never in config.yaml (#69449)."""

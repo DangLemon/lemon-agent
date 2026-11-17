@@ -164,6 +164,95 @@ test('Vietnamese AI connection routes new chats and survives relaunch', async ()
   }
 })
 
+test('email sign-in stores only the session token', async () => {
+  test.setTimeout(180_000)
+  const gateway = await startMockServer()
+  const sandbox = createSandbox('ai-connection-login')
+  let app: ElectronApplication | null = null
+  writeInitialConfig(sandbox.lemonHome, gateway.url)
+
+  const launchValues = buildAppEnv(sandbox, {
+    LEMON_DESKTOP_HARNESS_CONFIG: path.resolve(import.meta.dirname, '..', 'lemon-ai-desktop.config.json')
+  })
+
+  try {
+    ;({ app } = await launchDesktop(launchValues))
+    const page = await app.firstWindow()
+    await waitForAppReady({ app, page, sandbox, cleanup: async () => undefined }, 120_000)
+    await openConnectionSettings(page)
+
+    await page.getByLabel('Email').fill('Lan.Nguyen@Company.com')
+    await page.getByLabel('Mật khẩu').fill('secret-password')
+    await page.getByLabel('Địa chỉ máy chủ').fill('http://llm.example.com/v1')
+    await page.getByRole('button', { name: 'Lưu và sử dụng' }).click()
+    await expect(page.getByText('Đăng nhập cần https. Localhost được dùng http.')).toBeVisible()
+    expect(gateway.loginAttempts).toHaveLength(0)
+
+    await page.getByLabel('Địa chỉ máy chủ').fill(`${gateway.url}/v1`)
+    await page.getByLabel('Mật khẩu').fill('wrong-password')
+    await page.getByRole('button', { name: 'Lưu và sử dụng' }).click()
+    await expect(page.getByText('Đăng nhập thất bại. Kiểm tra email, mật khẩu và địa chỉ máy chủ.')).toBeVisible()
+    expect(fs.readFileSync(path.join(sandbox.lemonHome, 'config.yaml'), 'utf8')).not.toContain('wrong-password')
+
+    await page.getByLabel('Mật khẩu').fill('secret-password')
+    await page.getByRole('button', { name: 'Lưu và sử dụng' }).click()
+    await expect(page.getByText(/cuộc trò chuyện mới sẽ dùng kết nối này/i)).toBeVisible()
+    await expect(page.getByText('Đã đăng nhập đến 2026-11-23.')).toBeVisible()
+    await expect(page.getByLabel('Mật khẩu')).toHaveValue('')
+
+    const savedConfig = fs.readFileSync(path.join(sandbox.lemonHome, 'config.yaml'), 'utf8')
+    const savedEnv = fs.readFileSync(path.join(sandbox.lemonHome, '.env'), 'utf8')
+    expect(savedConfig).toContain('lan.nguyen@company.com')
+    expect(savedConfig).not.toContain('secret-password')
+    expect(savedConfig).not.toContain('uat-session-token')
+    expect(savedEnv).toContain('uat-session-token')
+    expect(savedEnv).not.toContain('secret-password')
+    expect(gateway.loginAttempts.map(attempt => attempt.password)).toEqual(['wrong-password', 'secret-password'])
+    await capture(app, page, 1280, 'ai-connection-login-1280x800.png')
+  } finally {
+    await app?.close().catch(() => undefined)
+    await gateway.close()
+    sandbox.cleanup()
+  }
+})
+
+test('live company gateway rejects an unknown sign-in', async () => {
+  test.skip(process.env.LEMON_UAT_LIVE_GATEWAY !== '1', 'live gateway UAT is opt-in')
+  test.setTimeout(180_000)
+  const sandbox = createSandbox('ai-connection-live-gateway')
+  let app: ElectronApplication | null = null
+  writeInitialConfig(sandbox.lemonHome, 'https://agent.lemondigital.vn')
+
+  const launchValues = buildAppEnv(sandbox, {
+    LEMON_DESKTOP_HARNESS_CONFIG: path.resolve(import.meta.dirname, '..', 'lemon-ai-desktop.config.json')
+  })
+
+  try {
+    ;({ app } = await launchDesktop(launchValues))
+    const page = await app.firstWindow()
+    await waitForAppReady({ app, page, sandbox, cleanup: async () => undefined }, 120_000)
+    await openConnectionSettings(page)
+
+    await expect(page.getByLabel('Địa chỉ máy chủ')).toHaveValue('https://agent.lemondigital.vn/v1')
+    await page.getByLabel('Email').fill('uat-no-account@example.com')
+    await page.getByLabel('Mật khẩu').fill('not-a-real-password')
+    await page.getByRole('button', { name: 'Lưu và sử dụng' }).click()
+    await expect(page.getByText('Đăng nhập thất bại. Kiểm tra email, mật khẩu và địa chỉ máy chủ.')).toBeVisible({ timeout: 20_000 })
+
+    const savedConfig = fs.readFileSync(path.join(sandbox.lemonHome, 'config.yaml'), 'utf8')
+    expect(savedConfig).not.toContain('not-a-real-password')
+    expect(savedConfig).not.toContain('uat-no-account@example.com')
+    const envPath = path.join(sandbox.lemonHome, '.env')
+    if (fs.existsSync(envPath)) {
+      expect(fs.readFileSync(envPath, 'utf8')).not.toContain('not-a-real-password')
+    }
+    await capture(app, page, 1280, 'ai-connection-live-gateway-rejected-1280x800.png')
+  } finally {
+    await app?.close().catch(() => undefined)
+    sandbox.cleanup()
+  }
+})
+
 test('unresolved upgraded profile can still open AI connection settings', async () => {
   const sandbox = createSandbox('ai-connection-unresolved')
   let app: ElectronApplication | null = null

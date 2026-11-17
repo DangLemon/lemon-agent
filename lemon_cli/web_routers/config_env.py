@@ -10,6 +10,9 @@ import re
 import asyncio
 import time
 import urllib.parse
+from datetime import datetime
+
+import httpx
 from fastapi import APIRouter
 from lemon_cli.web_routers._common import http_failure, scoped_to_thread
 from lemon_cli.web_deps import LateState, late
@@ -22,7 +25,7 @@ from lemon_cli.web_server_profiles import (
 from fastapi import HTTPException, Request
 from lemon_cli.config import DEFAULT_CONFIG, OPTIONAL_ENV_VARS, read_raw_config, custom_endpoint_key_env, coerce_provider_id, find_provider_entry, redact_key, _deep_merge
 from lemon_cli.web_models import ConfigUpdate, EnvVarUpdate, EnvVarDelete, EnvVarReveal, CustomEndpointUpdate
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 _log = logging.getLogger("lemon_cli.web_server")
 config_router = APIRouter()
@@ -362,6 +365,8 @@ def _endpoint_row(
         "id": endpoint_id, "name": name, "base_url": base_url, "model": model, "models": models,
         "context_length": context_length, "discover_models": discover_models,
         "has_api_key": has_api_key, "api_key_preview": api_key_preview,
+        "login_username": str(key_entry.get("login_username") or "").strip(),
+        "login_expires_at": str(key_entry.get("login_expires_at") or "").strip(),
         "is_current": is_current, "source": source,
     }
 
@@ -425,21 +430,196 @@ def _detach_main_model_from_provider(cfg: Dict[str, Any], provider_key: str) -> 
     cfg["model"] = model_cfg
 
 
-def _write_custom_endpoint(cfg: Dict[str, Any], body: CustomEndpointUpdate) -> Tuple[str, Dict[str, Any]]:
-    endpoint_id = _custom_endpoint_id(body.id or body.name)
+SIGN_IN_REJECTED = "sign_in_rejected"
+SIGN_IN_HTTPS_REQUIRED = "sign_in_https_required"
+SIGN_IN_BAD_BASE = "sign_in_bad_base"
+SIGN_IN_UNREACHABLE = "sign_in_unreachable"
+LOGIN_EXPIRY_UNKNOWN = "unknown"
+
+
+class GatewayLoginError(Exception):
+    """The AI server rejected or could not complete a gateway email login."""
+
+    def __init__(self, status_code: int, detail: str):
+        super().__init__(detail)
+        self.status_code = status_code
+        self.detail = detail
+
+
+class GatewayLoginResult(NamedTuple):
+    token: str
+    expires_at: Optional[str]
+
+
+def _loopback_login_host(hostname: str) -> bool:
+    """Plaintext sign-in is only acceptable on a loopback name."""
+    host = (hostname or "").lower().rstrip(".")
+    if host in {"localhost", "127.0.0.1", "::1"} or host.endswith(".localhost"):
+        return True
+    parts = host.split(".")
+    if len(parts) != 4 or parts[0] != "127":
+        return False
+    return all(part.isdigit() and 0 <= int(part) <= 255 for part in parts)
+
+
+def _netloc_without_userinfo(parsed: urllib.parse.ParseResult) -> str:
+    host = parsed.hostname or ""
+    if ":" in host:
+        host = f"[{host}]"
+    if parsed.port:
+        return f"{host}:{parsed.port}"
+    return host
+
+
+def gateway_login_url(base_url: str) -> str:
+    """Map an OpenAI-compatible base URL onto ``POST /v1/gateway-login``.
+
+    A path that already ends in ``/v1`` keeps that prefix. An empty path gets
+    ``/v1``. Any other path is refused so a pasted models URL cannot receive
+    the password. Userinfo, query, and fragment are dropped.
+    """
+    parsed = urllib.parse.urlparse((base_url or "").strip())
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise GatewayLoginError(400, "base_url must include scheme and host")
+    path = (parsed.path or "").rstrip("/")
+    if path and not path.endswith("/v1"):
+        raise GatewayLoginError(400, SIGN_IN_BAD_BASE)
+    login_path = f"{path}/gateway-login" if path else "/v1/gateway-login"
+    return urllib.parse.urlunparse(parsed._replace(
+        netloc=_netloc_without_userinfo(parsed),
+        path=login_path,
+        params="",
+        query="",
+        fragment="",
+    ))
+
+
+def _login_expiry(value: Any) -> Optional[str]:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return text
+
+
+def exchange_gateway_login(
+    base_url: str, email: str, password: str, *, client: Any = None,
+) -> GatewayLoginResult:
+    """Exchange a gateway email and password for a bearer token.
+
+    The password is sent once, and only after the address is a loopback
+    ``http`` URL or any ``https`` URL whose path is empty or ends in ``/v1``.
+    Callers persist the token and, when present, ``expires_at``.
+    """
+    address = email.strip().lower()
+    if not address or not password:
+        raise GatewayLoginError(400, "email and password required")
+    url = gateway_login_url(base_url)
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme == "http" and not _loopback_login_host(parsed.hostname or ""):
+        raise GatewayLoginError(400, SIGN_IN_HTTPS_REQUIRED)
+
+    def _post(http: Any) -> Any:
+        return http.post(
+            url,
+            json={"email": address, "password": password},
+            headers={"Accept": "application/json"},
+        )
+
+    try:
+        if client is None:
+            with httpx.Client(timeout=15.0, follow_redirects=False) as http:
+                response = _post(http)
+        else:
+            response = _post(client)
+    except Exception:
+        raise GatewayLoginError(502, SIGN_IN_UNREACHABLE) from None
+
+    if response.status_code in (401, 403):
+        raise GatewayLoginError(401, SIGN_IN_REJECTED)
+    if response.status_code != 200:
+        raise GatewayLoginError(502, SIGN_IN_UNREACHABLE)
+    try:
+        payload = response.json()
+    except Exception:
+        raise GatewayLoginError(502, SIGN_IN_UNREACHABLE) from None
+    raw_token = payload.get("token") if isinstance(payload, dict) else None
+    if not isinstance(raw_token, str) or not raw_token.strip():
+        raise GatewayLoginError(502, SIGN_IN_UNREACHABLE)
+    return GatewayLoginResult(raw_token.strip(), _login_expiry(payload.get("expires_at")) if isinstance(payload, dict) else None)
+
+
+def revoke_gateway_login(base_url: str, token: str, *, client: Any = None) -> None:
+    """Best-effort logout of a session that was minted but not saved.
+
+    goclaw does not revoke older sessions on a new login. A failed local save
+    would otherwise leave a live 7-day bearer the app has thrown away.
+    """
+    if not token:
+        return
+    try:
+        url = gateway_login_url(base_url) + "/logout"
+        headers = {"Accept": "application/json", "Authorization": f"Bearer {token}"}
+        if client is None:
+            with httpx.Client(timeout=15.0, follow_redirects=False) as http:
+                response = http.post(url, headers=headers)
+        else:
+            response = client.post(url, headers=headers)
+        if getattr(response, "status_code", 500) >= 400:
+            _log.warning("Unused gateway session was not revoked (status %s)", getattr(response, "status_code", "?"))
+    except Exception:
+        _log.warning("Could not revoke an unused gateway session")
+
+
+def _restore_access_key(env_var: str, previous_key: Optional[str]) -> None:
+    """Put back the access key a failed sign-in save overwrote.
+
+    ``_write_custom_endpoint`` stores the new bearer before ``save_config``.
+    If that write fails, logout would revoke the token now sitting in ``.env``
+    while the saved config still names the previous key.
+    """
+    if not env_var:
+        return
+    try:
+        if previous_key:
+            save_env_value(env_var, previous_key)
+        else:
+            remove_env_value(env_var)
+    except Exception:
+        _log.warning("Could not restore the previous access key after a failed sign-in save")
+
+
+def _login_password_text(body: CustomEndpointUpdate) -> str:
+    secret = body.login_password
+    if secret is None:
+        return ""
+    return secret.get_secret_value()
+
+
+def _require_custom_endpoint_fields(body: CustomEndpointUpdate) -> Tuple[str, str, str]:
     name = (body.name or "").strip()
     base_url = (body.base_url or "").strip().rstrip("/")
     model = (body.model or "").strip()
-
     if not name:
         raise HTTPException(status_code=400, detail="name required")
     if not base_url:
         raise HTTPException(status_code=400, detail="base_url required")
     parsed = urllib.parse.urlparse(base_url)
-    if not parsed.scheme or not parsed.netloc:
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
         raise HTTPException(status_code=400, detail="base_url must include scheme and host")
     if not model:
         raise HTTPException(status_code=400, detail="model required")
+    return name, base_url, model
+
+
+def _write_custom_endpoint(cfg: Dict[str, Any], body: CustomEndpointUpdate) -> Tuple[str, Dict[str, Any]]:
+    endpoint_id = _custom_endpoint_id(body.id or body.name)
+    name, base_url, model = _require_custom_endpoint_fields(body)
 
     # Deliver the bearer token through a named provider entry. A bare ``provider: custom`` cannot carry a
     # credential for this host: OPENAI_API_KEY is deliberately gated to openai.com (#28660), so the token
@@ -461,6 +641,10 @@ def _write_custom_endpoint(cfg: Dict[str, Any], body: CustomEndpointUpdate) -> T
         "name": name, "base_url": base_url, "model": model,
         "discover_models": bool(body.discover_models),
     })
+    if body.login_username is not None:
+        login_username = body.login_username.strip().lower()
+        if login_username:
+            entry["login_username"] = login_username
     # Same for the model map, so existing models keep their context lengths.
     # ``body.models`` is the catalogue the panel's Test button discovered;
     # without it only the hand-typed model survived Save. A payload with no
@@ -535,9 +719,39 @@ def upsert_custom_endpoint(body: CustomEndpointUpdate, profile: Optional[str] = 
     """Create or update a v12+ ``providers`` custom endpoint entry."""
     with http_failure("POST /api/providers/custom-endpoints failed", 500, detail="Failed to save custom endpoint"):
         with _config_profile_scope(profile):
-            cfg = load_config()
-            endpoint_id, _entry = _write_custom_endpoint(cfg, body)
-            save_config(cfg)
+            # Refuse an incomplete connection before the password leaves the process.
+            _require_custom_endpoint_fields(body)
+            password = _login_password_text(body)
+            minted: Optional[GatewayLoginResult] = None
+            if password.strip():
+                email = (body.login_username or "").strip().lower()
+                if not email:
+                    raise HTTPException(status_code=400, detail="email required")
+                try:
+                    minted = exchange_gateway_login(body.base_url, email, password)
+                except GatewayLoginError as exc:
+                    raise HTTPException(status_code=exc.status_code, detail=exc.detail) from None
+                body = body.model_copy(update={
+                    "api_key": minted.token,
+                    "login_username": email,
+                    "login_password": None,
+                })
+            previous_key: Optional[str] = None
+            env_var = ""
+            if minted is not None:
+                env_var = custom_endpoint_key_env(_custom_endpoint_id(body.id or body.name))
+                previous_key = get_env_value(env_var)
+            try:
+                cfg = load_config()
+                endpoint_id, entry = _write_custom_endpoint(cfg, body)
+                if minted is not None:
+                    entry["login_expires_at"] = minted.expires_at or LOGIN_EXPIRY_UNKNOWN
+                save_config(cfg)
+            except Exception:
+                if minted is not None:
+                    _restore_access_key(env_var, previous_key)
+                    revoke_gateway_login(body.base_url, minted.token)
+                raise
             response = _custom_endpoint_response(cfg)
         response["ok"] = True
         response["id"] = endpoint_id

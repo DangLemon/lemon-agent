@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RowButton } from '@/components/ui/row-button'
-import { useI18n } from '@/i18n'
+import { type Translations, useI18n } from '@/i18n'
 import {
   captureCapabilityScope,
   getCustomEndpoints,
@@ -31,9 +31,11 @@ interface AiConnectionSettingsProps {
 interface EndpointForm {
   apiKey: string
   baseUrl: string
+  email: string
   id: string
   model: string
   name: string
+  password: string
 }
 
 type FeedbackKind = 'error' | 'success' | 'warning'
@@ -46,22 +48,28 @@ type Feedback = null | {
 const EMPTY_FORM: EndpointForm = {
   apiKey: '',
   baseUrl: '',
+  email: '',
   id: '',
   model: '',
-  name: ''
+  name: '',
+  password: ''
 }
 
 function formFromEndpoint(endpoint: CustomEndpoint): EndpointForm {
   return {
+    email: endpoint.login_username ?? '',
     apiKey: '',
     baseUrl: endpoint.base_url,
     id: endpoint.id,
     model: endpoint.model,
-    name: endpoint.name
+    name: endpoint.name,
+    password: ''
   }
 }
 
 function formToPayload(form: EndpointForm, models?: string[]): CustomEndpointUpdate {
+  const email = form.email.trim()
+
   return {
     base_url: form.baseUrl.trim(),
     discover_models: true,
@@ -69,9 +77,21 @@ function formToPayload(form: EndpointForm, models?: string[]): CustomEndpointUpd
     make_default: true,
     model: form.model.trim(),
     name: form.name.trim(),
+    ...(email ? { login_username: email } : {}),
     ...(models?.length ? { models } : {}),
     ...(form.apiKey.trim() ? { api_key: form.apiKey.trim() } : {})
   }
+}
+
+function savePayload(form: EndpointForm, models?: string[]): CustomEndpointUpdate {
+  const payload = formToPayload(form, models)
+  const password = form.password
+
+  if (!password.trim()) {
+    return payload
+  }
+
+  return { ...payload, login_password: password }
 }
 
 function hasUsableUrl(value: string): boolean {
@@ -82,6 +102,103 @@ function hasUsableUrl(value: string): boolean {
   } catch {
     return false
   }
+}
+
+type AiConnectionCopy = Translations['settings']['aiConnection']
+
+// Preflight for the server rules in gateway_login_url. The API still refuses
+// the password when this check is skipped.
+function isLoopbackHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/\.$/, '')
+
+  if (host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.localhost')) {
+    return true
+  }
+
+  const parts = host.split('.')
+
+  if (parts.length !== 4 || parts[0] !== '127') {
+    return false
+  }
+
+  return parts.every(part => /^\d+$/.test(part) && Number(part) <= 255)
+}
+
+function loginTargetProblem(baseUrl: string): 'base' | 'https' | null {
+  let parsed: URL
+
+  try {
+    parsed = new URL(baseUrl.trim())
+  } catch {
+    return 'base'
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return 'base'
+  }
+
+  const path = parsed.pathname.replace(/\/+$/, '')
+
+  if (path && !path.endsWith('/v1')) {
+    return 'base'
+  }
+
+  if (parsed.protocol === 'http:' && !isLoopbackHost(parsed.hostname)) {
+    return 'https'
+  }
+
+  return null
+}
+
+function sessionExpiry(
+  expiresAt: string | undefined,
+  now = Date.now()
+): { expired: boolean; unknown: boolean; until: string | null } {
+  if (!expiresAt) {
+    return { expired: false, unknown: false, until: null }
+  }
+
+  if (expiresAt === 'unknown') {
+    return { expired: false, unknown: true, until: null }
+  }
+
+  const at = Date.parse(expiresAt)
+
+  if (Number.isNaN(at)) {
+    return { expired: false, unknown: true, until: null }
+  }
+
+  if (at <= now) {
+    return { expired: true, unknown: false, until: null }
+  }
+
+  return { expired: false, unknown: false, until: new Date(at).toISOString().slice(0, 10) }
+}
+
+function saveErrorMessage(error: unknown, hadPassword: boolean, copy: AiConnectionCopy): string {
+  const text = error instanceof Error ? error.message : ''
+
+  if (!hadPassword) {
+    return copy.saveFailed
+  }
+
+  if (text.includes('sign_in_https_required')) {
+    return copy.loginNeedsHttps
+  }
+
+  if (text.includes('sign_in_bad_base')) {
+    return copy.loginBadBase
+  }
+
+  if (text.includes('sign_in_rejected') || /^(401|403)\b/.test(text)) {
+    return copy.loginFailed
+  }
+
+  if (text.includes('sign_in_unreachable')) {
+    return copy.loginUnreachable
+  }
+
+  return copy.saveFailed
 }
 
 function feedbackClass(kind: FeedbackKind) {
@@ -292,6 +409,28 @@ export function AiConnectionSettings({ onConfigSaved, onMainModelChanged }: AiCo
       return
     }
 
+    if (form.password.trim() && !form.email.trim()) {
+      setFeedback({ kind: 'error', message: copy.loginAccountRequired })
+
+      return
+    }
+
+    if (form.password.trim()) {
+      const problem = loginTargetProblem(form.baseUrl)
+
+      if (problem === 'https') {
+        setFeedback({ kind: 'error', message: copy.loginNeedsHttps })
+
+        return
+      }
+
+      if (problem === 'base') {
+        setFeedback({ kind: 'error', message: copy.loginBadBase })
+
+        return
+      }
+    }
+
     const requestId = ++requestIdRef.current
     const submittedScopeKey = scopeKey
     setSaving(true)
@@ -299,7 +438,7 @@ export function AiConnectionSettings({ onConfigSaved, onMainModelChanged }: AiCo
 
     try {
       const modelsForServer = discoveredModelsBaseUrlRef.current === form.baseUrl.trim() ? discoveredModels : undefined
-      const response = await saveCustomEndpoint(formToPayload(form, modelsForServer), capturedScope)
+      const response = await saveCustomEndpoint(savePayload(form, modelsForServer), capturedScope)
 
       if (requestId !== requestIdRef.current || currentScopeKey(activeRoute, activeConnectionId) !== submittedScopeKey) {
         return
@@ -318,9 +457,9 @@ export function AiConnectionSettings({ onConfigSaved, onMainModelChanged }: AiCo
 
       onConfigSaved?.()
       setFeedback({ kind: 'success', message: copy.saved })
-    } catch {
+    } catch (error) {
       if (requestId === requestIdRef.current && currentScopeKey(activeRoute, activeConnectionId) === submittedScopeKey) {
-        setFeedback({ kind: 'error', message: copy.saveFailed })
+        setFeedback({ kind: 'error', message: saveErrorMessage(error, Boolean(form.password.trim()), copy) })
       }
     } finally {
       if (requestId === requestIdRef.current && currentScopeKey(activeRoute, activeConnectionId) === submittedScopeKey) {
@@ -328,6 +467,8 @@ export function AiConnectionSettings({ onConfigSaved, onMainModelChanged }: AiCo
       }
     }
   }
+
+  const editingExpiry = sessionExpiry(endpoints.find(endpoint => endpoint.id === form.id)?.login_expires_at)
 
   if (loading) {
     return <SettingsSkeleton sections={[{ heading: true, rows: 4 }]} />
@@ -362,40 +503,48 @@ export function AiConnectionSettings({ onConfigSaved, onMainModelChanged }: AiCo
               {copy.savedConnections}
             </h3>
             <div className="grid gap-1">
-              {endpoints.map(endpoint => (
-                <RowButton
-                  aria-pressed={selectedId === endpoint.id}
-                  className={cn(
-                    'grid gap-1 rounded-[6px] px-3 py-2 text-left transition hover:bg-(--chrome-action-hover)',
-                    selectedId === endpoint.id && 'bg-(--ui-bg-tertiary)'
-                  )}
-                  disabled={controlsLocked}
-                  key={endpoint.id}
-                  onClick={() => resetToEndpoint(endpoint)}
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="min-w-0 truncate text-[length:var(--conversation-text-font-size)] font-medium text-(--ui-text-primary)">
-                      {endpoint.name}
+              {endpoints.map(endpoint => {
+                const expiry = sessionExpiry(endpoint.login_expires_at)
+
+                return (
+                  <RowButton
+                    aria-pressed={selectedId === endpoint.id}
+                    className={cn(
+                      'grid gap-1 rounded-[6px] px-3 py-2 text-left transition hover:bg-(--chrome-action-hover)',
+                      selectedId === endpoint.id && 'bg-(--ui-bg-tertiary)'
+                    )}
+                    disabled={controlsLocked}
+                    key={endpoint.id}
+                    onClick={() => resetToEndpoint(endpoint)}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="min-w-0 truncate text-[length:var(--conversation-text-font-size)] font-medium text-(--ui-text-primary)">
+                        {endpoint.name}
+                      </span>
+                      {endpoint.is_current && (
+                        <Pill className="text-(--ui-text-primary)" tone="primary">
+                          <Check className="size-3" />
+                          {copy.currentBadge}
+                        </Pill>
+                      )}
+                      {selectedId === endpoint.id && (
+                        <span className="text-[0.65rem] text-(--ui-text-secondary)">{copy.selectedForEditing}</span>
+                      )}
                     </span>
-                    {endpoint.is_current && (
-                      <Pill className="text-(--ui-text-primary)" tone="primary">
-                        <Check className="size-3" />
-                        {copy.currentBadge}
-                      </Pill>
-                    )}
-                    {selectedId === endpoint.id && (
-                      <span className="text-[0.65rem] text-(--ui-text-secondary)">{copy.selectedForEditing}</span>
-                    )}
-                  </span>
-                  <span className="truncate text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
-                    {endpoint.base_url}
-                  </span>
-                  <span className="flex flex-wrap gap-x-3 gap-y-1 text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
-                    <span>{endpoint.model}</span>
-                    {endpoint.has_api_key && <span>{copy.savedKey}</span>}
-                  </span>
-                </RowButton>
-              ))}
+                    <span className="truncate text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
+                      {endpoint.base_url}
+                    </span>
+                    <span className="flex flex-wrap gap-x-3 gap-y-1 text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
+                      <span>{endpoint.model}</span>
+                      {endpoint.login_username ? <span>{endpoint.login_username}</span> : null}
+                      {endpoint.has_api_key && !expiry.expired && !expiry.unknown ? <span>{copy.savedKey}</span> : null}
+                      {expiry.expired ? <span>{copy.sessionExpired}</span> : null}
+                      {expiry.unknown ? <span>{copy.sessionUnknown}</span> : null}
+                      {expiry.until ? <span>{copy.sessionUntil(expiry.until)}</span> : null}
+                    </span>
+                  </RowButton>
+                )
+              })}
             </div>
           </section>
         )}
@@ -460,6 +609,45 @@ export function AiConnectionSettings({ onConfigSaved, onMainModelChanged }: AiCo
               <span className="text-[length:var(--conversation-caption-font-size)] font-normal leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
                 {form.id ? copy.keyExistingHelp : copy.keyNewHelp}
               </span>
+            </label>
+
+            <label className="grid gap-1.5 text-[length:var(--conversation-caption-font-size)] font-medium text-(--ui-text-secondary)">
+              {copy.accountLabel}
+              <Input
+                aria-label={copy.accountAriaLabel}
+                autoComplete="username"
+                disabled={controlsLocked}
+                inputMode="email"
+                onChange={event => updateForm({ email: event.target.value })}
+                placeholder={copy.accountPlaceholder}
+                type="email"
+                value={form.email}
+              />
+            </label>
+
+            <label className="grid gap-1.5 text-[length:var(--conversation-caption-font-size)] font-medium text-(--ui-text-secondary)">
+              {copy.passwordLabel}
+              <Input
+                aria-describedby="ai-connection-login-help"
+                aria-label={copy.passwordAriaLabel}
+                autoComplete="current-password"
+                disabled={controlsLocked}
+                onChange={event => updateForm({ password: event.target.value })}
+                placeholder={copy.passwordPlaceholder}
+                type="password"
+                value={form.password}
+              />
+              <span
+                className="text-[length:var(--conversation-caption-font-size)] font-normal leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)"
+                id="ai-connection-login-help"
+              >
+                {copy.loginHelp}
+              </span>
+              {editingExpiry.expired || editingExpiry.unknown ? (
+                <span className="text-[length:var(--conversation-caption-font-size)] font-normal leading-(--conversation-caption-line-height) text-destructive">
+                  {editingExpiry.expired ? copy.sessionExpired : copy.sessionUnknown}
+                </span>
+              ) : null}
             </label>
 
             <label className="grid gap-1.5 text-[length:var(--conversation-caption-font-size)] font-medium text-(--ui-text-secondary)">
