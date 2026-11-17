@@ -114,8 +114,9 @@ def _remove_mcp_server(name: str) -> bool:
     if name not in servers:
         return False
     del servers[name]
-    if not servers:
-        config.pop("mcp_servers", None)
+    # Keep ``{}`` when the last server goes. An absent key is "inherit managed
+    # servers", which would resurrect a harness server the user just removed.
+    config["mcp_servers"] = servers
     save_config(config)
     return True
 
@@ -124,7 +125,9 @@ def _replace_mcp_servers(servers: Dict[str, dict]) -> Tuple[bool, List[str]]:
     """Replace the WHOLE ``mcp_servers`` map in config.yaml.
 
     Every entry is validated up front; any suspicious entry rejects the whole save (``(False,
-    issues)``) so a bad paste can't be partially applied. An empty map removes the key entirely.
+    issues)``) so a bad paste can't be partially applied. An empty map is stored as ``{}``:
+    deleting the key would look like "unset" and the managed overlay would put harness
+    servers back.
     """
     issues: List[str] = []
     for name, cfg in servers.items():
@@ -135,10 +138,7 @@ def _replace_mcp_servers(servers: Dict[str, dict]) -> Tuple[bool, List[str]]:
     if issues:
         return False, issues
     config = load_config()
-    if servers:
-        config["mcp_servers"] = dict(servers)
-    else:
-        config.pop("mcp_servers", None)
+    config["mcp_servers"] = dict(servers)
     save_config(config)
     return True, []
 

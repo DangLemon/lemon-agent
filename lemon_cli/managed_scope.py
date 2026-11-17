@@ -113,8 +113,10 @@ def apply_managed_overlay(config: dict) -> dict:
     ``${VAR}`` refs in the managed config expand against the PROCESS env only, so a user cannot
     shadow a managed literal via a ref they control; a bare root ``model: x/y`` string is promoted
     to ``model.default`` so it can't clobber the dict shape callers expect; managed values
-    deep-merge ON TOP per leaf while sibling keys stay user-controlled. Fail-open: returns
-    ``config`` unchanged when no scope is present or on any error. Mutates and returns ``config``.
+    deep-merge ON TOP per leaf while sibling keys stay user-controlled. A user
+    ``mcp_servers`` map is the exception and replaces the managed map wholesale.
+    Fail-open: returns ``config`` unchanged when no scope is present or on any error.
+    Mutates and returns ``config``.
     """
     try:
         managed = load_managed_config()
@@ -129,10 +131,36 @@ def apply_managed_overlay(config: dict) -> dict:
         if isinstance(managed_expanded.get("model"), str):
             managed_expanded = dict(managed_expanded)
             managed_expanded["model"] = {"default": managed_expanded["model"]}
-        return _deep_merge(config, managed_expanded)
+        user_servers = take_user_mcp_servers(config)
+        merged = preserve_user_mcp_servers(_deep_merge(config, managed_expanded), user_servers)
+        return merged
     except Exception:  # noqa: BLE001 — overlay must never break a caller
         logger.warning("managed scope: failed to apply config overlay", exc_info=True)
         return config
+
+
+def take_user_mcp_servers(source: dict) -> Optional[dict]:
+    """Copy a user ``mcp_servers`` map before a managed deep-merge can alias it.
+
+    ``None`` when the key is absent: that load still inherits managed servers.
+    An empty dict is a real map — the user removed every server.
+    """
+    if not isinstance(source, dict):
+        return None
+    servers = source.get("mcp_servers")
+    return copy.deepcopy(servers) if isinstance(servers, dict) else None
+
+
+def preserve_user_mcp_servers(merged: dict, user_servers: Optional[dict]) -> dict:
+    """Put *user_servers* back after the managed leaf merge.
+
+    A saved desktop mcp.json name replaces that managed server object, a new
+    name is kept, and a removed name is not put back. Other pinned sections
+    stay managed-wins. ``None`` leaves the merged map alone.
+    """
+    if isinstance(merged, dict) and isinstance(user_servers, dict):
+        merged["mcp_servers"] = user_servers
+    return merged
 
 
 def _parse_env(f) -> Dict[str, str]:

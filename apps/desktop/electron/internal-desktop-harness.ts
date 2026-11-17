@@ -9,7 +9,7 @@ const LEGACY_HARNESS_RESOURCE_FILENAME = 'internal-desktop-harness.json'
 const HARNESS_SEED_FILENAME = 'lemon-ai-harness-seed.py'
 const LEGACY_HARNESS_SEED_FILENAME = 'internal-desktop-harness-seed.py'
 const HARNESS_SCHEMA_VERSION = 1
-const UI_KEYS = ['agents', 'cron', 'messaging', 'terminal', 'webhooks'] as const
+const UI_KEYS = ['agents', 'bots', 'cron', 'messaging', 'terminal', 'webhooks'] as const
 const SOURCE_REPOSITORY_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?\/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?$/
 const SECRET_KEY_RE = /(^|[_-])(api[_-]?key|authorization|bearer|client[_-]?secret|password|secret|token)([_-]|$)|^(api[_-]?key|authorization|bearer|client[_-]?secret|password|secret|token)$/i
 const SECRET_VALUE_RE = /\b(?:bearer\s+(?!\$\{)[a-z0-9._~+/=-]{12,}|sk-[a-z0-9_-]{12,}|[a-z0-9_]*token[a-z0-9_]*\s*[:=]\s*[a-z0-9._~+/=-]{12,})\b/i

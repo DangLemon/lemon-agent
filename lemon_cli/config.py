@@ -2269,7 +2269,8 @@ def _merge_managed_overlay(expanded: Dict[str, Any]) -> Tuple[Dict[str, Any], An
     Managed wins at the leaf and is applied AFTER user expansion so a user ``${VAR}`` cannot shadow
     a managed literal: managed values expand only against the process environment. This
     deliberately inverts the usual env-over-config precedence for the keys the managed layer pins
-    (docs/design/managed-scope.md §4.1)."""
+    (docs/design/managed-scope.md §4.1). ``mcp_servers`` is the exception: a user map replaces
+    that section wholesale so a desktop mcp.json save is not deep-merged back to harness values."""
     managed_config = managed_scope.load_managed_config()
     if not managed_config:
         return expanded, managed_config
@@ -2279,7 +2280,12 @@ def _merge_managed_overlay(expanded: Dict[str, Any]) -> Tuple[Dict[str, Any], An
     if isinstance(managed_normalized.get("model"), str):
         managed_normalized = dict(managed_normalized)
         managed_normalized["model"] = {"default": managed_normalized["model"]}
-    return _deep_merge(expanded, _expand_env_vars(managed_normalized)), managed_config
+    user_servers = managed_scope.take_user_mcp_servers(expanded)
+    merged = _deep_merge(expanded, _expand_env_vars(managed_normalized))
+    # mcp.json saves the whole map. Restore it after the leaf merge so a user
+    # server object is not recombined with harness oauth/url/enabled, and a
+    # removed name is not re-injected. Other pinned keys stay managed-wins.
+    return managed_scope.preserve_user_mcp_servers(merged, user_servers), managed_config
 
 
 def _load_config_impl(*, want_deepcopy: bool) -> Dict[str, Any]:
@@ -2387,8 +2393,17 @@ _FALLBACK_COMMENT = """
 
 def _strip_managed_keys_for_save(config: Dict[str, Any]) -> Dict[str, Any]:
     """Drop every leaf the managed layer pins (bulk safety net; single-key ``config set``
-    hard-rejects) and tell the user what was not saved."""
-    managed_keys = managed_scope.managed_config_keys()
+    hard-rejects) and tell the user what was not saved.
+
+    ``mcp_servers`` is excluded: the desktop editor persists that map as the
+    authority, and stripping its leaves would drop url/enabled/oauth edits so
+    the next overlay could resurrect removed harness servers. Model, providers,
+    and every other pinned key are still stripped.
+    """
+    managed_keys = {
+        key for key in managed_scope.managed_config_keys()
+        if key != "mcp_servers" and not key.startswith("mcp_servers.")
+    }
     if not managed_keys:
         return config
     config, _stripped = _strip_dotted_keys(copy.deepcopy(config), managed_keys)

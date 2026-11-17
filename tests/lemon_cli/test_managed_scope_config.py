@@ -101,3 +101,173 @@ def test_managed_bare_string_model_flattens_to_default_on_load(homes):
     _write(managed / "config.yaml", "model: managed/bare\n")
     cfg = load_config()
     assert cfg_get(cfg, "model", "default") == "managed/bare"
+
+
+def test_user_mcp_server_map_replaces_managed_server_on_load(homes):
+    """A desktop mcp.json save wins the whole server map.
+
+    The saved object replaces that managed server (a leaf merge must not put
+    harness fields back), a new name is kept, and a harness name left out of
+    the save stays gone — including when the save clears the map. Pinned keys
+    outside mcp_servers, such as model.default, still lose to the managed layer
+    and are not written into the user file.
+    """
+    from lemon_cli.config import load_config
+    from lemon_cli.mcp_config import _replace_mcp_servers
+
+    home, managed = homes
+    _write(
+        home / "config.yaml",
+        """
+        display:
+          skin: user-skin
+        model:
+          default: user/model
+        """,
+    )
+    _write(
+        managed / "config.yaml",
+        """
+        model:
+          default: managed/model
+        mcp_servers:
+          harness-ads:
+            url: https://managed.example/mcp
+            enabled: true
+            auth: oauth
+            region: managed-pin
+            oauth:
+              client_id: managed-oauth-client
+          harness-search:
+            url: https://managed.example/search
+            enabled: true
+        """,
+    )
+
+    before = load_config()
+    assert before["model"]["default"] == "managed/model"
+    assert set(before["mcp_servers"]) == {"harness-ads", "harness-search"}
+    assert before["mcp_servers"]["harness-ads"]["region"] == "managed-pin"
+
+    saved = {
+        "harness-ads": {
+            "url": "https://user.example/mcp",
+            "enabled": False,
+            "auth": "oauth",
+            "oauth": {"client_id": "user-oauth-client"},
+        },
+        "user-notes": {"url": "https://user.example/notes"},
+    }
+    ok, issues = _replace_mcp_servers(saved)
+    assert ok, issues
+
+    loaded = load_config()
+    ads = loaded["mcp_servers"]["harness-ads"]
+    assert ads["url"] == "https://user.example/mcp"
+    assert ads["enabled"] is False
+    assert ads["oauth"] == {"client_id": "user-oauth-client"}
+    assert "region" not in ads
+    assert loaded["mcp_servers"]["user-notes"]["url"] == "https://user.example/notes"
+    assert "harness-search" not in loaded["mcp_servers"]
+    assert loaded["model"]["default"] == "managed/model"
+    assert loaded["display"]["skin"] == "user-skin"
+
+    raw = (home / "config.yaml").read_text(encoding="utf-8")
+    assert "managed/model" not in raw
+    assert "managed-oauth-client" not in raw
+    assert "user-skin" in raw
+    assert "harness-search" not in raw
+    assert "https://user.example/notes" in raw
+
+    ok, issues = _replace_mcp_servers({})
+    assert ok, issues
+    cleared = load_config()
+    assert cleared.get("mcp_servers") == {}
+    assert "harness-ads" not in cleared.get("mcp_servers", {})
+    assert "harness-search" not in cleared.get("mcp_servers", {})
+    assert cleared["model"]["default"] == "managed/model"
+
+
+def test_user_mcp_server_map_replaces_managed_server_on_load(homes):
+    """A desktop mcp.json save wins the whole server map.
+
+    The saved object replaces that managed server (a leaf merge must not put
+    harness fields back), a new name is kept, and a harness name left out of
+    the save stays gone — including when the save clears the map. Pinned keys
+    outside mcp_servers, such as model.default, still lose to the managed layer
+    and are not written into the user file.
+    """
+    from lemon_cli.config import load_config
+    from lemon_cli.mcp_config import _replace_mcp_servers
+
+    home, managed = homes
+    _write(
+        home / "config.yaml",
+        """
+        display:
+          skin: user-skin
+        model:
+          default: user/model
+        """,
+    )
+    _write(
+        managed / "config.yaml",
+        """
+        model:
+          default: managed/model
+        mcp_servers:
+          harness-ads:
+            url: https://managed.example/mcp
+            enabled: true
+            auth: oauth
+            region: managed-pin
+            oauth:
+              client_id: managed-oauth-client
+          harness-search:
+            url: https://managed.example/search
+            enabled: true
+        """,
+    )
+
+    before = load_config()
+    assert before["model"]["default"] == "managed/model"
+    assert set(before["mcp_servers"]) == {"harness-ads", "harness-search"}
+    assert before["mcp_servers"]["harness-ads"]["region"] == "managed-pin"
+
+    saved = {
+        "harness-ads": {
+            "url": "https://user.example/mcp",
+            "enabled": False,
+            "auth": "oauth",
+            "oauth": {"client_id": "user-oauth-client"},
+        },
+        "user-notes": {"url": "https://user.example/notes"},
+    }
+    ok, issues = _replace_mcp_servers(saved)
+    assert ok, issues
+
+    loaded = load_config()
+    ads = loaded["mcp_servers"]["harness-ads"]
+    assert ads["url"] == "https://user.example/mcp"
+    assert ads["enabled"] is False
+    assert ads["oauth"] == {"client_id": "user-oauth-client"}
+    assert "region" not in ads
+    assert loaded["mcp_servers"]["user-notes"]["url"] == "https://user.example/notes"
+    assert "harness-search" not in loaded["mcp_servers"]
+    assert loaded["model"]["default"] == "managed/model"
+    assert loaded["display"]["skin"] == "user-skin"
+
+    raw = (home / "config.yaml").read_text(encoding="utf-8")
+    assert "managed/model" not in raw
+    assert "managed-oauth-client" not in raw
+    assert "user-skin" in raw
+    assert "harness-search" not in raw
+    assert "https://user.example/notes" in raw
+
+    ok, issues = _replace_mcp_servers({})
+    assert ok, issues
+    cleared = load_config()
+    assert cleared.get("mcp_servers") == {}
+    assert "harness-ads" not in cleared.get("mcp_servers", {})
+    assert "harness-search" not in cleared.get("mcp_servers", {})
+    assert cleared["model"]["default"] == "managed/model"
