@@ -422,3 +422,20 @@ Long-form background lives in `website/docs/developer-guide/` (agent-loop, promp
 context-compression-and-caching, gateway-internals, tools-runtime, plugins/, cron-internals,
 session-storage, ...). Workflow rules (PR/issue/review/salvage process) live in the
 `lemon-agent-dev` skill, not here.
+
+## Learned User Preferences
+
+- Reply in Vietnamese. Keep English for code, file names, identifiers, and commands.
+- Carry desktop work through a real app build and UAT on the affected screen. Do not stop after unit tests and wait to be told to continue.
+- When they ask to sign in themselves, reopen the desktop app on the real `~/.lemon-ai` profile. Do not point `LEMON_HOME` at a temp directory for that launch.
+- After they say two review cycles are enough, do not open another review unless they ask.
+- Keep the Kết nối `mcp.json` editor editable in harness mode, and make saved user MCP changes stick over the packaged servers, including disables and deletions. When the packaged harness itself is rejected or wrong, edit the installed `lemon-ai-harness.json` directly.
+
+## Learned Workspace Facts
+
+- This checkout is the Lemon AI fork at `/Users/dang/Documents/ChatGPT/lemon-hermes/hermes-agent`, remote `https://github.com/DangLemon/lemon-agent.git`. Git commits keep the existing local author. The socom/Vercel author `tech@lemondigital.store` applies to the socom repo only, and git config must not be changed.
+- Company AI gateway is `https://agent.lemondigital.vn`. The OpenAI-compatible base is `https://agent.lemondigital.vn/v1`. Sign-in is `POST /v1/gateway-login` on that host. `http://127.0.0.1:5173/v1` is the old desktop seed / Vite URL.
+- Provider login follows private repo `Lemon-Digital-Tech/goclaw-lemon`, checked out at `/Users/dang/Documents/goclawlemon/goclaw-lemon`. Use `gh` for that repo; the GitHub MCP client returns 404.
+- Desktop company provider seed is `apps/desktop/lemon-ai-desktop.config.json` (`lemon-ai-company`, “AI công ty”). The seed adds that provider only when the id is missing, so an existing profile `base_url` stays. Preconfigured MCP is a harness overlay from that file’s `managedConfig`, baked into installers as `lemon-ai-harness.json` only on `lemon-v*` tag builds. Electron rejects the whole harness when `ui` has a key outside `UI_KEYS`. Desktop 0.17.24 shipped `ui.bots`, so preconfigured MCP did not load; the Windows hotfix removes only `ui.bots` from the installed file and must not round-trip the JSON.
+- In source, a saved user `mcp_servers` map replaces the managed block on load: the user object wins, new servers are kept, `enabled: false` stays, and deleted harness servers stay deleted. An absent `mcp_servers` key still inherits the harness servers. Installed Desktop 0.17.24 does not include the editable editor until a newer build.
+- The live user profile is `~/.lemon-ai`. The installed app’s Python checkout is `~/.lemon-ai/lemon-agent`. Desktop dev is Vite on `127.0.0.1:5174` plus Electron from `apps/desktop`. Unreleased desktop UI is launched from `apps/desktop` with `LEMON_DESKTOP_LEMON_ROOT` set to this repo and `LEMON_HOME` unset. Python tests go through `scripts/run_tests.sh`. Desktop unit tests use `npx vitest run` in `apps/desktop`.

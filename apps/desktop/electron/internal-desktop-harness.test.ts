@@ -22,6 +22,7 @@ const validResource = {
   profile: 'internal',
   ui: {
     agents: false,
+    bots: true,
     cron: true,
     messaging: false,
     terminal: true,
@@ -242,6 +243,33 @@ test('ordinary development does not activate stale appRoot build resource withou
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true })
   }
+})
+
+test('validateInternalDesktopHarnessResource keeps managed MCP when the shipped bots flag is set', () => {
+  const resource = validateInternalDesktopHarnessResource({
+    ...validResource,
+    ui: { ...validResource.ui, bots: true },
+    managedConfig: {
+      mcp_servers: {
+        'tiktok-ads': { url: 'https://mcp.example/tiktok', auth: 'oauth' },
+        algolia: { url: 'https://mcp.example/algolia', auth: 'oauth', enabled: false },
+        'amazon-ads': { url: 'https://mcp.example/amazon', auth: 'oauth' }
+      }
+    }
+  })
+
+  assert.equal(resource.ui.bots, true)
+  assert.deepEqual(Object.keys(resource.managedConfig?.mcp_servers ?? {}).sort(), ['algolia', 'amazon-ads', 'tiktok-ads'])
+})
+
+test('validateInternalDesktopHarnessResource still rejects an unknown ui flag', () => {
+  assert.throws(
+    () => validateInternalDesktopHarnessResource({
+      ...validResource,
+      ui: { ...validResource.ui, extra: true }
+    }),
+    /ui\.extra is not part of the frozen schema/
+  )
 })
 
 test('validateInternalDesktopHarnessResource allows stdio MCP commands and Authorization env refs', () => {

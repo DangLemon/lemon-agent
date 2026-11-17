@@ -1195,12 +1195,13 @@ export function SkillsView({
               // it is the ACTIVE gateway's socket — for a scope pinned to a
               // different backend that RPC would hot-reload the wrong
               // machine's MCP servers, so it is withheld (config edits still
-              // apply on that backend's next session).
+              // apply on that backend's next session). Harness mode stays
+              // editable: a saved mcp.json map replaces the managed server
+              // object on the next load, including removals.
               <McpTab
                 gateway={crossBackendScope ? null : gateway}
                 key={`mcp-${scopeKey}`}
                 profile={scopeProfile}
-                readOnly={harnessMode}
               />
             ) : (skillsFailed || toolsetsFailed) && (!skills || !toolsets) ? (
               <PanelEmpty

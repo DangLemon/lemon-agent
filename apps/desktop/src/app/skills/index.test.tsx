@@ -87,6 +87,30 @@ vi.mock('react-router', async importOriginal => ({
   useNavigate: () => navigateSpy
 }))
 
+vi.mock('./mcp-tab', async () => {
+  const React = await import('react')
+
+  return {
+    McpTab: (props: { readOnly?: boolean }) =>
+      React.createElement('div', {
+        'data-readonly': props.readOnly === true ? 'true' : 'false',
+        'data-testid': 'mcp-tab'
+      })
+  }
+})
+
+vi.mock('./mcp-tab', async () => {
+  const React = await import('react')
+
+  return {
+    McpTab: (props: { readOnly?: boolean }) =>
+      React.createElement('div', {
+        'data-readonly': props.readOnly === true ? 'true' : 'false',
+        'data-testid': 'mcp-tab'
+      })
+  }
+})
+
 function toolset(overrides: Record<string, unknown> = {}) {
   return {
     name: 'web',
@@ -202,6 +226,24 @@ describe('SkillsView toolset management', { timeout: 60_000 }, () => {
     })
     await screen.findByRole('switch', { name: 'Turn Web Search toolset off' })
     expect(screen.queryByRole('button', { name: 'Create skill' })).toBeNull()
+  })
+
+  it('does not force the MCP editor read-only in harness mode', async () => {
+    setInternalCompanyCapabilitiesForTest(initialInternalCompanyCapabilities(true))
+
+    const { SkillsView } = await import('./index')
+    await act(async () => {
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={['/skills?tab=mcp']}>
+            <SkillsView />
+          </MemoryRouter>
+        </QueryClientProvider>
+      )
+    })
+
+    const editor = await screen.findByTestId('mcp-tab')
+    expect(editor.getAttribute('data-readonly')).toBe('false')
   })
 
   it('renders a switch for each toolset and toggles it off', async () => {
