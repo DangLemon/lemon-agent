@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RowButton } from '@/components/ui/row-button'
-import { useI18n, type Translations } from '@/i18n'
+import { type Translations, useI18n } from '@/i18n'
 import {
   captureCapabilityScope,
   getCustomEndpoints,
