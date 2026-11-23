@@ -271,12 +271,18 @@ describe('AiConnectionSettings', () => {
       name: 'Second AI'
     })
     expect(validateCustomEndpoint.mock.calls[0][0].id).toBeUndefined()
+    expect(await screen.findByRole('option', { name: 'next-model' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'company-fast' })).toBeTruthy()
+    expect((screen.getByLabelText('Model') as HTMLInputElement).value).toBe('next-model')
+
+    fireEvent.click(screen.getByRole('option', { name: 'company-fast' }))
+    expect((screen.getByLabelText('Model') as HTMLInputElement).value).toBe('company-fast')
 
     fireEvent.click(screen.getByRole('button', { name: 'Save and use' }))
     await waitFor(() => expect(saveCustomEndpoint).toHaveBeenCalled())
     expect(saveCustomEndpoint.mock.calls[0][0]).toMatchObject({
       login_password: 'secret-password',
-      model: '',
+      model: 'company-fast',
       name: 'Second AI'
     })
     expect(saveCustomEndpoint.mock.calls[0][0].id).toBeUndefined()

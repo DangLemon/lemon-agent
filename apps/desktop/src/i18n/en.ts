@@ -487,7 +487,7 @@ export const en: Translations = {
       saved: 'Saved. New conversations will use this connection.',
       invalidUrl: 'Enter a full server address starting with http:// or https://.',
       requiredFields: 'Fill in the connection name, server address, and model.',
-      validationReachable: 'The AI service answered the model list request.',
+      validationReachable: 'Signed in, but the service did not list any models. Type a model name if you know one.',
       validationModels: count =>
         `Found ${count} ${count === 1 ? 'model' : 'models'}. You can choose one or type a model name manually.`,
       validationFailed: 'Could not reach the AI service. Check the address and key, then try again.'

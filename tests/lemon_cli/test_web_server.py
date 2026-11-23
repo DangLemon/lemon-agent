@@ -5485,6 +5485,121 @@ class TestValidateProviderCredential:
         assert "wrong" not in rejected.text
         assert revoked == [("https://llm.example.com/v1", "sess-token")]
 
+    def test_email_login_on_a_host_only_url_lists_v1_models(self, monkeypatch):
+        """A host without /v1 still signs in at /v1 and must list /v1/models, not the site root."""
+        monkeypatch.setattr(
+            config_env,
+            "exchange_gateway_login",
+            lambda base_url, email, password: GatewayLoginResult("sess-token", "2026-11-23T00:00:00Z"),
+        )
+        monkeypatch.setattr(config_env, "revoke_gateway_login", lambda *args, **kwargs: None)
+        captured = {}
+
+        class _Resp:
+            status_code = 200
+            is_success = True
+
+            def json(self):
+                return {"object": "list", "data": [{"id": "alpha"}, {"id": "beta"}]}
+
+        class _Client:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+            async def get(self, url, *args, headers=None, **kwargs):
+                captured["url"] = url
+                return _Resp()
+
+        monkeypatch.setattr("httpx.AsyncClient", _Client)
+        response = self.client.post(
+            "/api/providers/custom-endpoints/validate",
+            json={
+                "name": "Company",
+                "base_url": "https://agent.example.com",
+                "model": "",
+                "login_username": "lan@company.com",
+                "login_password": "secret-password",
+            },
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["ok"] is True
+        assert response.json()["models"] == ["alpha", "beta"]
+        assert captured["url"] == "https://agent.example.com/v1/models"
+
+    def test_email_login_does_not_treat_html_as_an_empty_model_list(self, monkeypatch):
+        monkeypatch.setattr(
+            config_env,
+            "exchange_gateway_login",
+            lambda base_url, email, password: GatewayLoginResult("sess-token", "2026-11-23T00:00:00Z"),
+        )
+        monkeypatch.setattr(config_env, "revoke_gateway_login", lambda *args, **kwargs: None)
+
+        class _Resp:
+            status_code = 200
+            is_success = True
+            text = "<!DOCTYPE html><html></html>"
+
+            def json(self):
+                raise ValueError("not json")
+
+        class _Client:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+            async def get(self, url, *args, **kwargs):
+                return _Resp()
+
+        monkeypatch.setattr("httpx.AsyncClient", _Client)
+        response = self.client.post(
+            "/api/providers/custom-endpoints/validate",
+            json={
+                "name": "Company",
+                "base_url": "https://agent.example.com",
+                "model": "",
+                "login_username": "lan@company.com",
+                "login_password": "secret-password",
+            },
+        )
+        body = response.json()
+        assert body["ok"] is False
+        assert body["models"] == []
+        assert "model list" in body["message"]
+
+    def test_email_login_saves_the_v1_base_when_the_host_has_no_path(self, monkeypatch):
+        monkeypatch.setattr(
+            config_env,
+            "exchange_gateway_login",
+            lambda base_url, email, password: GatewayLoginResult("sess-token", "2026-11-23T00:00:00Z"),
+        )
+        monkeypatch.setattr(config_env, "revoke_gateway_login", lambda *args, **kwargs: None)
+        monkeypatch.setattr(config_env, "list_openai_model_ids", lambda base_url, api_key: ["alpha"])
+        saved = self.client.post(
+            "/api/providers/custom-endpoints",
+            json={
+                "name": "Company",
+                "base_url": "https://agent.example.com",
+                "model": "",
+                "login_username": "lan@company.com",
+                "login_password": "secret-password",
+            },
+        )
+        assert saved.status_code == 200, saved.text
+        row = next(item for item in saved.json()["endpoints"] if item["id"] == "company")
+        assert row["base_url"] == "https://agent.example.com/v1"
+        assert row["model"] == "alpha"
+
 
 class TestDesktopCronTicker:
     """The dashboard backend fires cron jobs itself only when desktop-spawned."""

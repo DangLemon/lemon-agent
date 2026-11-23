@@ -604,7 +604,7 @@ export const vi = defineLocale({
       saved: 'Đã lưu. Cuộc trò chuyện mới sẽ dùng kết nối này.',
       invalidUrl: 'Nhập đầy đủ địa chỉ máy chủ bắt đầu bằng http:// hoặc https://.',
       requiredFields: 'Nhập tên kết nối, địa chỉ máy chủ và model.',
-      validationReachable: 'Dịch vụ AI đã trả lời yêu cầu danh sách model.',
+      validationReachable: 'Đăng nhập được, nhưng dịch vụ không trả về model nào. Nhập tên model nếu bạn biết.',
       validationModels: count => `Tìm thấy ${count} model. Bạn có thể chọn một model hoặc nhập thủ công.`,
       validationFailed: 'Không kết nối được tới dịch vụ AI. Kiểm tra địa chỉ và khóa rồi thử lại.'
     }
