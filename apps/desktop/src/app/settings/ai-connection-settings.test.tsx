@@ -225,7 +225,7 @@ describe('AiConnectionSettings', () => {
     expect(await screen.findByText('Saved. New conversations will use this connection.')).toBeTruthy()
   })
 
-  it('sends the gateway password only on save and keeps it out of the connection test', async () => {
+  it('sends the gateway password on the connection test and on save', async () => {
     await renderAiConnectionSettings()
 
     fireEvent.change(await screen.findByLabelText('Email'), { target: { value: '  Lan.Nguyen@Company.com  ' } })
@@ -233,8 +233,8 @@ describe('AiConnectionSettings', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Test connection' }))
 
     await waitFor(() => expect(validateCustomEndpoint).toHaveBeenCalled())
-    expect(validateCustomEndpoint.mock.calls[0][0]).not.toHaveProperty('login_password')
-    expect(JSON.stringify(validateCustomEndpoint.mock.calls[0][0])).not.toContain('secret-password')
+    expect(validateCustomEndpoint.mock.calls[0][0].login_password).toBe('secret-password')
+    expect(validateCustomEndpoint.mock.calls[0][0].login_username).toBe('Lan.Nguyen@Company.com')
 
     fireEvent.click(screen.getByRole('button', { name: 'Save and use' }))
 
@@ -243,6 +243,43 @@ describe('AiConnectionSettings', () => {
     expect(payload.login_username).toBe('Lan.Nguyen@Company.com')
     expect(payload.login_password).toBe('secret-password')
     expect(payload).not.toHaveProperty('password')
+  })
+
+  it('lets a new email sign-in save before a model has been typed', async () => {
+    await renderAiConnectionSettings()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add connection' }))
+
+    const saveButton = screen.getByRole('button', { name: 'Save and use' }) as HTMLButtonElement
+    expect(saveButton.disabled).toBe(true)
+
+    fireEvent.change(screen.getByLabelText('Connection name'), { target: { value: 'Second AI' } })
+    fireEvent.change(screen.getByLabelText('Server address'), { target: { value: 'https://llm.example.com/v1' } })
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'lan@company.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret-password' } })
+
+    expect((screen.getByLabelText('Model') as HTMLInputElement).value).toBe('')
+    expect((screen.getByRole('button', { name: 'Save and use' }) as HTMLButtonElement).disabled).toBe(false)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Test connection' }))
+    await waitFor(() => expect(validateCustomEndpoint).toHaveBeenCalled())
+    expect(validateCustomEndpoint.mock.calls[0][0]).toMatchObject({
+      base_url: 'https://llm.example.com/v1',
+      login_password: 'secret-password',
+      login_username: 'lan@company.com',
+      model: '',
+      name: 'Second AI'
+    })
+    expect(validateCustomEndpoint.mock.calls[0][0].id).toBeUndefined()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save and use' }))
+    await waitFor(() => expect(saveCustomEndpoint).toHaveBeenCalled())
+    expect(saveCustomEndpoint.mock.calls[0][0]).toMatchObject({
+      login_password: 'secret-password',
+      model: '',
+      name: 'Second AI'
+    })
+    expect(saveCustomEndpoint.mock.calls[0][0].id).toBeUndefined()
   })
 
   it('asks for an email before saving a password', async () => {
@@ -265,6 +302,10 @@ describe('AiConnectionSettings', () => {
 
     expect(await screen.findByText('Sign-in requires https. Localhost may use http.')).toBeTruthy()
     expect(saveCustomEndpoint).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Test connection' }))
+    expect(await screen.findByText('Sign-in requires https. Localhost may use http.')).toBeTruthy()
+    expect(validateCustomEndpoint).not.toHaveBeenCalled()
 
     fireEvent.change(screen.getByLabelText('Server address'), { target: { value: 'https://llm.example.com/v1/models' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save and use' }))

@@ -601,7 +601,32 @@ def _login_password_text(body: CustomEndpointUpdate) -> str:
     return secret.get_secret_value()
 
 
-def _require_custom_endpoint_fields(body: CustomEndpointUpdate) -> Tuple[str, str, str]:
+def list_openai_model_ids(base_url: str, api_key: str) -> List[str]:
+    """Model ids from ``GET {base}/models`` using a bearer from gateway login.
+
+    A rejected or unreachable catalogue is ``GatewayLoginError`` so the caller
+    can revoke the session it just minted. An empty list is a real answer.
+    """
+    url = (base_url or "").strip().rstrip("/") + "/models"
+    headers = {"Accept": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    try:
+        with httpx.Client(timeout=8.0, follow_redirects=False) as client:
+            response = client.get(url, headers=headers)
+    except Exception:
+        raise GatewayLoginError(502, SIGN_IN_UNREACHABLE) from None
+    status = getattr(response, "status_code", 0)
+    if status in (401, 403):
+        raise GatewayLoginError(401, SIGN_IN_REJECTED)
+    if not getattr(response, "is_success", 200 <= status < 300):
+        raise GatewayLoginError(502, SIGN_IN_UNREACHABLE)
+    return _parse_model_ids(response)
+
+
+def _require_custom_endpoint_fields(
+    body: CustomEndpointUpdate, *, require_model: bool = True,
+) -> Tuple[str, str, str]:
     name = (body.name or "").strip()
     base_url = (body.base_url or "").strip().rstrip("/")
     model = (body.model or "").strip()
@@ -612,7 +637,7 @@ def _require_custom_endpoint_fields(body: CustomEndpointUpdate) -> Tuple[str, st
     parsed = urllib.parse.urlparse(base_url)
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
         raise HTTPException(status_code=400, detail="base_url must include scheme and host")
-    if not model:
+    if require_model and not model:
         raise HTTPException(status_code=400, detail="model required")
     return name, base_url, model
 
@@ -720,8 +745,9 @@ def upsert_custom_endpoint(body: CustomEndpointUpdate, profile: Optional[str] = 
     with http_failure("POST /api/providers/custom-endpoints failed", 500, detail="Failed to save custom endpoint"):
         with _config_profile_scope(profile):
             # Refuse an incomplete connection before the password leaves the process.
-            _require_custom_endpoint_fields(body)
+            # A new email sign-in may omit the model: the catalogue is read after login.
             password = _login_password_text(body)
+            _require_custom_endpoint_fields(body, require_model=not bool(password.strip()))
             minted: Optional[GatewayLoginResult] = None
             if password.strip():
                 email = (body.login_username or "").strip().lower()
@@ -736,6 +762,16 @@ def upsert_custom_endpoint(body: CustomEndpointUpdate, profile: Optional[str] = 
                     "login_username": email,
                     "login_password": None,
                 })
+                if not (body.model or "").strip():
+                    try:
+                        catalogue = list_openai_model_ids(body.base_url, minted.token)
+                    except GatewayLoginError as exc:
+                        revoke_gateway_login(body.base_url, minted.token)
+                        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from None
+                    if not catalogue:
+                        revoke_gateway_login(body.base_url, minted.token)
+                        raise HTTPException(status_code=400, detail="model required")
+                    body = body.model_copy(update={"model": catalogue[0], "models": catalogue})
             previous_key: Optional[str] = None
             env_var = ""
             if minted is not None:
@@ -840,7 +876,11 @@ def _custom_endpoint_validation_key(body: CustomEndpointUpdate, cfg: Dict[str, A
 
 @router.post("/api/providers/custom-endpoints/validate")
 async def validate_custom_endpoint(body: CustomEndpointUpdate, profile: Optional[str] = None):
-    """Probe a custom endpoint by calling its OpenAI-compatible /models URL."""
+    """Probe a custom endpoint by calling its OpenAI-compatible /models URL.
+
+    Email and password are exchanged for a bearer, used for that one probe,
+    then revoked. The probe must not leave a saved provider or a live session.
+    """
     import httpx
 
     base_url = (body.base_url or "").strip().rstrip("/")
@@ -848,24 +888,46 @@ async def validate_custom_endpoint(body: CustomEndpointUpdate, profile: Optional
         return {"ok": False, "reachable": True, "message": "Enter an endpoint URL first.", "models": []}
 
     url = base_url + "/models"
-    headers = {"Accept": "application/json"}
-    with _config_profile_scope(profile):
-        api_key = _custom_endpoint_validation_key(body, load_config())
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
-
+    minted: Optional[GatewayLoginResult] = None
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(8.0)) as client:
-            resp = await client.get(url, headers=headers)
-    except Exception:
-        return {"ok": False, "reachable": False, "message": f"Could not reach {url}.", "models": []}
+        password = _login_password_text(body)
+        if password.strip():
+            email = (body.login_username or "").strip().lower()
+            if not email:
+                return {"ok": False, "reachable": True, "message": "email required", "models": []}
+            try:
+                minted = await asyncio.to_thread(exchange_gateway_login, base_url, email, password)
+            except GatewayLoginError as exc:
+                return {
+                    "ok": False,
+                    "reachable": exc.detail != SIGN_IN_UNREACHABLE,
+                    "message": exc.detail,
+                    "models": [],
+                }
+            api_key = minted.token
+        else:
+            with _config_profile_scope(profile):
+                api_key = _custom_endpoint_validation_key(body, load_config())
 
-    if resp.status_code in (401, 403):
-        return {"ok": False, "reachable": True, "message": "The endpoint rejected the API key.", "models": []}
-    if not resp.is_success:
-        return {"ok": False, "reachable": True, "message": f"Endpoint returned HTTP {resp.status_code}.", "models": []}
+        headers = {"Accept": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
 
-    return {"ok": True, "reachable": True, "message": "", "models": _parse_model_ids(resp)}
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(8.0)) as client:
+                resp = await client.get(url, headers=headers)
+        except Exception:
+            return {"ok": False, "reachable": False, "message": f"Could not reach {url}.", "models": []}
+
+        if resp.status_code in (401, 403):
+            return {"ok": False, "reachable": True, "message": "The endpoint rejected the API key.", "models": []}
+        if not resp.is_success:
+            return {"ok": False, "reachable": True, "message": f"Endpoint returned HTTP {resp.status_code}.", "models": []}
+
+        return {"ok": True, "reachable": True, "message": "", "models": _parse_model_ids(resp)}
+    finally:
+        if minted is not None:
+            await asyncio.to_thread(revoke_gateway_login, base_url, minted.token)
 
 
 @router.post("/api/providers/validate")

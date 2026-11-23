@@ -1951,7 +1951,11 @@ class TestWebServerEndpoints:
 
     def test_custom_endpoint_save_exchanges_gateway_login_for_a_bearer_token(self, monkeypatch):
         """Email and password become a stored bearer token. The password is not kept."""
+        def fail_discovery(*_args, **_kwargs):
+            raise AssertionError("a typed model must not probe /models during save")
+
         revoked = []
+        monkeypatch.setattr(config_env, "list_openai_model_ids", fail_discovery)
         monkeypatch.setattr(
             config_env,
             "exchange_gateway_login",
@@ -1997,6 +2001,108 @@ class TestWebServerEndpoints:
         assert kept_row["login_username"] == "other.person@company.com"
         assert kept_row["login_expires_at"] == "2026-11-23T00:00:00Z"
         assert get_env_value(custom_endpoint_key_env("proxy")) == "sess-token"
+
+    def test_new_provider_email_login_saves_the_first_discovered_model(self, monkeypatch):
+        """A new connection with email and password and no model still persists a provider."""
+        created = self.client.post(
+            "/api/providers/custom-endpoints",
+            json={
+                "id": "proxy",
+                "name": "Proxy",
+                "base_url": "https://llm.example.com/v1",
+                "model": "m",
+                "api_key": "sk-old",
+            },
+        )
+        assert created.status_code == 200, created.text
+        monkeypatch.setattr(
+            config_env,
+            "exchange_gateway_login",
+            lambda base_url, email, password: GatewayLoginResult("sess-token", "2026-11-23T00:00:00Z"),
+        )
+        revoked = []
+        seen = []
+        monkeypatch.setattr(
+            config_env,
+            "revoke_gateway_login",
+            lambda base_url, token, client=None: revoked.append((base_url, token)),
+        )
+        monkeypatch.setattr(
+            config_env,
+            "list_openai_model_ids",
+            lambda base_url, api_key: seen.append((base_url, api_key)) or ["alpha", "beta"],
+        )
+
+        saved = self.client.post(
+            "/api/providers/custom-endpoints",
+            json={
+                "name": "Second AI",
+                "base_url": "https://llm.example.com/v1",
+                "model": "",
+                "login_username": " Lan@Company.com ",
+                "login_password": "secret-password",
+            },
+        )
+        assert saved.status_code == 200, saved.text
+        ids = {item["id"] for item in saved.json()["endpoints"]}
+        assert "proxy" in ids
+        row = next(item for item in saved.json()["endpoints"] if item["id"] == "second-ai")
+        assert row["model"] == "alpha"
+        assert "beta" in row["models"]
+        assert row["login_username"] == "lan@company.com"
+        assert get_env_value(custom_endpoint_key_env("second-ai")) == "sess-token"
+        assert get_env_value(custom_endpoint_key_env("proxy")) == "sk-old"
+        stored = yaml.safe_dump(load_config())
+        assert "secret-password" not in stored
+        assert "sess-token" not in stored
+        assert "secret-password" not in saved.text
+        assert seen == [("https://llm.example.com/v1", "sess-token")]
+        assert revoked == []
+
+    def test_new_provider_email_login_revokes_when_the_server_lists_no_models(self, monkeypatch):
+        calls = []
+        revoked = []
+        monkeypatch.setattr(
+            config_env,
+            "exchange_gateway_login",
+            lambda base_url, email, password: calls.append((base_url, email)) or GatewayLoginResult("sess-token", "2026-11-23T00:00:00Z"),
+        )
+        monkeypatch.setattr(
+            config_env,
+            "revoke_gateway_login",
+            lambda base_url, token, client=None: revoked.append((base_url, token)),
+        )
+        monkeypatch.setattr(config_env, "list_openai_model_ids", lambda base_url, api_key: [])
+
+        missing_model = self.client.post(
+            "/api/providers/custom-endpoints",
+            json={
+                "name": " ",
+                "base_url": "https://llm.example.com/v1",
+                "model": "",
+                "login_username": "lan@company.com",
+                "login_password": "secret-password",
+            },
+        )
+        assert missing_model.status_code == 400
+        assert calls == []
+
+        empty = self.client.post(
+            "/api/providers/custom-endpoints",
+            json={
+                "name": "Second AI",
+                "base_url": "https://llm.example.com/v1",
+                "model": "",
+                "login_username": "lan@company.com",
+                "login_password": "secret-password",
+            },
+        )
+        assert empty.status_code == 400, empty.text
+        assert "model required" in empty.text
+        assert "secret-password" not in empty.text
+        assert "second-ai" not in (load_config().get("providers") or {})
+        assert revoked == [("https://llm.example.com/v1", "sess-token")]
+        assert get_env_value(custom_endpoint_key_env("second-ai")) in (None, "")
 
     def test_custom_endpoint_save_keeps_a_rejected_gateway_login_unsaved(self, monkeypatch):
         def reject(base_url, email, password):
@@ -5301,6 +5407,83 @@ class TestValidateProviderCredential:
                 "Authorization": "Bearer local-secret",
             },
         }
+
+    def test_custom_endpoint_validation_signs_in_and_revokes_the_probe(self, monkeypatch):
+        """Test connection sends the password, probes /models with the bearer, and logs out."""
+        monkeypatch.setattr(
+            config_env,
+            "exchange_gateway_login",
+            lambda base_url, email, password: GatewayLoginResult("sess-token", "2026-11-23T00:00:00Z"),
+        )
+        revoked = []
+        monkeypatch.setattr(
+            config_env,
+            "revoke_gateway_login",
+            lambda base_url, token, client=None: revoked.append((base_url, token)),
+        )
+        captured = {}
+
+        class _Resp:
+            status_code = 200
+            is_success = True
+
+            def json(self):
+                return {"data": [{"id": "alpha"}, {"id": "beta"}]}
+
+        class _Client:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+            async def get(self, url, *args, headers=None, **kwargs):
+                captured["url"] = url
+                captured["headers"] = headers
+                return _Resp()
+
+        monkeypatch.setattr("httpx.AsyncClient", _Client)
+        response = self.client.post(
+            "/api/providers/custom-endpoints/validate",
+            json={
+                "name": "Second AI",
+                "base_url": "https://llm.example.com/v1",
+                "model": "",
+                "login_username": "Lan@Company.com",
+                "login_password": "secret-password",
+            },
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["ok"] is True
+        assert response.json()["models"] == ["alpha", "beta"]
+        assert captured["url"] == "https://llm.example.com/v1/models"
+        assert captured["headers"]["Authorization"] == "Bearer sess-token"
+        assert "secret-password" not in response.text
+        assert revoked == [("https://llm.example.com/v1", "sess-token")]
+        assert "second-ai" not in (load_config().get("providers") or {})
+
+        def reject(base_url, email, password):
+            raise GatewayLoginError(401, "sign_in_rejected")
+
+        monkeypatch.setattr(config_env, "exchange_gateway_login", reject)
+        rejected = self.client.post(
+            "/api/providers/custom-endpoints/validate",
+            json={
+                "name": "Second AI",
+                "base_url": "https://llm.example.com/v1",
+                "model": "",
+                "login_username": "lan@company.com",
+                "login_password": "wrong",
+            },
+        )
+        assert rejected.status_code == 200, rejected.text
+        assert rejected.json()["ok"] is False
+        assert rejected.json()["message"] == "sign_in_rejected"
+        assert "wrong" not in rejected.text
+        assert revoked == [("https://llm.example.com/v1", "sess-token")]
 
 
 class TestDesktopCronTicker:

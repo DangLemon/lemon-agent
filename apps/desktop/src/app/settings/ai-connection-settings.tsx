@@ -124,6 +124,28 @@ function isLoopbackHost(hostname: string): boolean {
   return parts.every(part => /^\d+$/.test(part) && Number(part) <= 255)
 }
 
+function passwordDraftError(baseUrl: string, email: string, password: string, copy: AiConnectionCopy): string | null {
+  if (!password.trim()) {
+    return null
+  }
+
+  if (!email.trim()) {
+    return copy.loginAccountRequired
+  }
+
+  const problem = loginTargetProblem(baseUrl)
+
+  if (problem === 'https') {
+    return copy.loginNeedsHttps
+  }
+
+  if (problem === 'base') {
+    return copy.loginBadBase
+  }
+
+  return null
+}
+
 function loginTargetProblem(baseUrl: string): 'base' | 'https' | null {
   let parsed: URL
 
@@ -355,8 +377,9 @@ export function AiConnectionSettings({ onConfigSaved, onMainModelChanged }: AiCo
   const urlHelpId = 'ai-connection-url-help'
   const urlErrorId = 'ai-connection-url-error'
 
+  const canSignInWithoutModel = form.email.trim().length > 0 && form.password.trim().length > 0
   const canSave =
-    form.name.trim().length > 0 && form.baseUrl.trim().length > 0 && form.model.trim().length > 0 && !urlInvalid
+    form.name.trim().length > 0 && form.baseUrl.trim().length > 0 && !urlInvalid && (form.model.trim().length > 0 || canSignInWithoutModel)
 
   const canValidate = form.baseUrl.trim().length > 0 && !urlInvalid
   const allModelOptions = Array.from(new Set([...discoveredModels, form.model].filter(Boolean)))
@@ -369,13 +392,21 @@ export function AiConnectionSettings({ onConfigSaved, onMainModelChanged }: AiCo
       return
     }
 
+    const draftError = passwordDraftError(form.baseUrl, form.email, form.password, copy)
+
+    if (draftError) {
+      setFeedback({ kind: 'error', message: draftError })
+
+      return
+    }
+
     const requestId = ++requestIdRef.current
     const submittedScopeKey = scopeKey
     setTesting(true)
     setFeedback(null)
 
     try {
-      const response: CustomEndpointValidationResponse = await validateCustomEndpoint(formToPayload(form), capturedScope)
+      const response: CustomEndpointValidationResponse = await validateCustomEndpoint(savePayload(form), capturedScope)
 
       if (requestId !== requestIdRef.current || currentScopeKey(activeRoute, activeConnectionId) !== submittedScopeKey) {
         return
@@ -409,26 +440,12 @@ export function AiConnectionSettings({ onConfigSaved, onMainModelChanged }: AiCo
       return
     }
 
-    if (form.password.trim() && !form.email.trim()) {
-      setFeedback({ kind: 'error', message: copy.loginAccountRequired })
+    const draftError = passwordDraftError(form.baseUrl, form.email, form.password, copy)
+
+    if (draftError) {
+      setFeedback({ kind: 'error', message: draftError })
 
       return
-    }
-
-    if (form.password.trim()) {
-      const problem = loginTargetProblem(form.baseUrl)
-
-      if (problem === 'https') {
-        setFeedback({ kind: 'error', message: copy.loginNeedsHttps })
-
-        return
-      }
-
-      if (problem === 'base') {
-        setFeedback({ kind: 'error', message: copy.loginBadBase })
-
-        return
-      }
     }
 
     const requestId = ++requestIdRef.current
