@@ -471,12 +471,12 @@ def _netloc_without_userinfo(parsed: urllib.parse.ParseResult) -> str:
     return host
 
 
-def gateway_login_url(base_url: str) -> str:
-    """Map an OpenAI-compatible base URL onto ``POST /v1/gateway-login``.
+def openai_compatible_base(base_url: str) -> str:
+    """OpenAI base for ``/models`` and chat after a gateway login.
 
-    A path that already ends in ``/v1`` keeps that prefix. An empty path gets
-    ``/v1``. Any other path is refused so a pasted models URL cannot receive
-    the password. Userinfo, query, and fragment are dropped.
+    A path that already ends in ``/v1`` is kept. An empty path is the gateway
+    host, whose API lives at ``/v1`` — the same rule ``gateway_login_url`` uses.
+    Any other path is refused. Userinfo, query, and fragment are dropped.
     """
     parsed = urllib.parse.urlparse((base_url or "").strip())
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
@@ -484,14 +484,37 @@ def gateway_login_url(base_url: str) -> str:
     path = (parsed.path or "").rstrip("/")
     if path and not path.endswith("/v1"):
         raise GatewayLoginError(400, SIGN_IN_BAD_BASE)
-    login_path = f"{path}/gateway-login" if path else "/v1/gateway-login"
     return urllib.parse.urlunparse(parsed._replace(
         netloc=_netloc_without_userinfo(parsed),
-        path=login_path,
+        path=path or "/v1",
         params="",
         query="",
         fragment="",
     ))
+
+
+def gateway_login_url(base_url: str) -> str:
+    """Map an OpenAI-compatible base URL onto ``POST /v1/gateway-login``."""
+    return openai_compatible_base(base_url).rstrip("/") + "/gateway-login"
+
+
+def _login_model_catalogue(response: Any) -> Optional[List[str]]:
+    """Model ids from a real OpenAI ``/models`` JSON body.
+
+    ``None`` means the body is not a model list, such as the HTML page served
+    at the site root. An empty list means the server listed no models.
+    """
+    try:
+        if not getattr(response, "is_success", False):
+            return None
+        payload = response.json()
+    except Exception:
+        return None
+    data = payload.get("data") if isinstance(payload, dict) else payload
+    if not isinstance(data, list):
+        return None
+    ids = [str((item.get("id") if isinstance(item, dict) else item) or "").strip() for item in data]
+    return [model_id for model_id in ids if model_id]
 
 
 def _login_expiry(value: Any) -> Optional[str]:
@@ -607,7 +630,7 @@ def list_openai_model_ids(base_url: str, api_key: str) -> List[str]:
     A rejected or unreachable catalogue is ``GatewayLoginError`` so the caller
     can revoke the session it just minted. An empty list is a real answer.
     """
-    url = (base_url or "").strip().rstrip("/") + "/models"
+    url = openai_compatible_base(base_url).rstrip("/") + "/models"
     headers = {"Accept": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -621,7 +644,10 @@ def list_openai_model_ids(base_url: str, api_key: str) -> List[str]:
         raise GatewayLoginError(401, SIGN_IN_REJECTED)
     if not getattr(response, "is_success", 200 <= status < 300):
         raise GatewayLoginError(502, SIGN_IN_UNREACHABLE)
-    return _parse_model_ids(response)
+    catalogue = _login_model_catalogue(response)
+    if catalogue is None:
+        raise GatewayLoginError(502, SIGN_IN_UNREACHABLE)
+    return catalogue
 
 
 def _require_custom_endpoint_fields(
@@ -759,6 +785,7 @@ def upsert_custom_endpoint(body: CustomEndpointUpdate, profile: Optional[str] = 
                     raise HTTPException(status_code=exc.status_code, detail=exc.detail) from None
                 body = body.model_copy(update={
                     "api_key": minted.token,
+                    "base_url": openai_compatible_base(body.base_url),
                     "login_username": email,
                     "login_password": None,
                 })
@@ -905,6 +932,7 @@ async def validate_custom_endpoint(body: CustomEndpointUpdate, profile: Optional
                     "models": [],
                 }
             api_key = minted.token
+            url = openai_compatible_base(base_url).rstrip("/") + "/models"
         else:
             with _config_profile_scope(profile):
                 api_key = _custom_endpoint_validation_key(body, load_config())
@@ -923,6 +951,17 @@ async def validate_custom_endpoint(body: CustomEndpointUpdate, profile: Optional
             return {"ok": False, "reachable": True, "message": "The endpoint rejected the API key.", "models": []}
         if not resp.is_success:
             return {"ok": False, "reachable": True, "message": f"Endpoint returned HTTP {resp.status_code}.", "models": []}
+
+        if minted is not None:
+            catalogue = _login_model_catalogue(resp)
+            if catalogue is None:
+                return {
+                    "ok": False,
+                    "reachable": True,
+                    "message": "Endpoint did not return a model list.",
+                    "models": [],
+                }
+            return {"ok": True, "reachable": True, "message": "", "models": catalogue}
 
         return {"ok": True, "reachable": True, "message": "", "models": _parse_model_ids(resp)}
     finally:

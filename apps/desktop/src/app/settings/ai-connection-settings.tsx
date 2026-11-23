@@ -415,6 +415,11 @@ export function AiConnectionSettings({ onConfigSaved, onMainModelChanged }: AiCo
       if (response.ok) {
         setDiscoveredModels(response.models)
         discoveredModelsBaseUrlRef.current = form.baseUrl.trim()
+
+        if (response.models.length > 0 && !form.model.trim()) {
+          setForm(current => (current.model.trim() ? current : { ...current, model: response.models[0] }))
+        }
+
         setFeedback({
           kind: 'success',
           message: response.models.length ? copy.validationModels(response.models.length) : copy.validationReachable
@@ -682,6 +687,28 @@ export function AiConnectionSettings({ onConfigSaved, onMainModelChanged }: AiCo
                   <option key={model} value={model} />
                 ))}
               </datalist>
+              {discoveredModels.length > 0 ? (
+                <div aria-label={copy.validationModels(discoveredModels.length)} className="grid gap-1" role="listbox">
+                  {discoveredModels.map(model => (
+                    <button
+                      aria-selected={form.model === model}
+                      className={cn(
+                        'rounded-[6px] border px-3 py-2 text-left text-[length:var(--conversation-caption-font-size)]',
+                        form.model === model
+                          ? 'border-primary/40 bg-primary/10 text-(--ui-text-primary)'
+                          : 'border-(--ui-stroke-secondary) bg-transparent text-(--ui-text-secondary)'
+                      )}
+                      disabled={controlsLocked}
+                      key={model}
+                      onClick={() => setForm(current => ({ ...current, model }))}
+                      role="option"
+                      type="button"
+                    >
+                      {model}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
               <span className="text-[length:var(--conversation-caption-font-size)] font-normal leading-(--conversation-caption-line-height) text-(--ui-text-tertiary)">
                 {copy.modelHelp}
               </span>
